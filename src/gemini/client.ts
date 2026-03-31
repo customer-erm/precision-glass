@@ -72,8 +72,8 @@ export class GeminiLiveClient {
             this.onStateChange?.('error');
             setState({ agentState: 'error' });
           },
-          onclose: () => {
-            console.log('[Gemini] Closed');
+          onclose: (event: any) => {
+            console.log('[Gemini] Closed', event?.code, event?.reason || '');
             this.onStateChange?.('idle');
             setState({ agentState: 'idle' });
             this.audioCapture.stop();
@@ -81,11 +81,16 @@ export class GeminiLiveClient {
         },
       });
 
-      console.log('[Gemini] Session established, starting mic...');
-      await this.startMic();
+      console.log('[Gemini] Session established');
 
+      // Send greeting IMMEDIATELY to keep connection alive
+      // (mic permission dialog can take seconds — server may timeout if idle)
       console.log('[Gemini] Sending initial greeting prompt...');
       this.session.sendRealtimeInput({ text: 'Hello, I just arrived at the Precision Glass website.' });
+
+      // Start mic in parallel (non-blocking)
+      console.log('[Gemini] Starting mic...');
+      this.startMic();
     } catch (err) {
       console.error('[Gemini] Connection failed:', err);
       this.onStateChange?.('error');
