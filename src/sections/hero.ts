@@ -76,17 +76,39 @@ export function buildNav(): HTMLElement {
 }
 
 export function buildBackground(): HTMLElement {
-  const bg = el('div', { className: 'bg-gradient' });
-  return bg;
+  return el('div', { className: 'bg-gradient' });
 }
 
-export function buildTranscriptBar(): HTMLElement {
+/**
+ * Agent bar at the bottom — avatar + tip callouts instead of raw transcript.
+ */
+export function buildAgentBar(): HTMLElement {
   const MIC_SMALL = `<svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`;
 
-  const bar = el('div', { className: 'transcript-bar', id: 'transcript-bar' });
-  const mic = el('div', { className: 'transcript-mic-indicator', id: 'transcript-mic', innerHTML: MIC_SMALL });
-  const text = el('div', { className: 'transcript-text', id: 'transcript-text' });
-  const endBtn = el('button', { className: 'transcript-end-btn', id: 'end-session-btn', textContent: 'End' });
-  bar.append(mic, text, endBtn);
+  const bar = el('div', { className: 'agent-bar', id: 'agent-bar' });
+
+  // Avatar
+  const avatar = el('div', { className: 'agent-avatar', id: 'agent-avatar' });
+  avatar.appendChild(el('img', { src: '/images/avatar.png', alt: 'Alex' }));
+  bar.appendChild(avatar);
+
+  // Agent info + tip
+  const info = el('div', { className: 'agent-info' });
+  const nameRow = el('div', { className: 'agent-name-row' });
+  nameRow.appendChild(el('span', { className: 'agent-name', textContent: 'Alex' }));
+  nameRow.appendChild(el('span', { className: 'agent-role', textContent: 'Glass Specialist' }));
+  info.appendChild(nameRow);
+  const tip = el('div', { className: 'agent-tip', id: 'agent-tip', textContent: 'Tap the mic to start a conversation' });
+  info.appendChild(tip);
+  bar.appendChild(info);
+
+  // Mic indicator
+  const mic = el('div', { className: 'agent-mic', id: 'agent-mic', innerHTML: MIC_SMALL });
+  bar.appendChild(mic);
+
+  // End button
+  const endBtn = el('button', { className: 'agent-end-btn', id: 'end-session-btn', textContent: 'End' });
+  bar.appendChild(endBtn);
+
   return bar;
 }
