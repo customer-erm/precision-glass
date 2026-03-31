@@ -1,6 +1,7 @@
 import { playTransformAnimation } from '../animations/transform';
 import { createSlideshow, showSlide, endSlideshow } from '../animations/slideshow';
 import { setState } from '../utils/state';
+import { generateShowerImage } from './image-gen';
 import type { ServiceType } from '../utils/state';
 
 /* ------------------------------------------------------------------ */
@@ -12,14 +13,13 @@ const quoteChoices: Record<string, string> = {};
 export const TOOL_DECLARATIONS = [
   {
     name: 'select_service',
-    description: 'Start the guided tour. Transforms the page into a cinematic slideshow.',
+    description: 'Start the guided tour for a service. Transforms the page into a cinematic slideshow.',
     parameters: {
       type: 'object' as const,
       properties: {
         service: {
           type: 'string' as const,
           enum: ['showers', 'railings', 'commercial'],
-          description: 'The service to showcase',
         },
       },
       required: ['service'],
@@ -34,11 +34,14 @@ export const TOOL_DECLARATIONS = [
         slide_id: {
           type: 'string' as const,
           enum: ['gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process'],
-          description: 'The next slide to show',
         },
         choice: {
           type: 'string' as const,
           description: 'Customer\'s preference from the current slide',
+        },
+        email: {
+          type: 'string' as const,
+          description: 'Customer email if they provided it for the buyer\'s guide',
         },
       },
       required: ['slide_id'],
@@ -46,35 +49,35 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: 'present_quote',
-    description: 'End the tour and show a beautiful quote summary with all selections.',
+    description: 'End the tour and show a quote summary with all selections plus an AI-generated visualization.',
     parameters: {
       type: 'object' as const,
       properties: {
-        enclosure: { type: 'string' as const, description: 'Chosen enclosure type' },
-        glass: { type: 'string' as const, description: 'Chosen glass type' },
-        hardware: { type: 'string' as const, description: 'Chosen hardware finish' },
-        handle: { type: 'string' as const, description: 'Chosen handle style' },
-        extras: { type: 'string' as const, description: 'Grid pattern, steam option, or none' },
+        enclosure: { type: 'string' as const },
+        glass: { type: 'string' as const },
+        hardware: { type: 'string' as const },
+        handle: { type: 'string' as const },
+        extras: { type: 'string' as const },
       },
       required: ['enclosure', 'glass', 'hardware'],
     },
   },
   {
     name: 'submit_quote',
-    description: 'Submit the final quote request with all details. Returns user to main page.',
+    description: 'Submit the final quote. Returns user to landing page.',
     parameters: {
       type: 'object' as const,
       properties: {
-        name: { type: 'string' as const, description: 'Customer name' },
-        email: { type: 'string' as const, description: 'Customer email' },
-        phone: { type: 'string' as const, description: 'Customer phone' },
-        enclosure: { type: 'string' as const, description: 'Enclosure type' },
-        glass: { type: 'string' as const, description: 'Glass type' },
-        hardware: { type: 'string' as const, description: 'Hardware finish' },
-        handle: { type: 'string' as const, description: 'Handle style' },
-        extras: { type: 'string' as const, description: 'Extras' },
-        timeline: { type: 'string' as const, description: 'Project timeline' },
-        notes: { type: 'string' as const, description: 'Additional notes' },
+        name: { type: 'string' as const },
+        email: { type: 'string' as const },
+        phone: { type: 'string' as const },
+        enclosure: { type: 'string' as const },
+        glass: { type: 'string' as const },
+        hardware: { type: 'string' as const },
+        handle: { type: 'string' as const },
+        extras: { type: 'string' as const },
+        timeline: { type: 'string' as const },
+        notes: { type: 'string' as const },
       },
       required: ['name', 'email', 'enclosure', 'glass', 'hardware'],
     },
@@ -86,21 +89,21 @@ export const TOOL_DECLARATIONS = [
 /* ------------------------------------------------------------------ */
 
 const SLIDE_CONTEXT: Record<string, string> = {
-  intro: `A dramatic full-screen frameless shower image fills the screen. This is your moment to sell the beauty of frameless glass. Mention the free buyer's guide — say if they share their email you'll send it over. Keep it natural: "Before we dive in, I'd love to send you our free frameless shower buyer's guide — can I grab your email?" If they give it, note it. If not, no pressure. Then say "Let me show you some of our recent installations" and call show_slide("gallery").`,
+  intro: `A dramatic full-screen frameless shower fills the screen with the title "Frameless Shower Enclosures". Give a brief exciting pitch about frameless showers — they transform the bathroom, no metal frames, just precision glass. Then say "Let me show you some of our recent work" and call show_slide("gallery").`,
 
-  gallery: `A beautiful 16:9 slideshow is cycling through four of your recent frameless shower installations — the images fade into each other automatically. Describe the variety: modern minimalist, spa-like, floor-to-ceiling — each one custom built. Keep it brief and cinematic. Then say "Now let me show you how to configure yours" and call show_slide("enclosures").`,
+  gallery: `A beautiful 16:9 slideshow is cycling through recent installations with a crossfade effect. Describe the variety briefly — modern, spa-like, each one custom. Then offer the free buyer's guide: "By the way, I'd love to send you our free frameless shower buyer's guide — it covers everything including pricing. Can I grab your email?" WAIT for their response. If they give an email, include it in the email parameter when you call show_slide("enclosures"). If they decline, just call show_slide("enclosures").`,
 
-  enclosures: `The enclosure configuration screen shows two large featured options on the left (Single Door and Door + Panel in 'contain' mode so you can see the full shape), plus a grid of additional options on the right (Neo-Angle, Slider, Curved, Arched, Splash Panel, Steam, Custom). Describe the two main options briefly — Single Door is most popular for clean simplicity, Door + Panel for wider openings. Mention the grid has specialty options. Ask: "Which style would work best for your bathroom?" WAIT for their answer.`,
+  enclosures: `An auto-scrolling carousel shows all 9 enclosure types in contain mode — you can see the full shape of each one. The most popular are Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner spaces), and Frameless Slider (no swing room needed). Describe a few standouts. Ask: "Which enclosure style would work best for your space?" WAIT.`,
 
-  glass: `Three glass types shown as large beautiful cards: Clear Glass (our bestseller, shows off your tilework), Frosted Glass (acid-etched privacy with light), and Rain Glass (textured artistic privacy). Describe each. Ask: "Which glass appeals to you?" WAIT.`,
+  glass: `Three glass types shown as large cards: Clear Glass (bestseller, shows tilework), Frosted Glass (acid-etched privacy), Rain Glass (textured artistic privacy). Describe each briefly. Ask: "Which glass appeals to you?" WAIT.`,
 
-  hardware: `Five hardware finishes displayed prominently: Polished Chrome (timeless), Brushed Nickel (warm, hides water spots), Matte Black (bold modern trend), Polished Brass (classic luxury), Satin Brass (soft golden elegance). Describe a couple standouts. Ask: "Which finish would complement your bathroom?" WAIT.`,
+  hardware: `Five hardware finishes: Polished Chrome (timeless), Brushed Nickel (warm, hides spots), Matte Black (bold modern), Polished Brass (classic luxury), Satin Brass (soft golden). Describe standouts. Ask: "Which finish would complement your bathroom?" WAIT.`,
 
-  accessories: `Handle and accessory options are displayed: Pull Handles, U-Handles, Ladder Pulls, Knobs, Towel Bars, Robe Hooks, and Support Bars. This slide is about choosing their handle style — the hinges are included standard. Describe a few options. Ask: "What style of handle do you prefer?" WAIT.`,
+  accessories: `Handle and accessory options displayed: Pull Handles, U-Handles, Ladder Pulls, Knobs, Towel Bars, Robe Hooks, Support Bars. Hinges included standard. Ask: "What style of handle do you prefer?" WAIT.`,
 
-  extras: `Two premium upgrade options are shown: decorative glass grid patterns and steam shower enclosures. Grid patterns add architectural character. Steam requires a fully sealed enclosure for spa functionality. Ask: "Are you interested in either of these upgrades, or shall we move on to the process?" WAIT.`,
+  extras: `Two premium upgrades: decorative glass grid patterns (architectural character) and steam shower enclosures (fully sealed spa experience). Ask: "Interested in either upgrade, or shall we move on?" WAIT.`,
 
-  process: `Five steps are shown with images: 1) Quote Approved — we finalize your design, 2) Precision Measuring — laser-accurate templates, 3) Glass Ordering — custom cut and tempered, 4) Installation Day — professional install, usually one day, 5) Enjoy — your new shower is ready. Walk through each step with a bit more detail and enthusiasm. Then call present_quote() with all the customer's selections.`,
+  process: `Five steps shown: 1) Quote Approved, 2) Precision Measuring, 3) Glass Ordering (2-3 weeks), 4) Installation Day (usually one day), 5) Enjoy your new shower. Walk through briefly with enthusiasm. Then call present_quote() with all selections.`,
 };
 
 function choiceCategoryForSlide(nextSlideId: string): string | null {
@@ -135,6 +138,12 @@ export async function handleToolCall(
     }
 
     case 'show_slide': {
+      // Save email if provided
+      if (args.email) {
+        setState({ customerEmail: args.email });
+        quoteChoices['email'] = args.email;
+      }
+      // Save choice from current slide
       if (args.choice) {
         const category = choiceCategoryForSlide(args.slide_id);
         if (category) {
@@ -153,11 +162,19 @@ export async function handleToolCall(
       if (args.handle) quoteChoices['handle'] = args.handle;
       if (args.extras) quoteChoices['extras'] = args.extras;
 
-      // Show the quote summary slide inside the slideshow
       await showSlide('quote');
-
-      // Populate the quote display
       setTimeout(() => populateQuoteSummary(quoteChoices), 500);
+
+      // Generate AI visualization in background
+      generateShowerImage(quoteChoices).then((imgUrl) => {
+        if (imgUrl) {
+          const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
+          if (imgEl) {
+            imgEl.src = imgUrl;
+            imgEl.classList.add('loaded');
+          }
+        }
+      }).catch((err) => console.warn('[ImageGen] Failed:', err));
 
       const summary = Object.entries(quoteChoices)
         .filter(([k]) => ['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(k))
@@ -166,7 +183,7 @@ export async function handleToolCall(
 
       return {
         success: true,
-        message: `The quote summary is beautifully displayed on screen showing: ${summary}. Read back their selections with enthusiasm — "Here's what we've put together for you..." Then ask for any additional details: timeline, special requirements. Ask for their email and name so you can send a formal quote with pricing. Once you have everything, call submit_quote().`,
+        message: `The quote summary is displayed showing: ${summary}. An AI visualization of their custom shower is being generated and will appear shortly. Read back their selections with enthusiasm. Ask for their name, email, and any additional details (timeline, special requirements). Then call submit_quote() with everything.`,
       };
     }
 
@@ -174,11 +191,10 @@ export async function handleToolCall(
       console.log('[Quote Submitted]', args);
       setState({ customerName: args.name || '', customerEmail: args.email || '' });
 
-      // Show submitted state
       const submitted = document.getElementById('quote-submitted-msg');
       if (submitted) submitted.classList.add('visible');
 
-      // Morph back to landing page after delay
+      // Morph back to landing after delay
       setTimeout(async () => {
         await endSlideshow();
         const hero = document.getElementById('hero');
@@ -191,13 +207,12 @@ export async function handleToolCall(
           });
         }
         setState({ isTransformed: false, currentService: null });
-      }, 3000);
+      }, 3500);
 
-      return { success: true, message: 'Quote submitted! The page will return to the main site in a moment. Thank the customer warmly — let them know your team will follow up within 24 hours with detailed pricing. Ask if they have any other questions.' };
+      return { success: true, message: 'Quote submitted! The page will return to the main site shortly. Thank the customer warmly — your team will follow up within 24 hours with detailed pricing.' };
     }
 
     default:
-      console.warn(`Unknown tool: ${name}`);
       return { success: false, message: `Unknown tool: ${name}` };
   }
 }
