@@ -9,6 +9,7 @@ import type { ServiceType } from '../utils/state';
 /* ------------------------------------------------------------------ */
 
 const quoteChoices: Record<string, string> = {};
+let pendingImageUrl: string | null = null;
 
 export const TOOL_DECLARATIONS = [
   {
@@ -89,7 +90,7 @@ export const TOOL_DECLARATIONS = [
 /* ------------------------------------------------------------------ */
 
 const SLIDE_CONTEXT: Record<string, string> = {
-  intro: `A dramatic full-screen frameless shower fills the screen with the title "Frameless Shower Enclosures". Give a brief exciting pitch about frameless showers — they transform the bathroom, no metal frames, just precision glass. Then say "Let me show you some of our recent work" and call show_slide("gallery").`,
+  intro: `A dramatic full-screen frameless shower fills the screen with the title "Frameless Shower Enclosures". NOW give your exciting sales pitch — frameless showers transform the entire bathroom, make it feel bigger and brighter, no bulky metal frames collecting grime, just clean precision glass lines. They're not just a shower upgrade — they add real value to the home. Then ask: "Would you like me to walk you through the options so we can build your perfect configuration together?" WAIT for their response. When they agree, call show_slide("gallery").`,
 
   gallery: `A beautiful 16:9 slideshow is cycling through recent installations with a crossfade effect. Describe the variety briefly — modern, spa-like, each one custom. Then offer the free buyer's guide: "By the way, I'd love to send you our free frameless shower buyer's guide — it covers everything including pricing. Can I grab your email?" WAIT for their response. If they give an email, include it in the email parameter when you call show_slide("enclosures"). If they decline, just call show_slide("enclosures").`,
 
@@ -103,7 +104,7 @@ const SLIDE_CONTEXT: Record<string, string> = {
 
   extras: `Two premium upgrades: decorative glass grid patterns (architectural character) and steam shower enclosures (fully sealed spa experience). Ask: "Interested in either upgrade, or shall we move on?" WAIT.`,
 
-  process: `Five steps shown: 1) Quote Approved, 2) Precision Measuring, 3) Glass Ordering (2-3 weeks), 4) Installation Day (usually one day), 5) Enjoy your new shower. Walk through briefly with enthusiasm. Then call present_quote() with all selections.`,
+  process: `Five steps shown: 1) Quote Approved, 2) Precision Measuring, 3) Glass Ordering (2-3 weeks), 4) Installation Day (usually one day), 5) Enjoy your new shower. Walk through each step briefly with enthusiasm. An AI visualization of their custom shower is being generated in the background. When you've finished describing the process, say "I'm putting together a visualization of your custom shower — are you ready to review your selections?" WAIT for their response. Then call present_quote() with all selections.`,
 };
 
 function choiceCategoryForSlide(nextSlideId: string): string | null {
@@ -152,6 +153,18 @@ export async function handleToolCall(
         }
       }
       await showSlide(args.slide_id);
+
+      // Start AI image generation early during the process slide to buy time
+      if (args.slide_id === 'process') {
+        console.log('[ImageGen] Starting early during process slide');
+        generateShowerImage(quoteChoices).then((imgUrl) => {
+          if (imgUrl) {
+            pendingImageUrl = imgUrl;
+            console.log('[ImageGen] Image ready (cached for quote slide)');
+          }
+        }).catch((err) => console.warn('[ImageGen] Failed:', err));
+      }
+
       return { success: true, message: SLIDE_CONTEXT[args.slide_id] || 'Slide is showing.' };
     }
 
@@ -165,25 +178,43 @@ export async function handleToolCall(
       await showSlide('quote');
       setTimeout(() => populateQuoteSummary(quoteChoices), 500);
 
-      // Generate AI visualization in background
-      generateShowerImage(quoteChoices).then((imgUrl) => {
-        if (imgUrl) {
+      // Use cached image from process slide, or generate now as fallback
+      if (pendingImageUrl) {
+        setTimeout(() => {
           const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
           if (imgEl) {
-            imgEl.src = imgUrl;
+            imgEl.src = pendingImageUrl!;
             imgEl.classList.add('loaded');
           }
-        }
-      }).catch((err) => console.warn('[ImageGen] Failed:', err));
+        }, 600);
+      } else {
+        generateShowerImage(quoteChoices).then((imgUrl) => {
+          if (imgUrl) {
+            const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
+            if (imgEl) {
+              imgEl.src = imgUrl;
+              imgEl.classList.add('loaded');
+            }
+          }
+        }).catch((err) => console.warn('[ImageGen] Failed:', err));
+      }
 
       const summary = Object.entries(quoteChoices)
         .filter(([k]) => ['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(k))
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ');
 
+      const hasName = !!quoteChoices['name'];
+      const hasEmail = !!quoteChoices['email'];
+      let askFor = '';
+      if (!hasName && !hasEmail) askFor = 'Ask for their name, email, and any additional details (timeline, special requirements).';
+      else if (!hasName) askFor = 'Ask for their name and any additional details (timeline, special requirements). You already have their email.';
+      else if (!hasEmail) askFor = 'Ask for their email and any additional details (timeline, special requirements). You already have their name.';
+      else askFor = 'You already have their name and email. Just ask if they have any additional details — timeline, special requirements, or notes.';
+
       return {
         success: true,
-        message: `The quote summary is displayed showing: ${summary}. An AI visualization of their custom shower is being generated and will appear shortly. Read back their selections with enthusiasm. Ask for their name, email, and any additional details (timeline, special requirements). Then call submit_quote() with everything.`,
+        message: `The quote summary is displayed in an editorial layout on the left with an AI visualization on the right showing: ${summary}. Read back their selections with enthusiasm. ${askFor} Then call submit_quote() with everything.`,
       };
     }
 
@@ -191,22 +222,47 @@ export async function handleToolCall(
       console.log('[Quote Submitted]', args);
       setState({ customerName: args.name || '', customerEmail: args.email || '' });
 
+      // Save name for future reference
+      if (args.name) quoteChoices['name'] = args.name;
+      if (args.email) quoteChoices['email'] = args.email;
+
       const submitted = document.getElementById('quote-submitted-msg');
       if (submitted) submitted.classList.add('visible');
 
-      // Morph back to landing after delay
+      // Full reset to default homescreen after delay
       setTimeout(async () => {
         await endSlideshow();
+
+        // Reset hero to full default state
         const hero = document.getElementById('hero');
         if (hero) {
           hero.style.display = '';
           hero.style.opacity = '0';
+
+          // Reset all hero child elements that were animated out
+          const heroElements = hero.querySelectorAll('.hero-badge, .hero-title, .hero-subtitle, .services-grid, #mic-container');
+          heroElements.forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            htmlEl.style.opacity = '1';
+            htmlEl.style.transform = 'none';
+          });
+
           requestAnimationFrame(() => {
             hero.style.transition = 'opacity 0.8s ease';
             hero.style.opacity = '1';
           });
         }
-        setState({ isTransformed: false, currentService: null });
+
+        // Reset state fully
+        setState({ isTransformed: false, currentService: null, customerName: '', customerEmail: '' });
+
+        // Clear quote choices for next session
+        for (const key of Object.keys(quoteChoices)) {
+          delete quoteChoices[key];
+        }
+        pendingImageUrl = null;
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }, 3500);
 
       return { success: true, message: 'Quote submitted! The page will return to the main site shortly. Thank the customer warmly — your team will follow up within 24 hours with detailed pricing.' };

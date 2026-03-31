@@ -324,24 +324,18 @@ function buildProcessSlide(): HTMLElement {
 function buildQuoteSummarySlide(): HTMLElement {
   const slide = makeSlide('quote');
   const content = h('div', { className: 'slide-content slide-center' });
-  const card = h('div', { className: 'ss-quote-card slide-el' });
 
-  // Header
+  // Side-by-side layout: editorial LEFT, AI image RIGHT
+  const layout = h('div', { className: 'ss-quote-layout slide-el' });
+
+  // LEFT — editorial quote card
+  const card = h('div', { className: 'ss-quote-card' });
+
   const header = h('div', { className: 'ss-quote-header' });
   header.appendChild(h('div', { className: 'ss-quote-logo', textContent: 'PrecisionGlass' }));
   header.appendChild(h('h3', { textContent: 'Your Custom Configuration' }));
   card.appendChild(header);
 
-  // AI-generated image placeholder
-  const imgWrap = h('div', { className: 'ss-quote-img-wrap' });
-  const img = h('img', { id: 'qs-generated-img', className: 'ss-quote-gen-img', alt: 'Your custom shower visualization' });
-  const spinner = h('div', { className: 'ss-quote-spinner' });
-  spinner.innerHTML = '<div class="ss-spinner"></div><span>Generating your shower visualization...</span>';
-  imgWrap.appendChild(img);
-  imgWrap.appendChild(spinner);
-  card.appendChild(imgWrap);
-
-  // Selection rows
   const selections = h('div', { className: 'ss-quote-selections' });
   [
     { key: 'enclosure', label: 'Enclosure' },
@@ -356,13 +350,23 @@ function buildQuoteSummarySlide(): HTMLElement {
     selections.appendChild(row);
   });
   card.appendChild(selections);
+  layout.appendChild(card);
 
-  // Submitted message
+  // RIGHT — AI-generated image
+  const imgWrap = h('div', { className: 'ss-quote-img-wrap' });
+  const img = h('img', { id: 'qs-generated-img', className: 'ss-quote-gen-img', alt: 'Your custom shower visualization' });
+  const spinner = h('div', { className: 'ss-quote-spinner' });
+  spinner.innerHTML = '<div class="ss-spinner"></div><span>Generating your shower visualization...</span>';
+  imgWrap.appendChild(img);
+  imgWrap.appendChild(spinner);
+  layout.appendChild(imgWrap);
+
+  // Submitted message spans full width
   const submitted = h('div', { className: 'ss-quote-submitted', id: 'quote-submitted-msg' });
   submitted.innerHTML = '<div class="ss-quote-check">&#10003;</div><h4>Quote Request Sent!</h4><p>We\'ll follow up within 24 hours with detailed pricing.</p>';
-  card.appendChild(submitted);
+  layout.appendChild(submitted);
 
-  content.appendChild(card);
+  content.appendChild(layout);
   slide.appendChild(content);
   return slide;
 }
