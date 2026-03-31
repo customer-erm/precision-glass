@@ -4,10 +4,29 @@ import { images } from '../data/image-map';
 export function buildShowerContent(): HTMLElement {
   const wrapper = el('div', { className: 'service-content', id: 'service-showers' });
 
-  // 1. Service Hero
+  // 1. Service Hero with Ken Burns slideshow
   const hero = el('section', { className: 'service-hero', id: 'shower-hero' });
   const heroBg = el('div', { className: 'service-hero-bg' });
-  heroBg.appendChild(el('img', { src: images.showers.hero, alt: 'Frameless shower enclosure' }));
+  // Multiple images for Ken Burns effect
+  const kbImages = [
+    images.showers.hero,
+    images.showers.gallery[0],
+    images.showers.gallery[1],
+    images.showers.gallery[2],
+  ];
+  kbImages.forEach((src, i) => {
+    const img = el('img', { src, alt: 'Frameless shower enclosure', loading: i === 0 ? 'eager' : 'lazy' });
+    if (i === 0) img.classList.add('kb-active');
+    heroBg.appendChild(img);
+  });
+  // Auto-rotate Ken Burns images
+  let kbIndex = 0;
+  setInterval(() => {
+    const imgs = heroBg.querySelectorAll('img');
+    imgs.forEach(img => img.classList.remove('kb-active'));
+    kbIndex = (kbIndex + 1) % imgs.length;
+    imgs[kbIndex].classList.add('kb-active');
+  }, 5000);
   const heroContent = el('div', { className: 'service-hero-content' });
   const heroTitle = el('h2', { className: 'service-hero-title', id: 'shower-hero-title' });
   const heroSub = el('p', { className: 'service-hero-subtitle', textContent: 'Custom frameless glass enclosures designed, fabricated, and installed by our expert team. No frames. No compromises. Just clean lines and stunning clarity.' });

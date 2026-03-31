@@ -3,7 +3,7 @@ import { AudioCapture, AudioPlayer } from './audio';
 import { SYSTEM_PROMPT } from './system-prompt';
 import { TOOL_DECLARATIONS, handleToolCall } from './tools';
 import { setState } from '../utils/state';
-import { activateTourTriggers, feedTranscript, deactivateTourTriggers } from './transcript-triggers';
+import { activateTourTriggers, feedTranscript, deactivateTourTriggers, setTriggerSlide } from './transcript-triggers';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MODEL = 'gemini-3.1-flash-live-preview';
@@ -80,7 +80,6 @@ export class GeminiLiveClient {
       console.log('[Gemini] Session established');
 
       // Send greeting IMMEDIATELY to keep connection alive
-      // (mic permission dialog can take seconds — server may timeout if idle)
       console.log('[Gemini] Sending initial greeting prompt...');
       this.session.sendRealtimeInput({ text: 'Hello, I just arrived at the Precision Glass website.' });
 
@@ -111,29 +110,24 @@ export class GeminiLiveClient {
           console.log('[Gemini] Executing tool:', fc.name, fc.args);
           const result = await handleToolCall(fc.name, fc.args || {});
 
-          // Track tour state
+          // Track tour state + load slide-specific highlight triggers
           if (fc.name === 'select_service') {
             this.tourActive = true;
-            // Activate client-driven tour triggers — transcript will drive slides
-            activateTourTriggers(() => {
-              // Called when tour ends (buyer's guide cue detected)
-              this.tourActive = false;
-            });
+            activateTourTriggers();
           }
-          if (fc.name === 'offer_buyers_guide' || fc.name === 'start_quote_collection') {
+          if (fc.name === 'show_slide' && fc.args?.slide_id) {
+            setTriggerSlide(fc.args.slide_id);
+          }
+          if (fc.name === 'present_quote' || fc.name === 'submit_quote') {
             this.tourActive = false;
             deactivateTourTriggers();
           }
-
-          // Build tool response
-          // For select_service, send the full narration script so the model reads it
-          const responseText = result.script || result.message || 'Done.';
 
           responses.push({
             id: fc.id,
             name: fc.name,
             response: {
-              result: responseText,
+              result: result.message || 'Done.',
             },
           });
         }
@@ -192,8 +186,7 @@ export class GeminiLiveClient {
     if (content.outputTranscription?.text) {
       console.log('[Gemini] Agent:', content.outputTranscription.text);
       this.onTranscript?.('agent', content.outputTranscription.text);
-      // Feed transcript to client-driven trigger system
-      // During tour: detects cue phrases → advances slides + fires highlights
+      // Feed transcript for per-slide highlight triggers
       if (this.tourActive) {
         feedTranscript(content.outputTranscription.text);
       }

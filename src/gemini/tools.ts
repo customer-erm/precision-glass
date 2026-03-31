@@ -5,10 +5,16 @@ import { showQuoteOverlay, updateQuoteField, showQuoteSubmitted } from '../secti
 import { setState } from '../utils/state';
 import type { ServiceType } from '../utils/state';
 
+/* ------------------------------------------------------------------ */
+/*  Quote state — accumulates choices through the tour                 */
+/* ------------------------------------------------------------------ */
+
+const quoteChoices: Record<string, string> = {};
+
 export const TOOL_DECLARATIONS = [
   {
     name: 'select_service',
-    description: 'Transform the landing page to showcase a specific service and start the cinematic tour. Call when the customer picks a service. Returns the full narration script — read and narrate it continuously without calling any other tools.',
+    description: 'Transform the page to showcase a specific service. Call when the customer agrees to take the tour.',
     parameters: {
       type: 'object' as const,
       properties: {
@@ -22,115 +28,97 @@ export const TOOL_DECLARATIONS = [
     },
   },
   {
-    name: 'offer_buyers_guide',
-    description: "Show the buyer's guide email capture overlay. Call after finishing the tour to offer a free comprehensive guide.",
+    name: 'show_slide',
+    description: 'Advance to the next slide in the tour. Include the customer\'s choice from the current slide if they made one.',
     parameters: {
       type: 'object' as const,
       properties: {
-        service_name: {
+        slide_id: {
           type: 'string' as const,
-          description: 'The name of the service for the guide (e.g., "Frameless Shower")',
+          enum: ['gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'process'],
+          description: 'The slide to transition to',
+        },
+        choice: {
+          type: 'string' as const,
+          description: 'The customer\'s preference from the current slide (e.g., "single door", "clear glass", "matte black")',
         },
       },
-      required: ['service_name'],
+      required: ['slide_id'],
+    },
+  },
+  {
+    name: 'present_quote',
+    description: 'End the tour and present a quote summary with all the customer\'s selections.',
+    parameters: {
+      type: 'object' as const,
+      properties: {
+        enclosure: { type: 'string' as const, description: 'Chosen enclosure type' },
+        glass: { type: 'string' as const, description: 'Chosen glass type' },
+        hardware: { type: 'string' as const, description: 'Chosen hardware finish' },
+        accessories: { type: 'string' as const, description: 'Chosen accessories' },
+      },
+      required: ['enclosure', 'glass', 'hardware'],
     },
   },
   {
     name: 'capture_email',
-    description: "Store the customer's email for the buyer's guide delivery.",
+    description: "Store the customer's email for follow-up and quote delivery.",
     parameters: {
       type: 'object' as const,
       properties: {
-        email: {
-          type: 'string' as const,
-          description: "The customer's email address",
-        },
+        email: { type: 'string' as const, description: "Customer's email" },
       },
       required: ['email'],
     },
   },
   {
-    name: 'start_quote_collection',
-    description: 'Show the quote request form and begin collecting project details.',
-    parameters: {
-      type: 'object' as const,
-      properties: {},
-      required: [],
-    },
-  },
-  {
-    name: 'update_quote_field',
-    description: 'Update a specific field in the quote form as the customer provides information.',
-    parameters: {
-      type: 'object' as const,
-      properties: {
-        field: {
-          type: 'string' as const,
-          enum: ['name', 'email', 'phone', 'enclosure_type', 'glass_type', 'hardware_finish', 'timeline', 'notes'],
-          description: 'The quote form field to update',
-        },
-        value: {
-          type: 'string' as const,
-          description: 'The value to set',
-        },
-      },
-      required: ['field', 'value'],
-    },
-  },
-  {
     name: 'submit_quote',
-    description: 'Submit the completed quote request.',
+    description: 'Submit the completed quote request with all details.',
     parameters: {
       type: 'object' as const,
       properties: {
-        summary: {
-          type: 'string' as const,
-          description: "A brief summary of the customer's project requirements",
-        },
+        name: { type: 'string' as const, description: 'Customer name' },
+        email: { type: 'string' as const, description: 'Customer email' },
+        phone: { type: 'string' as const, description: 'Customer phone (optional)' },
+        enclosure: { type: 'string' as const, description: 'Enclosure type' },
+        glass: { type: 'string' as const, description: 'Glass type' },
+        hardware: { type: 'string' as const, description: 'Hardware finish' },
+        accessories: { type: 'string' as const, description: 'Accessories' },
+        notes: { type: 'string' as const, description: 'Additional notes' },
       },
-      required: ['summary'],
+      required: ['name', 'email', 'enclosure', 'glass', 'hardware'],
     },
   },
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Full narration script returned by select_service                   */
-/*  The model reads this and narrates continuously.                    */
-/*  CUE PHRASES (capitalized below) trigger client-side slide changes. */
+/*  Slide context — tells the model what's on screen                   */
 /* ------------------------------------------------------------------ */
 
-const SHOWER_TOUR_SCRIPT = `
-The page has transformed into a cinematic full-screen presentation. The intro slide is showing a dramatic image of a frameless shower.
+const SLIDE_CONTEXT: Record<string, string> = {
+  intro: 'The intro slide is showing — a dramatic full-screen image of a frameless shower. Briefly introduce frameless showers and tell the customer you\'ll show them some recent work. Then call show_slide("gallery").',
 
-Narrate the ENTIRE script below continuously. Do NOT call any tools until the very end. The website will automatically change slides as you speak — just keep talking naturally.
+  gallery: 'A row of 5 stunning completed shower installations is on screen. The customer can see the range of styles. Describe them briefly, then say you\'ll show them the configuration options. Call show_slide("enclosures").',
 
----
+  enclosures: 'Nine enclosure types are displayed in a horizontal row: Single Door, Door + Panel, Neo-Angle, Frameless Slider, Curved, Arched, Splash Panel, Steam Shower, and Custom. Each one highlights when you mention it by name. Describe a few standouts, then ask: "Which enclosure style catches your eye?" WAIT for their answer.',
 
-"Great choice — frameless showers are what we're known for. Every enclosure we build is completely custom. No metal frames — just precision-cut tempered glass and minimal hardware. The result is a clean, open feel that transforms any bathroom into something special.
+  glass: 'Three glass option cards are on screen: Clear Glass, Frosted Glass, and Rain Glass. Each highlights when named. Describe them briefly, then ask: "Which glass do you prefer?" WAIT for their answer.',
 
-Let me show you some of our RECENT INSTALLATIONS. Every one of these was custom-built for the homeowner — designed around their space, their style, their vision. You can see the range, from sleek minimalist setups to dramatic floor-to-ceiling enclosures.
+  hardware: 'Six hardware finish swatches are shown: Polished Chrome, Brushed Nickel, Matte Black, Polished Brass, Satin Brass, and Other Finishes. Each highlights when named. Describe them, then ask: "Which finish speaks to you?" WAIT for their answer.',
 
-Now let me walk you through the options so you can start building yours. We offer nine ENCLOSURE STYLES. The single door is our most popular — minimal and elegant. The door and panel adds a fixed panel for wider openings. The neo-angle is perfect for corner spaces. Our slider works great when you don't have swing clearance. We also do curved glass, arched tops, splash panels, steam shower enclosures, and fully custom configurations.
+  accessories: 'Six accessories are displayed: Pull Handles, Towel Bars, Hinges, U-Handles, Knobs, and Support Bars. Each highlights when named. Give a brief overview, then ask: "Any accessories you\'d like included?" WAIT for their answer.',
 
-NOW FOR GLASS. Clear glass is our bestseller — shows off your tilework and opens up the space. Frosted glass is acid-etched for privacy while still letting light through. And rain glass has a beautiful textured pattern — it catches light and provides privacy with artistic flair. All options come in three-eighths or half-inch tempered safety glass.
+  process: 'The four-step process is shown: Consultation, Measurement, Fabrication, Installation. Walk them through the timeline briefly. Then call present_quote() with all their selections.',
+};
 
-HARDWARE PERSONALIZES the whole look. Matte black is our hottest trend — bold, modern contrast. Chrome is the timeless choice that works with everything. Brushed nickel has a warm, subtle tone and hides water spots. Polished brass for classic luxury. Satin brass for that soft golden elegance. Plus additional finishes for unique visions.
-
-Now for the FINISHING TOUCHES. Our pull handles are the most requested — clean lines, premium feel. The towel bar mounts directly through the glass, no wall drilling. Plus matching hinges, U-handles, door knobs, and support bars. Everything is solid brass with a lifetime warranty, available in all six hardware finishes.
-
-HERE'S HOW IT ALL comes together. Step one, a free consultation to discuss your vision. Step two, precision laser measurement — every fraction of an inch matters. Step three, custom fabrication, usually two to three weeks. Step four, professional installation, most done in a single day. Start to finish, about three to four weeks.
-
-That's our complete frameless shower line. I'd love to send you our BUYER'S GUIDE — it covers everything we just discussed plus pricing. Would you like that?"
-
----
-
-After finishing this narration, wait for the customer's response about the buyer's guide. If they say yes, call offer_buyers_guide("Frameless Shower"). If they want to skip ahead, move to quoting.
-`;
+/* ------------------------------------------------------------------ */
+/*  Tool handler                                                       */
+/* ------------------------------------------------------------------ */
 
 export async function handleToolCall(
   name: string,
   args: Record<string, string>,
-): Promise<{ success: boolean; message?: string; script?: string }> {
+): Promise<{ success: boolean; message?: string }> {
   console.log(`[Tool Call] ${name}`, args);
 
   switch (name) {
@@ -138,19 +126,48 @@ export async function handleToolCall(
       const service = args.service as ServiceType;
       setState({ currentService: service, isTransformed: true });
       await playTransformAnimation(service);
-      // Create slideshow overlay and show intro slide
       createSlideshow();
       await showSlide('intro');
-      // Return full narration script — model narrates continuously, no more tool calls
-      return { success: true, script: SHOWER_TOUR_SCRIPT };
+      return { success: true, message: SLIDE_CONTEXT['intro'] };
     }
 
-    case 'offer_buyers_guide': {
-      // The tour end is handled by transcript-triggers when it detects "buyer's guide"
-      // This tool call may come after the tour ends for explicit model action
+    case 'show_slide': {
+      // Save choice from previous slide
+      if (args.choice) {
+        const currentSlide = getCurrentCategory(args.slide_id);
+        if (currentSlide) {
+          quoteChoices[currentSlide] = args.choice;
+          console.log('[Quote] Saved:', currentSlide, '=', args.choice);
+        }
+      }
+      await showSlide(args.slide_id);
+      const context = SLIDE_CONTEXT[args.slide_id] || `Slide "${args.slide_id}" is now showing.`;
+      return { success: true, message: context };
+    }
+
+    case 'present_quote': {
+      // Save final selections
+      if (args.enclosure) quoteChoices['enclosure'] = args.enclosure;
+      if (args.glass) quoteChoices['glass'] = args.glass;
+      if (args.hardware) quoteChoices['hardware'] = args.hardware;
+      if (args.accessories) quoteChoices['accessories'] = args.accessories;
+
       await endSlideshow();
-      showBuyersGuide(args.service_name);
-      return { success: true };
+      showQuoteOverlay();
+
+      // Fill in what we have
+      for (const [field, value] of Object.entries(quoteChoices)) {
+        updateQuoteField(field, value);
+      }
+
+      const summary = Object.entries(quoteChoices)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
+
+      return {
+        success: true,
+        message: `The tour is complete. A quote summary is now on screen showing: ${summary}. Read back their selections enthusiastically, then ask if they'd like to receive a formal quote with pricing. If yes, ask for their email and phone number.`,
+      };
     }
 
     case 'capture_email': {
@@ -159,25 +176,39 @@ export async function handleToolCall(
       return { success: true };
     }
 
-    case 'start_quote_collection': {
-      showQuoteOverlay();
-      return { success: true };
-    }
-
-    case 'update_quote_field': {
-      updateQuoteField(args.field, args.value);
-      if (args.field === 'name') setState({ customerName: args.value });
-      return { success: true };
-    }
-
     case 'submit_quote': {
-      console.log('[Quote Submitted]', args.summary);
+      console.log('[Quote Submitted]', args);
+      if (args.name) {
+        setState({ customerName: args.name });
+        updateQuoteField('name', args.name);
+      }
+      if (args.email) updateQuoteField('email', args.email);
+      if (args.phone) updateQuoteField('phone', args.phone);
+      if (args.enclosure) updateQuoteField('enclosure_type', args.enclosure);
+      if (args.glass) updateQuoteField('glass_type', args.glass);
+      if (args.hardware) updateQuoteField('hardware_finish', args.hardware);
+      if (args.notes) updateQuoteField('notes', args.notes);
       showQuoteSubmitted();
-      return { success: true, message: 'Quote submitted successfully' };
+      return { success: true, message: 'Quote submitted! Thank the customer and let them know someone will reach out within 24 hours. Ask if they have any other questions.' };
     }
 
     default:
       console.warn(`Unknown tool: ${name}`);
       return { success: false, message: `Unknown tool: ${name}` };
   }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Map the NEXT slide to the category the choice belongs to */
+function getCurrentCategory(nextSlideId: string): string | null {
+  const map: Record<string, string> = {
+    glass: 'enclosure',
+    hardware: 'glass',
+    accessories: 'hardware',
+    process: 'accessories',
+  };
+  return map[nextSlideId] || null;
 }
