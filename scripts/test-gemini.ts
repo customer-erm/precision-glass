@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 
-const API_KEY = 'AIzaSyACRCzxmxeO3lJ6v9Ss4P6yd9ncHzV71VA';
+const API_KEY = process.env.GEMINI_API_KEY || '';
 const MODEL = 'gemini-2.0-flash-live-001';
 
 async function testWithVersion(apiVersion: string): Promise<boolean> {

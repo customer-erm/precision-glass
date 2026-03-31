@@ -1,6 +1,6 @@
 import WebSocket from 'ws';
 
-const API_KEY = 'AIzaSyACRCzxmxeO3lJ6v9Ss4P6yd9ncHzV71VA';
+const API_KEY = process.env.GEMINI_API_KEY || '';
 
 async function testModel(model: string, apiVersion: string) {
   const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateContent?key=${API_KEY}`;
