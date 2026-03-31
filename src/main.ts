@@ -119,6 +119,14 @@ endBtn?.addEventListener('click', () => {
   stopTipRotation();
 });
 
+// Listen for session kill from tools (e.g. after quote is presented)
+window.addEventListener('precision:end-session', () => {
+  console.log('[Main] Ending session via custom event');
+  gemini.disconnect();
+  hideAgentBar();
+  stopTipRotation();
+});
+
 // --- UI State updates ---
 function updateMicState(state: AgentState | 'connecting'): void {
   const micContainer = document.getElementById('mic-container');

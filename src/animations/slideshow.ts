@@ -361,10 +361,16 @@ function buildQuoteSummarySlide(): HTMLElement {
   imgWrap.appendChild(spinner);
   layout.appendChild(imgWrap);
 
-  // Submitted message spans full width
-  const submitted = h('div', { className: 'ss-quote-submitted', id: 'quote-submitted-msg' });
-  submitted.innerHTML = '<div class="ss-quote-check">&#10003;</div><h4>Quote Request Sent!</h4><p>We\'ll follow up within 24 hours with detailed pricing.</p>';
-  layout.appendChild(submitted);
+  // Thank you message + restart button
+  const footer = h('div', { className: 'ss-quote-footer', id: 'quote-restart-btn' });
+  footer.innerHTML = `
+    <p class="ss-quote-thankyou">Thank you for building your custom configuration! Our team will reach out within 24 hours with detailed pricing.</p>
+    <button class="ss-restart-btn" onclick="window.location.reload()">
+      <span>Start Over</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    </button>
+  `;
+  layout.appendChild(footer);
 
   content.appendChild(layout);
   slide.appendChild(content);

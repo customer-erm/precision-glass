@@ -63,26 +63,6 @@ export const TOOL_DECLARATIONS = [
       required: ['enclosure', 'glass', 'hardware'],
     },
   },
-  {
-    name: 'submit_quote',
-    description: 'Submit the final quote. Returns user to landing page.',
-    parameters: {
-      type: 'object' as const,
-      properties: {
-        name: { type: 'string' as const },
-        email: { type: 'string' as const },
-        phone: { type: 'string' as const },
-        enclosure: { type: 'string' as const },
-        glass: { type: 'string' as const },
-        hardware: { type: 'string' as const },
-        handle: { type: 'string' as const },
-        extras: { type: 'string' as const },
-        timeline: { type: 'string' as const },
-        notes: { type: 'string' as const },
-      },
-      required: ['name', 'email', 'enclosure', 'glass', 'hardware'],
-    },
-  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -104,7 +84,21 @@ const SLIDE_CONTEXT: Record<string, string> = {
 
   extras: `Two premium upgrades: decorative glass grid patterns (architectural character) and steam shower enclosures (fully sealed spa experience). Ask: "Interested in either upgrade, or shall we move on?" WAIT.`,
 
-  process: `Five steps shown: 1) Quote Approved, 2) Precision Measuring, 3) Glass Ordering (2-3 weeks), 4) Installation Day (usually one day), 5) Enjoy your new shower. Walk through each step briefly with enthusiasm. An AI visualization of their custom shower is being generated in the background. When you've finished describing the process, say "I'm putting together a visualization of your custom shower — are you ready to review your selections?" WAIT for their response. Then call present_quote() with all selections.`,
+  process: `Five steps shown on screen. Walk through EACH step in detail with enthusiasm:
+
+1) Quote Approved — "Once you're happy with everything, we lock in your design and confirm every detail — enclosure style, glass type, hardware finish, handles."
+
+2) Precision Measuring — "Our team comes out with laser measurement tools. We template every angle, every fraction of an inch. Frameless glass has zero tolerance for error, so precision is everything."
+
+3) Glass Ordering — "Your panels are custom cut, edges polished smooth, then tempered at over 1100 degrees for safety. This takes about 2 to 3 weeks depending on complexity."
+
+4) Installation Day — "This is the exciting part. Our certified installers typically complete everything in a single day. We mount the hardware, set the glass, seal everything up, and do a full quality check."
+
+5) Enjoy — "And then it's yours. Step into a shower that feels completely open and luxurious."
+
+After describing all steps, mention: "By the way, I've been having our AI create a custom visualization of exactly what your shower will look like based on everything you've selected. It might take just a moment to finish rendering."
+
+Then ask: "Before we take a look at your complete configuration, do you have any questions about the process or anything we've covered?" WAIT for their response. Then call present_quote() with all selections.`,
 };
 
 function choiceCategoryForSlide(nextSlideId: string): string | null {
@@ -154,13 +148,16 @@ export async function handleToolCall(
       }
       await showSlide(args.slide_id);
 
-      // Start AI image generation early during the process slide to buy time
+      // Start AI image generation as soon as extras choice is made (process slide loads)
+      // This gives max time for the image to generate while agent discusses the process
       if (args.slide_id === 'process') {
-        console.log('[ImageGen] Starting early during process slide');
+        console.log('[ImageGen] Starting generation — all choices collected');
         generateShowerImage(quoteChoices).then((imgUrl) => {
           if (imgUrl) {
             pendingImageUrl = imgUrl;
             console.log('[ImageGen] Image ready (cached for quote slide)');
+          } else {
+            console.warn('[ImageGen] Returned null — no image generated');
           }
         }).catch((err) => console.warn('[ImageGen] Failed:', err));
       }
@@ -179,93 +176,45 @@ export async function handleToolCall(
       setTimeout(() => populateQuoteSummary(quoteChoices), 500);
 
       // Use cached image from process slide, or generate now as fallback
+      const applyImage = (url: string) => {
+        const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
+        if (imgEl) {
+          imgEl.src = url;
+          imgEl.classList.add('loaded');
+        }
+        // Hide spinner
+        const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement;
+        if (spinner) spinner.style.display = 'none';
+      };
+
       if (pendingImageUrl) {
-        setTimeout(() => {
-          const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
-          if (imgEl) {
-            imgEl.src = pendingImageUrl!;
-            imgEl.classList.add('loaded');
-          }
-        }, 600);
+        setTimeout(() => applyImage(pendingImageUrl!), 600);
       } else {
         generateShowerImage(quoteChoices).then((imgUrl) => {
-          if (imgUrl) {
-            const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
-            if (imgEl) {
-              imgEl.src = imgUrl;
-              imgEl.classList.add('loaded');
-            }
-          }
+          if (imgUrl) applyImage(imgUrl);
         }).catch((err) => console.warn('[ImageGen] Failed:', err));
       }
+
+      // Kill the voice agent to stop costs — dispatch event for main.ts to handle
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('precision:end-session'));
+      }, 1500);
+
+      // Show restart button after a brief delay
+      setTimeout(() => {
+        const restartBtn = document.getElementById('quote-restart-btn');
+        if (restartBtn) restartBtn.classList.add('visible');
+      }, 2000);
 
       const summary = Object.entries(quoteChoices)
         .filter(([k]) => ['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(k))
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ');
 
-      const hasName = !!quoteChoices['name'];
-      const hasEmail = !!quoteChoices['email'];
-      let askFor = '';
-      if (!hasName && !hasEmail) askFor = 'Ask for their name, email, and any additional details (timeline, special requirements).';
-      else if (!hasName) askFor = 'Ask for their name and any additional details (timeline, special requirements). You already have their email.';
-      else if (!hasEmail) askFor = 'Ask for their email and any additional details (timeline, special requirements). You already have their name.';
-      else askFor = 'You already have their name and email. Just ask if they have any additional details — timeline, special requirements, or notes.';
-
       return {
         success: true,
-        message: `The quote summary is displayed in an editorial layout on the left with an AI visualization on the right showing: ${summary}. Read back their selections with enthusiasm. ${askFor} Then call submit_quote() with everything.`,
+        message: `The quote summary is displayed showing: ${summary}. An AI visualization is loading on the right. Give a brief, warm closing — thank them for walking through the options, tell them their selections look fantastic, and let them know the team will be in touch within 24 hours with detailed pricing. Keep it short — this is your final message before the session ends.`,
       };
-    }
-
-    case 'submit_quote': {
-      console.log('[Quote Submitted]', args);
-      setState({ customerName: args.name || '', customerEmail: args.email || '' });
-
-      // Save name for future reference
-      if (args.name) quoteChoices['name'] = args.name;
-      if (args.email) quoteChoices['email'] = args.email;
-
-      const submitted = document.getElementById('quote-submitted-msg');
-      if (submitted) submitted.classList.add('visible');
-
-      // Full reset to default homescreen after delay
-      setTimeout(async () => {
-        await endSlideshow();
-
-        // Reset hero to full default state
-        const hero = document.getElementById('hero');
-        if (hero) {
-          hero.style.display = '';
-          hero.style.opacity = '0';
-
-          // Reset all hero child elements that were animated out
-          const heroElements = hero.querySelectorAll('.hero-badge, .hero-title, .hero-subtitle, .services-grid, #mic-container');
-          heroElements.forEach((el) => {
-            const htmlEl = el as HTMLElement;
-            htmlEl.style.opacity = '1';
-            htmlEl.style.transform = 'none';
-          });
-
-          requestAnimationFrame(() => {
-            hero.style.transition = 'opacity 0.8s ease';
-            hero.style.opacity = '1';
-          });
-        }
-
-        // Reset state fully
-        setState({ isTransformed: false, currentService: null, customerName: '', customerEmail: '' });
-
-        // Clear quote choices for next session
-        for (const key of Object.keys(quoteChoices)) {
-          delete quoteChoices[key];
-        }
-        pendingImageUrl = null;
-
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 3500);
-
-      return { success: true, message: 'Quote submitted! The page will return to the main site shortly. Thank the customer warmly — your team will follow up within 24 hours with detailed pricing.' };
     }
 
     default:
