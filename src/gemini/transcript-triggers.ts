@@ -3,7 +3,7 @@
  * Watches the agent's live transcript and fires highlights/scrolls
  * when specific keywords are spoken — perfectly synced with speech.
  */
-import { scrollToSection, highlightElement } from '../animations/tour';
+import { highlightElement } from '../animations/tour';
 
 interface Trigger {
   /** Keywords to match (lowercase). ANY match fires the trigger. */
