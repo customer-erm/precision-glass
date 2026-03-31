@@ -5,7 +5,7 @@ import { TOOL_DECLARATIONS, handleToolCall } from './tools';
 import { setState } from '../utils/state';
 import { activateTourTriggers, feedTranscript, deactivateTourTriggers, resetTranscriptBuffer } from './transcript-triggers';
 
-const API_KEY = 'AIzaSyACRCzxmxeO3lJ6v9Ss4P6yd9ncHzV71VA';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MODEL = 'gemini-3.1-flash-live-preview';
 
 const TOUR_SLIDES = ['intro', 'gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'process'];
