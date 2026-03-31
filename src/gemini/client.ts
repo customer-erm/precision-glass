@@ -3,7 +3,7 @@ import { AudioCapture, AudioPlayer } from './audio';
 import { SYSTEM_PROMPT } from './system-prompt';
 import { TOOL_DECLARATIONS, handleToolCall } from './tools';
 import { setState } from '../utils/state';
-import { activateTourTriggers, feedTranscript, deactivateTourTriggers, resetTranscriptBuffer } from './transcript-triggers';
+import { activateTourTriggers, feedTranscript, deactivateTourTriggers, setTriggerSlide } from './transcript-triggers';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MODEL = 'gemini-3.1-flash-live-preview';
@@ -124,7 +124,8 @@ export class GeminiLiveClient {
           if (fc.name === 'show_slide' && fc.args?.slide_id) {
             const idx = TOUR_SLIDES.indexOf(fc.args.slide_id);
             if (idx >= 0) this.tourSlideIndex = idx;
-            resetTranscriptBuffer();
+            // Load slide-specific triggers so highlights sync with narration
+            setTriggerSlide(fc.args.slide_id);
           }
           if (fc.name === 'offer_buyers_guide' || fc.name === 'start_quote_collection') {
             this.tourActive = false;
@@ -221,21 +222,26 @@ export class GeminiLiveClient {
   }
 
   private getSlideScript(slideId: string): string {
+    // Each script uses EXACT keywords that match transcript triggers.
+    // When the agent says "single door" → enc-single highlights.
+    // When the agent says "clear glass" → glass-clear highlights.
+    // The narration and highlights are tightly coupled.
     const scripts: Record<string, string> = {
-      gallery: `The screen now shows a gallery of completed shower installations. Narrate ALL of this without stopping: "These are some of our recent projects. Each one was designed specifically for the homeowner's space and style. You can see the range — sleek minimalist single doors, dramatic floor-to-ceiling enclosures, corner units that make the most of compact bathrooms. No two are alike, because no two bathrooms are alike. That's what makes custom frameless glass so special. Now let me walk you through exactly how we build yours." Then IMMEDIATELY call show_slide("enclosures"). Do NOT pause or ask questions.`,
 
-      enclosures: `The screen shows nine enclosure types in a grid. As you mention each one, it will highlight automatically. Narrate ALL of this: "We offer nine distinct enclosure configurations to fit any layout. The single door is our most popular — minimal hardware, maximum elegance, perfect for standard alcove openings. The door and panel is our classic choice for wider openings, with a fixed glass panel alongside the swinging door. Neo-angle enclosures are designed for corner spaces — they maximize interior room while keeping a compact footprint. Our frameless slider is perfect when you don't have clearance for a swinging door — smooth bypass operation, clean lines. We also build curved glass, arched tops, splash panels, steam shower enclosures, and fully custom configurations for unique spaces." Then IMMEDIATELY call show_slide("glass"). Do NOT pause.`,
+      gallery: `A row of 5 completed shower photos is now on screen. Narrate: "Here are some of our recent installations. Every one of these was custom-built for the homeowner — designed around their space, their style, their vision. You can see the range, from sleek minimalist setups to dramatic floor-to-ceiling enclosures. Now let me show you the options so you can start building yours." Then call show_slide("enclosures"). Do NOT pause.`,
 
-      glass: `The screen shows three glass types with large images. Narrate ALL of this: "Now let's talk glass. All our glass is three-eighths or half-inch tempered safety glass — it's up to five times stronger than regular glass. Clear glass is our bestseller. It's crystal-clear, maximizes light transmission, and really shows off your tilework. It makes any bathroom feel larger and brighter. Frosted glass is acid-etched for a smooth, elegant finish. It provides privacy while still letting plenty of light through — perfect for shared bathrooms. And rain glass has this beautiful textured pattern that mimics rain droplets on a window. It provides privacy with an artistic touch that catches the light beautifully." Then IMMEDIATELY call show_slide("hardware"). Do NOT pause.`,
+      enclosures: `A horizontal row of 9 enclosure types is on screen. Each one will HIGHLIGHT AUTOMATICALLY when you say its name. You MUST say each name clearly. Narrate: "We offer nine enclosure styles. The single door is our most popular — minimal and elegant. The door and panel adds a fixed panel for wider openings. The neo-angle is perfect for corner spaces. Our slider works great when you don't have swing clearance. We also do curved glass, arched tops, splash panels, steam shower enclosures, and fully custom configurations." Then call show_slide("glass"). Do NOT pause.`,
 
-      hardware: `The screen shows six hardware finishes with circular swatches. Narrate ALL of this: "Hardware is where you really personalize the look. Matte black is our hottest trend right now — it creates a bold, modern contrast against the glass. Polished chrome is the timeless choice — versatile, easy to maintain, and it complements virtually any bathroom. Brushed nickel has that warm, subtle sophistication — it hides water spots better than chrome. Polished brass brings classic luxury warmth. Satin brass gives you that soft golden elegance that's been making a huge comeback. And we carry additional custom finishes for those unique design visions." Then IMMEDIATELY call show_slide("accessories"). Do NOT pause.`,
+      glass: `Three large glass option cards are on screen. Each HIGHLIGHTS when you say its name. Narrate: "Now for glass. Clear glass is our bestseller — shows off your tilework and opens up the space. Frosted glass is acid-etched for privacy while still letting light through. And rain glass has a beautiful textured pattern — it catches light and provides privacy with artistic flair. All options come in three-eighths or half-inch tempered safety glass." Then call show_slide("hardware"). Do NOT pause.`,
 
-      accessories: `The screen shows key shower accessories. Narrate ALL of this: "The finishing touches make all the difference. Every piece is solid brass construction with a lifetime warranty. Our pull handles are the most requested accessory — clean lines, substantial feel, premium every time you use them. The towel bar mounts directly through the glass — no wall drilling needed, and it holds full-size bath towels. We've got matching hinges, U-handles, door knobs, and support bars. Every accessory is available in all six hardware finishes so everything coordinates perfectly." Then IMMEDIATELY call show_slide("process"). Do NOT pause.`,
+      hardware: `Six hardware finish swatches are on screen in a row. Each HIGHLIGHTS when named. Narrate: "Hardware personalizes the whole look. Matte black is our hottest trend — bold, modern contrast. Chrome is the timeless choice that works with everything. Brushed nickel has a warm, subtle tone and hides water spots. Polished brass for classic luxury. Satin brass for that soft golden elegance. Plus additional finishes for unique visions." Then call show_slide("accessories"). Do NOT pause.`,
 
-      process: `The screen shows the four-step process timeline. Narrate ALL of this: "Here's how we bring it all together. Step one — a free in-home consultation where we discuss your vision, measure your space, and review design options. Step two — precision laser measurement to ensure every panel fits perfectly. Every fraction of an inch matters with frameless glass. Step three — custom fabrication in our shop. We cut, temper, and polish every panel to your exact specifications. This typically takes two to three weeks. And step four — professional installation by our certified team. Most installs are completed in a single day. From first meeting to finished shower, the whole process usually takes about three to four weeks." TOUR IS NOW COMPLETE. Transition naturally: "That's our complete frameless shower collection. I'd love to send you our comprehensive buyer's guide — it covers everything we just went through plus pricing ranges and care tips. Would you like me to send that to your email?" Then call offer_buyers_guide("Frameless Shower"). This is the ONLY time during the tour you should ask a question.`,
+      accessories: `Six key accessories are displayed. Each HIGHLIGHTS when named. Narrate: "The finishing touches matter. Our pull handles are the most requested — clean lines, premium feel. The towel bar mounts directly through the glass, no wall drilling. Plus matching hinges, U-handles, door knobs, and support bars. Everything is solid brass with a lifetime warranty, available in all six hardware finishes." Then call show_slide("process"). Do NOT pause.`,
+
+      process: `Four process steps are shown with images. Narrate: "Here's how it all comes together. Step one, a free consultation to discuss your vision. Step two, precision laser measurement — every fraction of an inch matters. Step three, custom fabrication, usually two to three weeks. Step four, professional installation, most done in a single day. Start to finish, about three to four weeks." Then say: "That's our complete frameless shower line. I'd love to send you our buyer's guide — it covers everything we just discussed plus pricing. Would you like that?" Then call offer_buyers_guide("Frameless Shower").`,
     };
 
-    return scripts[slideId] || `Slide "${slideId}" is now showing. Describe what you see and continue the tour.`;
+    return scripts[slideId] || `Slide "${slideId}" is showing. Narrate what you see and continue.`;
   }
 
   private async startMic(): Promise<void> {

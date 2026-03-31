@@ -1,121 +1,104 @@
 /**
  * Transcript-based trigger system.
- * Watches the agent's live transcript and fires highlights/scrolls
- * when specific keywords are spoken — perfectly synced with speech.
+ * Watches the agent's live transcript and fires highlights
+ * when specific keywords are spoken — synced with speech.
+ *
+ * Triggers are scoped per slide — only the active slide's triggers fire.
+ * This prevents cross-slide false positives.
  */
-import { highlightElement } from '../animations/tour';
+import { highlightElement, clearHighlight } from '../animations/tour';
 
 interface Trigger {
-  /** Keywords to match (lowercase). ANY match fires the trigger. */
   keywords: string[];
-  /** Action to perform */
   action: () => void;
-  /** Has this trigger already fired? */
   fired: boolean;
 }
 
+type SlideId = 'enclosures' | 'glass' | 'hardware' | 'accessories';
+
+let currentSlideId: SlideId | null = null;
 let triggers: Trigger[] = [];
 let accumulatedText = '';
 let active = false;
 
 /**
- * Load the full set of tour triggers.
- * Call this when the tour starts (after select_service).
+ * Per-slide trigger definitions.
+ * Keywords match the exact narration script so highlights sync with speech.
  */
+const SLIDE_TRIGGERS: Record<SlideId, Trigger[]> = {
+  enclosures: [
+    { keywords: ['single door', 'most popular'], action: () => highlightElement('enc-single'), fired: false },
+    { keywords: ['door and panel', 'door-and-panel', 'wider opening'], action: () => highlightElement('enc-door-panel'), fired: false },
+    { keywords: ['neo-angle', 'neo angle', 'corner space'], action: () => highlightElement('enc-neo'), fired: false },
+    { keywords: ['slider', 'sliding', 'bypass', 'swing clearance'], action: () => highlightElement('enc-slider'), fired: false },
+    { keywords: ['curved glass', 'curved,'], action: () => highlightElement('enc-curved'), fired: false },
+    { keywords: ['arched'], action: () => highlightElement('enc-arched'), fired: false },
+    { keywords: ['splash panel'], action: () => highlightElement('enc-splash'), fired: false },
+    { keywords: ['steam shower', 'steam enclosure'], action: () => highlightElement('enc-steam'), fired: false },
+    { keywords: ['fully custom', 'custom configuration'], action: () => highlightElement('enc-custom'), fired: false },
+  ],
+  glass: [
+    { keywords: ['clear glass', 'crystal clear', 'bestseller', 'tilework'], action: () => highlightElement('glass-clear'), fired: false },
+    { keywords: ['frosted glass', 'frosted', 'acid-etched', 'acid etched', 'privacy'], action: () => highlightElement('glass-frosted'), fired: false },
+    { keywords: ['rain glass', 'rain', 'textured pattern', 'rain droplet'], action: () => highlightElement('glass-rain'), fired: false },
+  ],
+  hardware: [
+    { keywords: ['matte black', 'hottest trend', 'bold modern', 'bold, modern'], action: () => highlightElement('hw-black'), fired: false },
+    { keywords: ['chrome', 'timeless', 'polished chrome'], action: () => highlightElement('hw-chrome'), fired: false },
+    { keywords: ['brushed nickel', 'nickel', 'warm subtle', 'water spots'], action: () => highlightElement('hw-nickel'), fired: false },
+    { keywords: ['polished brass', 'classic luxury'], action: () => highlightElement('hw-brass'), fired: false },
+    { keywords: ['satin brass', 'golden elegance', 'comeback'], action: () => highlightElement('hw-satin-brass'), fired: false },
+  ],
+  accessories: [
+    { keywords: ['pull handle', 'pull handles', 'most requested'], action: () => highlightElement('acc-pull'), fired: false },
+    { keywords: ['towel bar', 'towel', 'through the glass', 'no wall drilling'], action: () => highlightElement('acc-towel'), fired: false },
+    { keywords: ['hinge', 'hinges'], action: () => highlightElement('acc-hinge'), fired: false },
+    { keywords: ['u-handle', 'u handle', 'u-handles'], action: () => highlightElement('acc-uhandle'), fired: false },
+    { keywords: ['knob', 'door knob'], action: () => highlightElement('acc-knob'), fired: false },
+    { keywords: ['support bar'], action: () => highlightElement('acc-bar'), fired: false },
+  ],
+};
+
 export function activateTourTriggers(): void {
-  accumulatedText = '';
   active = true;
-
-  triggers = [
-    // --- Section scrolls are handled by tool calls ---
-    // --- Highlights are triggered by transcript keywords ---
-
-    // Enclosure highlights
-    {
-      keywords: ['single door', 'most popular style', 'minimal hardware'],
-      action: () => highlightElement('enc-single'),
-      fired: false,
-    },
-    {
-      keywords: ['door-and-panel', 'door and panel', 'classic configuration', 'wider openings'],
-      action: () => highlightElement('enc-door-panel'),
-      fired: false,
-    },
-    {
-      keywords: ['neo-angle', 'neo angle', 'corner spaces', 'compact bathrooms'],
-      action: () => highlightElement('enc-neo'),
-      fired: false,
-    },
-    {
-      keywords: ['sliding door', 'slider', 'swing clearance', 'bypass operation'],
-      action: () => highlightElement('enc-slider'),
-      fired: false,
-    },
-
-    // Glass highlights
-    {
-      keywords: ['clear glass', 'bestseller', 'tilework', 'shows off'],
-      action: () => highlightElement('glass-clear'),
-      fired: false,
-    },
-    {
-      keywords: ['frosted glass', 'frosted', 'spa-like privacy', 'spa like'],
-      action: () => highlightElement('glass-frosted'),
-      fired: false,
-    },
-    {
-      keywords: ['rain glass', 'rain', 'textured pattern', 'diffuses light'],
-      action: () => highlightElement('glass-rain'),
-      fired: false,
-    },
-
-    // Hardware highlights
-    {
-      keywords: ['matte black', 'hottest trend', 'bold, modern'],
-      action: () => highlightElement('hw-black'),
-      fired: false,
-    },
-    {
-      keywords: ['chrome', 'timeless choice', 'always looks polished'],
-      action: () => highlightElement('hw-chrome'),
-      fired: false,
-    },
-    {
-      keywords: ['brushed nickel', 'nickel', 'warm neutral'],
-      action: () => highlightElement('hw-nickel'),
-      fired: false,
-    },
-
-    // Accessory highlights
-    {
-      keywords: ['pull handle', 'most requested accessory'],
-      action: () => highlightElement('acc-pull'),
-      fired: false,
-    },
-    {
-      keywords: ['towel bar', 'towel', 'mounts directly to the glass'],
-      action: () => highlightElement('acc-towel'),
-      fired: false,
-    },
-  ];
+  accumulatedText = '';
+  currentSlideId = null;
+  triggers = [];
 }
 
 /**
- * Feed transcript text into the trigger system.
- * Call this every time outputTranscription arrives.
+ * Switch to a new slide's triggers. Resets accumulated text and unfires all triggers.
  */
+export function setTriggerSlide(slideId: string): void {
+  clearHighlight();
+  accumulatedText = '';
+
+  if (slideId in SLIDE_TRIGGERS) {
+    currentSlideId = slideId as SlideId;
+    // Deep copy triggers so they can be re-fired if slide is revisited
+    triggers = SLIDE_TRIGGERS[currentSlideId].map((t) => ({
+      keywords: [...t.keywords],
+      action: t.action,
+      fired: false,
+    }));
+    console.log(`[Triggers] Loaded ${triggers.length} triggers for slide: ${slideId}`);
+  } else {
+    currentSlideId = null;
+    triggers = [];
+  }
+}
+
 export function feedTranscript(text: string): void {
-  if (!active) return;
+  if (!active || triggers.length === 0) return;
 
   accumulatedText += ' ' + text.toLowerCase();
 
-  // Check each unfired trigger
   for (const trigger of triggers) {
     if (trigger.fired) continue;
 
     for (const kw of trigger.keywords) {
       if (accumulatedText.includes(kw)) {
-        console.log(`[Trigger] Matched "${kw}" → firing highlight`);
+        console.log(`[Trigger] "${kw}" → highlight`);
         trigger.fired = true;
         trigger.action();
         break;
@@ -124,18 +107,14 @@ export function feedTranscript(text: string): void {
   }
 }
 
-/**
- * Deactivate triggers (after tour ends).
- */
 export function deactivateTourTriggers(): void {
   active = false;
   triggers = [];
   accumulatedText = '';
+  currentSlideId = null;
+  clearHighlight();
 }
 
-/**
- * Reset accumulated text (call between sections to prevent false matches).
- */
 export function resetTranscriptBuffer(): void {
   accumulatedText = '';
 }
