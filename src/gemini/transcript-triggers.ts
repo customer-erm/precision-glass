@@ -1,31 +1,74 @@
 /**
- * Transcript-based trigger system.
- * Watches the agent's live transcript and fires highlights
- * when specific keywords are spoken — synced with speech.
+ * Transcript-based trigger system — CLIENT-DRIVEN TOUR.
  *
- * Triggers are scoped per slide — only the active slide's triggers fire.
- * This prevents cross-slide false positives.
+ * Two layers of triggers fire from the agent's live transcript:
+ *
+ * 1. SLIDE CUE PHRASES — advance the slideshow when the agent says specific phrases.
+ *    The client detects the phrase and calls showSlide() directly — no tool calls needed.
+ *
+ * 2. HIGHLIGHT KEYWORDS — within a slide, highlight individual products as the agent
+ *    names them (same as before, scoped per slide).
  */
 import { highlightElement, clearHighlight } from '../animations/tour';
+import { showSlide, endSlideshow } from '../animations/slideshow';
+import { showBuyersGuide } from '../sections/buyers-guide';
 
-interface Trigger {
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
+interface HighlightTrigger {
   keywords: string[];
   action: () => void;
   fired: boolean;
 }
 
-type SlideId = 'enclosures' | 'glass' | 'hardware' | 'accessories';
+type SlideId = 'intro' | 'gallery' | 'enclosures' | 'glass' | 'hardware' | 'accessories' | 'process';
 
-let currentSlideId: SlideId | null = null;
-let triggers: Trigger[] = [];
-let accumulatedText = '';
+interface SlideCue {
+  phrase: string;       // text to detect in transcript
+  slideId: SlideId | 'END_TOUR';
+  fired: boolean;
+}
+
+/* ------------------------------------------------------------------ */
+/*  State                                                              */
+/* ------------------------------------------------------------------ */
+
 let active = false;
+let accumulatedText = '';
+let currentSlideId: SlideId | null = null;
+let highlightTriggers: HighlightTrigger[] = [];
 
-/**
- * Per-slide trigger definitions.
- * Keywords match the exact narration script so highlights sync with speech.
- */
-const SLIDE_TRIGGERS: Record<SlideId, Trigger[]> = {
+// Callback to notify client.ts when tour ends
+let onTourEnd: (() => void) | null = null;
+
+/* ------------------------------------------------------------------ */
+/*  Slide cue phrases — ordered!                                       */
+/*  The agent's continuous narration contains these phrases.           */
+/*  When detected, we advance to the corresponding slide.             */
+/* ------------------------------------------------------------------ */
+
+const SLIDE_CUES: SlideCue[] = [
+  { phrase: 'recent installations',   slideId: 'gallery',     fired: false },
+  { phrase: 'enclosure styles',       slideId: 'enclosures',  fired: false },
+  { phrase: 'nine enclosure',         slideId: 'enclosures',  fired: false },
+  { phrase: 'now for glass',          slideId: 'glass',       fired: false },
+  { phrase: 'now let\'s talk glass',  slideId: 'glass',       fired: false },
+  { phrase: 'hardware personalizes',  slideId: 'hardware',    fired: false },
+  { phrase: 'hardware finish',        slideId: 'hardware',    fired: false },
+  { phrase: 'finishing touches',      slideId: 'accessories',  fired: false },
+  { phrase: 'how it all comes',       slideId: 'process',     fired: false },
+  { phrase: 'here\'s how it all',     slideId: 'process',     fired: false },
+  { phrase: 'buyer\'s guide',         slideId: 'END_TOUR',    fired: false },
+  { phrase: 'buyers guide',           slideId: 'END_TOUR',    fired: false },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Per-slide highlight triggers                                       */
+/* ------------------------------------------------------------------ */
+
+const HIGHLIGHT_TRIGGERS: Record<string, HighlightTrigger[]> = {
   enclosures: [
     { keywords: ['single door', 'most popular'], action: () => highlightElement('enc-single'), fired: false },
     { keywords: ['door and panel', 'door-and-panel', 'wider opening'], action: () => highlightElement('enc-door-panel'), fired: false },
@@ -59,46 +102,54 @@ const SLIDE_TRIGGERS: Record<SlideId, Trigger[]> = {
   ],
 };
 
-export function activateTourTriggers(): void {
+/* ------------------------------------------------------------------ */
+/*  Public API                                                         */
+/* ------------------------------------------------------------------ */
+
+export function activateTourTriggers(endCallback?: () => void): void {
   active = true;
   accumulatedText = '';
   currentSlideId = null;
-  triggers = [];
+  highlightTriggers = [];
+  onTourEnd = endCallback || null;
+  // Reset all slide cues
+  for (const cue of SLIDE_CUES) cue.fired = false;
 }
 
 /**
- * Switch to a new slide's triggers. Resets accumulated text and unfires all triggers.
+ * Feed transcript text from the agent's speech.
+ * Checks for slide cue phrases first, then highlight keywords.
  */
-export function setTriggerSlide(slideId: string): void {
-  clearHighlight();
-  accumulatedText = '';
-
-  if (slideId in SLIDE_TRIGGERS) {
-    currentSlideId = slideId as SlideId;
-    // Deep copy triggers so they can be re-fired if slide is revisited
-    triggers = SLIDE_TRIGGERS[currentSlideId].map((t) => ({
-      keywords: [...t.keywords],
-      action: t.action,
-      fired: false,
-    }));
-    console.log(`[Triggers] Loaded ${triggers.length} triggers for slide: ${slideId}`);
-  } else {
-    currentSlideId = null;
-    triggers = [];
-  }
-}
-
 export function feedTranscript(text: string): void {
-  if (!active || triggers.length === 0) return;
+  if (!active) return;
 
   accumulatedText += ' ' + text.toLowerCase();
 
-  for (const trigger of triggers) {
+  // --- Layer 1: Slide advancement cues ---
+  for (const cue of SLIDE_CUES) {
+    if (cue.fired) continue;
+
+    if (accumulatedText.includes(cue.phrase)) {
+      cue.fired = true;
+      console.log(`[Tour Cue] "${cue.phrase}" → ${cue.slideId}`);
+
+      if (cue.slideId === 'END_TOUR') {
+        handleTourEnd();
+        return;
+      }
+
+      // Advance slide
+      advanceToSlide(cue.slideId);
+    }
+  }
+
+  // --- Layer 2: Per-slide highlight keywords ---
+  for (const trigger of highlightTriggers) {
     if (trigger.fired) continue;
 
     for (const kw of trigger.keywords) {
       if (accumulatedText.includes(kw)) {
-        console.log(`[Trigger] "${kw}" → highlight`);
+        console.log(`[Highlight] "${kw}" → fire`);
         trigger.fired = true;
         trigger.action();
         break;
@@ -109,12 +160,62 @@ export function feedTranscript(text: string): void {
 
 export function deactivateTourTriggers(): void {
   active = false;
-  triggers = [];
+  highlightTriggers = [];
   accumulatedText = '';
   currentSlideId = null;
+  onTourEnd = null;
   clearHighlight();
 }
 
 export function resetTranscriptBuffer(): void {
   accumulatedText = '';
+}
+
+/**
+ * Manually set trigger slide (called by client.ts after select_service shows intro).
+ */
+export function setTriggerSlide(slideId: string): void {
+  loadHighlightsForSlide(slideId);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Internal helpers                                                   */
+/* ------------------------------------------------------------------ */
+
+function advanceToSlide(slideId: SlideId): void {
+  clearHighlight();
+  currentSlideId = slideId;
+
+  // Show the slide visually
+  showSlide(slideId);
+
+  // Load that slide's highlight triggers
+  loadHighlightsForSlide(slideId);
+
+  // Reset accumulated text for highlight matching (keep full text for cue detection)
+  // We don't reset accumulatedText because cues need the full history
+}
+
+function loadHighlightsForSlide(slideId: string): void {
+  clearHighlight();
+  if (slideId in HIGHLIGHT_TRIGGERS) {
+    highlightTriggers = HIGHLIGHT_TRIGGERS[slideId].map((t) => ({
+      keywords: [...t.keywords],
+      action: t.action,
+      fired: false,
+    }));
+    console.log(`[Triggers] Loaded ${highlightTriggers.length} highlight triggers for: ${slideId}`);
+  } else {
+    highlightTriggers = [];
+  }
+}
+
+async function handleTourEnd(): Promise<void> {
+  console.log('[Tour] Ending tour — buyer\'s guide cue detected');
+  active = false;
+  highlightTriggers = [];
+  clearHighlight();
+  await endSlideshow();
+  showBuyersGuide('Frameless Shower');
+  onTourEnd?.();
 }

@@ -3,12 +3,10 @@ import { AudioCapture, AudioPlayer } from './audio';
 import { SYSTEM_PROMPT } from './system-prompt';
 import { TOOL_DECLARATIONS, handleToolCall } from './tools';
 import { setState } from '../utils/state';
-import { activateTourTriggers, feedTranscript, deactivateTourTriggers, setTriggerSlide } from './transcript-triggers';
+import { activateTourTriggers, feedTranscript, deactivateTourTriggers } from './transcript-triggers';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MODEL = 'gemini-3.1-flash-live-preview';
-
-const TOUR_SLIDES = ['intro', 'gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'process'];
 
 export class GeminiLiveClient {
   private ai: GoogleGenAI;
@@ -19,7 +17,6 @@ export class GeminiLiveClient {
   private onStateChange: ((state: 'connecting' | 'listening' | 'speaking' | 'idle' | 'error') => void) | null = null;
   private hasSpokenOnce = false;
   private tourActive = false;
-  private tourSlideIndex = 0;
 
   constructor() {
     this.ai = new GoogleGenAI({ apiKey: API_KEY, apiVersion: 'v1alpha' });
@@ -39,7 +36,6 @@ export class GeminiLiveClient {
     try {
       this.hasSpokenOnce = false;
       this.tourActive = false;
-      this.tourSlideIndex = 0;
       this.onStateChange?.('connecting');
       setState({ agentState: 'connecting' });
 
@@ -105,7 +101,7 @@ export class GeminiLiveClient {
       return;
     }
 
-    // Handle tool calls — embed guidance in responses to steer the tour
+    // Handle tool calls
     if (message.toolCall) {
       console.log('[Gemini] Tool call:', message.toolCall);
       const functionCalls = message.toolCall.functionCalls;
@@ -118,28 +114,26 @@ export class GeminiLiveClient {
           // Track tour state
           if (fc.name === 'select_service') {
             this.tourActive = true;
-            this.tourSlideIndex = 0;
-            activateTourTriggers();
-          }
-          if (fc.name === 'show_slide' && fc.args?.slide_id) {
-            const idx = TOUR_SLIDES.indexOf(fc.args.slide_id);
-            if (idx >= 0) this.tourSlideIndex = idx;
-            // Load slide-specific triggers so highlights sync with narration
-            setTriggerSlide(fc.args.slide_id);
+            // Activate client-driven tour triggers — transcript will drive slides
+            activateTourTriggers(() => {
+              // Called when tour ends (buyer's guide cue detected)
+              this.tourActive = false;
+            });
           }
           if (fc.name === 'offer_buyers_guide' || fc.name === 'start_quote_collection') {
             this.tourActive = false;
             deactivateTourTriggers();
           }
 
-          // Build guidance for the model
-          const guidance = this.tourActive ? this.getTourGuidance(fc.name, fc.args) : null;
+          // Build tool response
+          // For select_service, send the full narration script so the model reads it
+          const responseText = result.script || result.message || 'Done.';
 
           responses.push({
             id: fc.id,
             name: fc.name,
             response: {
-              result: guidance || (result.message || 'Done.'),
+              result: responseText,
             },
           });
         }
@@ -198,50 +192,12 @@ export class GeminiLiveClient {
     if (content.outputTranscription?.text) {
       console.log('[Gemini] Agent:', content.outputTranscription.text);
       this.onTranscript?.('agent', content.outputTranscription.text);
-      // Feed transcript to trigger system for sync'd highlights
+      // Feed transcript to client-driven trigger system
+      // During tour: detects cue phrases → advances slides + fires highlights
       if (this.tourActive) {
         feedTranscript(content.outputTranscription.text);
       }
     }
-  }
-
-  /**
-   * Returns scripted guidance embedded in tool responses.
-   * Each response tells the model exactly what to narrate and only the ONE next tool to call.
-   */
-  private getTourGuidance(toolName: string, args: any): string {
-    if (toolName === 'select_service') {
-      return `The page has transformed into a cinematic presentation. The intro slide is showing — a dramatic full-screen image of a frameless shower. IMMEDIATELY narrate: "Great choice — frameless showers are what we're known for. Every enclosure we build is completely custom. No metal frames — just precision-cut tempered glass and minimal hardware. The result is a clean, open feel that transforms any bathroom into something special. Let me show you some of our recent work." Then IMMEDIATELY call show_slide("gallery"). Do NOT pause or ask any questions.`;
-    }
-
-    if (toolName === 'show_slide') {
-      return this.getSlideScript(args?.slide_id);
-    }
-
-    return 'Done.';
-  }
-
-  private getSlideScript(slideId: string): string {
-    // Each script uses EXACT keywords that match transcript triggers.
-    // When the agent says "single door" → enc-single highlights.
-    // When the agent says "clear glass" → glass-clear highlights.
-    // The narration and highlights are tightly coupled.
-    const scripts: Record<string, string> = {
-
-      gallery: `A row of 5 completed shower photos is now on screen. Narrate: "Here are some of our recent installations. Every one of these was custom-built for the homeowner — designed around their space, their style, their vision. You can see the range, from sleek minimalist setups to dramatic floor-to-ceiling enclosures. Now let me show you the options so you can start building yours." Then call show_slide("enclosures"). Do NOT pause.`,
-
-      enclosures: `A horizontal row of 9 enclosure types is on screen. Each one will HIGHLIGHT AUTOMATICALLY when you say its name. You MUST say each name clearly. Narrate: "We offer nine enclosure styles. The single door is our most popular — minimal and elegant. The door and panel adds a fixed panel for wider openings. The neo-angle is perfect for corner spaces. Our slider works great when you don't have swing clearance. We also do curved glass, arched tops, splash panels, steam shower enclosures, and fully custom configurations." Then call show_slide("glass"). Do NOT pause.`,
-
-      glass: `Three large glass option cards are on screen. Each HIGHLIGHTS when you say its name. Narrate: "Now for glass. Clear glass is our bestseller — shows off your tilework and opens up the space. Frosted glass is acid-etched for privacy while still letting light through. And rain glass has a beautiful textured pattern — it catches light and provides privacy with artistic flair. All options come in three-eighths or half-inch tempered safety glass." Then call show_slide("hardware"). Do NOT pause.`,
-
-      hardware: `Six hardware finish swatches are on screen in a row. Each HIGHLIGHTS when named. Narrate: "Hardware personalizes the whole look. Matte black is our hottest trend — bold, modern contrast. Chrome is the timeless choice that works with everything. Brushed nickel has a warm, subtle tone and hides water spots. Polished brass for classic luxury. Satin brass for that soft golden elegance. Plus additional finishes for unique visions." Then call show_slide("accessories"). Do NOT pause.`,
-
-      accessories: `Six key accessories are displayed. Each HIGHLIGHTS when named. Narrate: "The finishing touches matter. Our pull handles are the most requested — clean lines, premium feel. The towel bar mounts directly through the glass, no wall drilling. Plus matching hinges, U-handles, door knobs, and support bars. Everything is solid brass with a lifetime warranty, available in all six hardware finishes." Then call show_slide("process"). Do NOT pause.`,
-
-      process: `Four process steps are shown with images. Narrate: "Here's how it all comes together. Step one, a free consultation to discuss your vision. Step two, precision laser measurement — every fraction of an inch matters. Step three, custom fabrication, usually two to three weeks. Step four, professional installation, most done in a single day. Start to finish, about three to four weeks." Then say: "That's our complete frameless shower line. I'd love to send you our buyer's guide — it covers everything we just discussed plus pricing. Would you like that?" Then call offer_buyers_guide("Frameless Shower").`,
-    };
-
-    return scripts[slideId] || `Slide "${slideId}" is showing. Narrate what you see and continue.`;
   }
 
   private async startMic(): Promise<void> {
@@ -277,7 +233,6 @@ export class GeminiLiveClient {
     }
     this.hasSpokenOnce = false;
     this.tourActive = false;
-    this.tourSlideIndex = 0;
     deactivateTourTriggers();
     this.onStateChange?.('idle');
     setState({ agentState: 'idle' });
