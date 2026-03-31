@@ -3,7 +3,6 @@ import { AudioCapture, AudioPlayer } from './audio';
 import { SYSTEM_PROMPT } from './system-prompt';
 import { TOOL_DECLARATIONS, handleToolCall } from './tools';
 import { setState } from '../utils/state';
-import { activateTourTriggers, feedTranscript, deactivateTourTriggers, setTriggerSlide } from './transcript-triggers';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const MODEL = 'gemini-3.1-flash-live-preview';
@@ -16,7 +15,6 @@ export class GeminiLiveClient {
   private onTranscript: ((type: 'user' | 'agent', text: string) => void) | null = null;
   private onStateChange: ((state: 'connecting' | 'listening' | 'speaking' | 'idle' | 'error') => void) | null = null;
   private hasSpokenOnce = false;
-  private tourActive = false;
 
   constructor() {
     this.ai = new GoogleGenAI({ apiKey: API_KEY, apiVersion: 'v1alpha' });
@@ -35,7 +33,6 @@ export class GeminiLiveClient {
   async connect(): Promise<void> {
     try {
       this.hasSpokenOnce = false;
-      this.tourActive = false;
       this.onStateChange?.('connecting');
       setState({ agentState: 'connecting' });
 
@@ -110,19 +107,6 @@ export class GeminiLiveClient {
           console.log('[Gemini] Executing tool:', fc.name, fc.args);
           const result = await handleToolCall(fc.name, fc.args || {});
 
-          // Track tour state + load slide-specific highlight triggers
-          if (fc.name === 'select_service') {
-            this.tourActive = true;
-            activateTourTriggers();
-          }
-          if (fc.name === 'show_slide' && fc.args?.slide_id) {
-            setTriggerSlide(fc.args.slide_id);
-          }
-          if (fc.name === 'present_quote' || fc.name === 'submit_quote') {
-            this.tourActive = false;
-            deactivateTourTriggers();
-          }
-
           responses.push({
             id: fc.id,
             name: fc.name,
@@ -186,10 +170,6 @@ export class GeminiLiveClient {
     if (content.outputTranscription?.text) {
       console.log('[Gemini] Agent:', content.outputTranscription.text);
       this.onTranscript?.('agent', content.outputTranscription.text);
-      // Feed transcript for per-slide highlight triggers
-      if (this.tourActive) {
-        feedTranscript(content.outputTranscription.text);
-      }
     }
   }
 
@@ -225,8 +205,6 @@ export class GeminiLiveClient {
       this.session = null;
     }
     this.hasSpokenOnce = false;
-    this.tourActive = false;
-    deactivateTourTriggers();
     this.onStateChange?.('idle');
     setState({ agentState: 'idle' });
   }
