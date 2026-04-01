@@ -5,7 +5,7 @@
  */
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const IMAGE_MODEL = 'gemini-2.5-flash-image';
+const IMAGE_MODEL = 'gemini-3-pro-image-preview';
 
 export async function generateShowerImage(
   choices: Record<string, string>,
