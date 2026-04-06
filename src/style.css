@@ -715,7 +715,7 @@ img { max-width: 100%; display: block; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: brightness(0.5) saturate(0.85);
+  filter: brightness(0.7) saturate(0.9);
   animation: kenburns 20s ease-in-out infinite alternate;
 }
 .slide-bg::after {
@@ -723,8 +723,8 @@ img { max-width: 100%; display: block; }
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 70% 50% at 50% 40%, rgba(10, 22, 40, 0.2) 0%, rgba(10, 22, 40, 0.6) 70%),
-    linear-gradient(180deg, rgba(10, 22, 40, 0.3) 0%, transparent 25%, transparent 75%, rgba(10, 22, 40, 0.65) 100%);
+    radial-gradient(ellipse 70% 50% at 50% 40%, rgba(10, 22, 40, 0.1) 0%, rgba(10, 22, 40, 0.4) 70%),
+    linear-gradient(180deg, rgba(10, 22, 40, 0.2) 0%, transparent 25%, transparent 75%, rgba(10, 22, 40, 0.5) 100%);
 }
 
 /* ---- Slide content ---- */

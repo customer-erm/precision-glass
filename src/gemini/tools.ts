@@ -50,7 +50,7 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: 'present_quote',
-    description: 'End the tour and show a quote summary with all selections plus an AI-generated visualization.',
+    description: 'Show the quote summary with all selections plus an AI-generated visualization. Agent should continue talking after this.',
     parameters: {
       type: 'object' as const,
       properties: {
@@ -61,6 +61,20 @@ export const TOOL_DECLARATIONS = [
         extras: { type: 'string' as const },
       },
       required: ['enclosure', 'glass', 'hardware'],
+    },
+  },
+  {
+    name: 'end_session',
+    description: 'Cleanly end the voice session after saying goodbye. Call this ONLY after your final goodbye message.',
+    parameters: {
+      type: 'object' as const,
+      properties: {
+        phone: { type: 'string' as const, description: 'Customer phone number if provided' },
+        location: { type: 'string' as const, description: 'Customer city/area if provided' },
+        timeline: { type: 'string' as const, description: 'Project timeline if provided' },
+        budget: { type: 'string' as const, description: 'Budget range if provided' },
+      },
+      required: [],
     },
   },
 ];
@@ -182,7 +196,6 @@ export async function handleToolCall(
           imgEl.src = url;
           imgEl.classList.add('loaded');
         }
-        // Hide spinner
         const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement;
         if (spinner) spinner.style.display = 'none';
       };
@@ -195,26 +208,51 @@ export async function handleToolCall(
         }).catch((err) => console.warn('[ImageGen] Failed:', err));
       }
 
-      // Kill the voice agent to stop costs — dispatch event for main.ts to handle
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('precision:end-session'));
-      }, 1500);
-
-      // Show restart button after a brief delay
-      setTimeout(() => {
-        const restartBtn = document.getElementById('quote-restart-btn');
-        if (restartBtn) restartBtn.classList.add('visible');
-      }, 2000);
-
       const summary = Object.entries(quoteChoices)
         .filter(([k]) => ['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(k))
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ');
 
+      const hasName = !!quoteChoices['name'];
+      const hasEmail = !!quoteChoices['email'];
+
       return {
         success: true,
-        message: `The quote summary is displayed showing: ${summary}. An AI visualization is loading on the right. Give a brief, warm closing — thank them for walking through the options, tell them their selections look fantastic, and let them know the team will be in touch within 24 hours with detailed pricing. Keep it short — this is your final message before the session ends.`,
+        message: `The quote summary is displayed showing: ${summary}. An AI visualization is loading on the right.
+
+DO THE FOLLOWING IN ORDER:
+1. Read back their selections enthusiastically — tell them their choices look amazing together.
+2. Let them know you're preparing a detailed quote and a specialist from your team will reach out within 24 hours with pricing.
+3. Casually ask if they'd like to share any additional details to help with the quote — phone number, what city/area they're in, project timeline, or budget range. Say something like "No pressure at all, but if you'd like to share your phone number, general area, timeline, or budget range, it helps us put together an even more accurate quote." ${hasName ? 'You already have their name.' : 'Ask for their name if you don\'t have it.'} ${hasEmail ? 'You already have their email.' : 'Ask for their email if you don\'t have it.'}
+4. WAIT for their response.
+5. After they respond, give a warm genuine goodbye using their name. Thank them, tell them it was great chatting, wish them a great day.
+6. THEN call end_session() with any details they shared (phone, location, timeline, budget).`,
       };
+    }
+
+    case 'end_session': {
+      console.log('[Session End] Extra details:', args);
+
+      // Save any extra details provided
+      if (args.phone) quoteChoices['phone'] = args.phone;
+      if (args.location) quoteChoices['location'] = args.location;
+      if (args.timeline) quoteChoices['timeline'] = args.timeline;
+      if (args.budget) quoteChoices['budget'] = args.budget;
+
+      console.log('[Final Quote Data]', quoteChoices);
+
+      // Show restart button
+      setTimeout(() => {
+        const restartBtn = document.getElementById('quote-restart-btn');
+        if (restartBtn) restartBtn.classList.add('visible');
+      }, 1500);
+
+      // Kill the voice agent after a short delay to let final audio flush
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('precision:end-session'));
+      }, 3000);
+
+      return { success: true, message: 'Session ending. Goodbye audio is playing.' };
     }
 
     default:
