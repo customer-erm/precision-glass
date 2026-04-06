@@ -39,13 +39,21 @@ const gemini = new GeminiLiveClient();
 // Tip rotation for the agent bar
 const TIPS = [
   'Frameless showers can increase home value by 5-7%',
+  '\u{1F4AC} Try saying: "I\u2019m interested in frameless showers"',
   'Tempered glass is 4x stronger than regular glass',
+  '\u{1F4AC} Try saying: "Yes, show me the options"',
   'Most installations are completed in just one day',
+  '\u{1F4AC} Try saying: "I like the clear glass"',
   'Our glass comes with a lifetime warranty',
+  '\u{1F4AC} Try saying: "Matte black would look great"',
   'Frameless designs make any bathroom feel larger',
-  'We use 3/8" or 1/2" tempered safety glass',
+  '\u{1F4AC} Try saying: "Tell me more about that"',
+  'We use 3/8\u2033 or 1/2\u2033 tempered safety glass',
+  '\u{1F4AC} Try saying: "What do you recommend?"',
   'Custom-cut to fit your exact space',
+  '\u{1F4AC} Try saying: "Sure, let\u2019s keep going"',
   'Low-maintenance glass coatings available',
+  '\u{1F4AC} Try saying: "That sounds perfect"',
 ];
 let tipIndex = 0;
 let tipInterval: ReturnType<typeof setInterval> | null = null;
