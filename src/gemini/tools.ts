@@ -84,121 +84,21 @@ export const TOOL_DECLARATIONS = [
 /* ------------------------------------------------------------------ */
 
 const SLIDE_CONTEXT: Record<string, string> = {
-  intro: `WHAT'S ON SCREEN: A dramatic full-screen frameless shower image with the title "Frameless Shower Enclosures".
+  intro: `A dramatic frameless shower fills the screen. Give an exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass. They add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
 
-SAY THIS: Give an exciting sales pitch — frameless showers transform the entire bathroom, make it feel bigger and brighter, no bulky metal frames collecting grime, just clean precision glass lines. They add real value to the home. Then ask: "Would you like me to walk you through the different options so we can build your perfect shower together?"
+  gallery: `A slideshow is cycling through recent installations. Briefly describe the variety — modern, spa-like, each custom. Then offer the buyer's guide: "I'd love to send you our free frameless shower buyer's guide. Can I grab your email?" WAIT. If they give an email, call show_slide("enclosures") with the email parameter. If they decline, just call show_slide("enclosures").`,
 
-WAIT for their response.
+  enclosures: `A carousel shows all 9 enclosure types. Touch on the key options: Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving), Frameless Slider (no swing room needed), Curved (spa feel), Arched (statement piece), Splash Panel (open walk-in, just a fixed panel), Steam Shower (sealed floor-to-ceiling), and Custom for unique spaces. Mention the most popular are Single Door and Door + Panel. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
-NEXT: When they agree, call show_slide("gallery").`,
+  glass: `Three glass types shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
 
-  gallery: `WHAT'S ON SCREEN: A 16:9 slideshow cycling through 4 recent frameless shower installations.
+  hardware: `Five hardware finishes displayed. Describe all five: Polished Chrome (timeless, most popular), Brushed Nickel (warm, hides water spots), Matte Black (bold modern), Polished Brass (classic luxury), Satin Brass (soft golden, very on-trend). Ask which finish complements their bathroom. WAIT. Call show_slide("accessories") with their choice.`,
 
-SAY THIS: "Here are some of our recent installations — you can see the range of styles, from sleek modern designs to elegant spa-like setups. Each one is completely custom." Then say: "By the way, I'd love to send you our free frameless shower buyer's guide — it covers everything from glass options to pricing. Can I grab your email?"
+  accessories: `Handle and accessory options shown. Describe: Pull Handles (sleek tubular, most popular), U-Handles (classic U-shape), Ladder Pulls (ladder-style, design statement), Knobs (minimalist), Towel Bars, Robe Hooks, Support Bars. Mention hinges are always included standard. Ask what handle style they prefer. WAIT. Call show_slide("extras") with their choice.`,
 
-WAIT for their response.
+  extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. Ask if they're interested in either upgrade or want to move on. WAIT. Call show_slide("process") with their choice (use "none" if they decline).`,
 
-NEXT: If they give an email, call show_slide("enclosures") with the email parameter. If they decline, call show_slide("enclosures") without it.`,
-
-  enclosures: `WHAT'S ON SCREEN: An auto-scrolling carousel showing all 9 enclosure types.
-
-SAY THIS — MENTION ALL OF THESE OPTIONS:
-1. Single Door — one clean glass panel, perfect for alcove showers
-2. Door + Panel — hinged door with a fixed panel for wider openings
-3. Neo-Angle — fits perfectly into a corner with angled glass panels
-4. Frameless Slider — sliding panels, great when you don't have room for a swinging door
-5. Curved — elegant bent glass with a spa-like feel
-6. Arched — distinctive arched top for a real statement piece
-7. Splash Panel — a single fixed panel for open walk-in designs
-8. Steam Shower — fully sealed floor-to-ceiling for steam functionality
-9. Custom — for unique or irregular spaces
-
-Then say: "The most popular are the Single Door for its clean simplicity and the Door + Panel for wider showers. Which style would work best for your space?"
-
-WAIT for their response.
-
-NEXT: Call show_slide("glass") with their choice in the choice parameter.`,
-
-  glass: `WHAT'S ON SCREEN: Three large glass option cards.
-
-SAY THIS — DESCRIBE ALL THREE:
-1. Clear Glass — our bestseller, crystal clear so you can show off your tilework, maximum light
-2. Frosted Glass — acid-etched for privacy while still letting light through, very elegant
-3. Rain Glass — textured with a water-droplet pattern, artistic privacy with a unique look
-
-Then ask: "Which glass type appeals to you?"
-
-WAIT for their response.
-
-NEXT: Call show_slide("hardware") with their choice in the choice parameter.`,
-
-  hardware: `WHAT'S ON SCREEN: Five hardware finish options displayed.
-
-SAY THIS — DESCRIBE ALL FIVE:
-1. Polished Chrome — timeless, goes with everything, our most popular
-2. Brushed Nickel — warm tone, great at hiding water spots and fingerprints
-3. Matte Black — bold modern contrast, very popular in contemporary bathrooms
-4. Polished Brass — classic luxury with a warm golden glow
-5. Satin Brass — softer golden elegance, very on-trend right now
-
-Then ask: "Which finish would complement your bathroom best?"
-
-WAIT for their response.
-
-NEXT: Call show_slide("accessories") with their choice in the choice parameter.`,
-
-  accessories: `WHAT'S ON SCREEN: Handle and accessory options displayed.
-
-SAY THIS — DESCRIBE ALL OPTIONS:
-1. Pull Handles — sleek tubular handles, the most popular choice
-2. U-Handles — classic U-shaped, sturdy and comfortable
-3. Ladder Pulls — ladder-style with horizontal rungs, a real design statement
-4. Knobs — simple round knobs for a minimalist look
-5. Towel Bars — through-glass towel bars for functionality
-6. Robe Hooks — convenient over-glass hooks
-7. Support Bars — stabilizer bars for structural support
-
-Note: "All our enclosures come with heavy-duty pivot hinges included standard."
-
-Then ask: "What style of handle catches your eye?"
-
-WAIT for their response.
-
-NEXT: Call show_slide("extras") with their choice in the choice parameter.`,
-
-  extras: `WHAT'S ON SCREEN: Two premium upgrade options.
-
-SAY THIS — DESCRIBE BOTH:
-1. Decorative Grid Patterns — "You can add French, colonial, or custom grid designs right onto the glass panels. It adds beautiful architectural character."
-2. Steam Shower Upgrade — "If you want the full spa experience, we can do a fully sealed floor-to-ceiling enclosure designed to hold steam."
-
-Then ask: "Are you interested in either of these upgrades, or shall we move on to how the process works?"
-
-WAIT for their response.
-
-NEXT: Call show_slide("process") with their choice in the choice parameter. If they say "none" or "no" or "move on", use choice "none".`,
-
-  process: `WHAT'S ON SCREEN: Five process steps shown visually.
-
-SAY THIS — WALK THROUGH EACH STEP IN DETAIL:
-
-1. Quote Approved — "Once you're happy with everything, we lock in your design and confirm every detail — your enclosure style, glass type, hardware finish, and handle choice."
-
-2. Precision Measuring — "Our team comes out with laser measurement tools. We template every angle, every fraction of an inch. Frameless glass has zero tolerance for error, so precision here is everything."
-
-3. Glass Ordering — "Your panels are custom cut, edges polished smooth, then tempered at over eleven hundred degrees for safety. This takes about two to three weeks depending on complexity."
-
-4. Installation Day — "This is the exciting part. Our certified installers typically complete everything in a single day. We mount the hardware, set the glass, seal everything up, and do a full quality check."
-
-5. Enjoy — "And then it's yours. Step into a shower that feels completely open and luxurious."
-
-Then say: "By the way, our AI has been generating a custom visualization of exactly what your shower will look like based on everything you've selected. It might take just a moment to finish rendering."
-
-Then ask: "Before we look at your complete configuration, do you have any questions about the process?"
-
-WAIT for their response.
-
-NEXT: Call present_quote() with ALL of these parameters: enclosure, glass, hardware, handle, extras — use the choices the customer made during the tour.`,
+  process: `Five process steps shown. Walk through each with enthusiasm: 1) Quote Approved — lock in the design. 2) Precision Measuring — laser templates, every fraction of an inch matters. 3) Glass Ordering — custom cut, polished, tempered at 1100+ degrees, 2-3 weeks. 4) Installation Day — certified installers, usually done in one day. 5) Enjoy — step into your new shower. Then mention your AI is generating a visualization of their selections. Ask if they have any questions before reviewing their configuration. WAIT. Call present_quote() with all their selections: enclosure, glass, hardware, handle, extras.`,
 };
 
 function choiceCategoryForSlide(nextSlideId: string): string | null {
