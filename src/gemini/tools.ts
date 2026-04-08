@@ -43,7 +43,7 @@ export const TOOL_DECLARATIONS = [
       properties: {
         slide_id: {
           type: 'string' as const,
-          enum: ['gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process'],
+          description: 'The next slide id. Showers flow: gallery, enclosures, glass, hardware, accessories, extras, process. Railings flow: gallery, rail-types, rail-glass, rail-finish, rail-mounting, process. Commercial flow: gallery, com-types, com-glass, com-framing, com-scope, process.',
         },
         choice: {
           type: 'string' as const,
