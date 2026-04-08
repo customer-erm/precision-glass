@@ -146,7 +146,19 @@ export async function handleToolCall(
           console.log('[Quote] Saved:', category, '=', args.choice);
         }
       }
-      await showSlide(args.slide_id);
+
+      // Skip handle (accessories) step for walk-in / splash panel layouts — no door, no handle.
+      let targetSlide = args.slide_id;
+      const enclosureLower = (quoteChoices['enclosure'] || '').toLowerCase();
+      const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
+      if (targetSlide === 'accessories' && isWalkIn) {
+        console.log('[Tour] Walk-in/splash panel detected — skipping handle step');
+        quoteChoices['handle'] = 'none';
+        targetSlide = 'extras';
+      }
+      await showSlide(targetSlide);
+      // Reassign so downstream logic uses the resolved slide
+      args.slide_id = targetSlide;
 
       // Start AI image generation as soon as extras choice is made (process slide loads)
       // This gives max time for the image to generate while agent discusses the process
@@ -162,7 +174,11 @@ export async function handleToolCall(
         }).catch((err) => console.warn('[ImageGen] Failed:', err));
       }
 
-      return { success: true, message: SLIDE_CONTEXT[args.slide_id] || 'Slide is showing.' };
+      let msg = SLIDE_CONTEXT[args.slide_id] || 'Slide is showing.';
+      if (isWalkIn && targetSlide === 'extras') {
+        msg = `NOTE: This is a walk-in / splash panel layout — there is NO door, so we are skipping the handle step entirely. Do NOT mention handles. ` + msg;
+      }
+      return { success: true, message: msg };
     }
 
     case 'present_quote': {
@@ -233,10 +249,10 @@ DO THE FOLLOWING IN ORDER:
         if (restartBtn) restartBtn.classList.add('visible');
       }, 1500);
 
-      // Kill the voice agent after a short delay to let final audio flush
+      // Kill the voice agent after a longer delay to let the full goodbye audio flush
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('precision:end-session'));
-      }, 3000);
+      }, 9000);
 
       return { success: true, message: 'Session ending. Goodbye audio is playing.' };
     }

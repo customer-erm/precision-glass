@@ -15,6 +15,25 @@ export class GeminiLiveClient {
   private onTranscript: ((type: 'user' | 'agent', text: string) => void) | null = null;
   private onStateChange: ((state: 'connecting' | 'listening' | 'speaking' | 'idle' | 'error') => void) | null = null;
   private hasSpokenOnce = false;
+  private listeningTimer: ReturnType<typeof setTimeout> | null = null;
+  private toolCallInFlight = false;
+
+  private cancelListeningTimer(): void {
+    if (this.listeningTimer) {
+      clearTimeout(this.listeningTimer);
+      this.listeningTimer = null;
+    }
+  }
+
+  private scheduleListening(): void {
+    this.cancelListeningTimer();
+    // Delay so brief pauses between sentences / tool calls don't flip UI to "listening"
+    this.listeningTimer = setTimeout(() => {
+      if (this.toolCallInFlight) return;
+      this.onStateChange?.('listening');
+      setState({ agentState: 'listening' });
+    }, 1200);
+  }
 
   constructor() {
     this.ai = new GoogleGenAI({ apiKey: API_KEY, apiVersion: 'v1alpha' });
@@ -100,6 +119,11 @@ export class GeminiLiveClient {
     // Handle tool calls
     if (message.toolCall) {
       console.log('[Gemini] Tool call:', message.toolCall);
+      this.toolCallInFlight = true;
+      this.cancelListeningTimer();
+      // Stay in "speaking" state across tool execution so UI doesn't flash to listening
+      this.onStateChange?.('speaking');
+      setState({ agentState: 'speaking' });
       const functionCalls = message.toolCall.functionCalls;
       if (functionCalls && functionCalls.length > 0) {
         const responses = [];
@@ -119,6 +143,7 @@ export class GeminiLiveClient {
           this.session.sendToolResponse({ functionResponses: responses });
         }
       }
+      this.toolCallInFlight = false;
       return;
     }
 
@@ -130,6 +155,7 @@ export class GeminiLiveClient {
       if (!this.hasSpokenOnce) {
         this.hasSpokenOnce = true;
       }
+      this.cancelListeningTimer();
       this.onStateChange?.('speaking');
       setState({ agentState: 'speaking' });
 
@@ -146,9 +172,8 @@ export class GeminiLiveClient {
     // Handle turn completion
     if (content.turnComplete) {
       console.log('[Gemini] Turn complete');
-      if (this.hasSpokenOnce) {
-        this.onStateChange?.('listening');
-        setState({ agentState: 'listening' });
+      if (this.hasSpokenOnce && !this.toolCallInFlight) {
+        this.scheduleListening();
       }
     }
 
@@ -157,8 +182,7 @@ export class GeminiLiveClient {
       console.log('[Gemini] Interrupted');
       this.audioPlayer.clearQueue();
       if (this.hasSpokenOnce) {
-        this.onStateChange?.('listening');
-        setState({ agentState: 'listening' });
+        this.scheduleListening();
       }
     }
 

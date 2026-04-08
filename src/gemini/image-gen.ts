@@ -1,95 +1,112 @@
 /**
- * Gemini image generation — creates a photorealistic visualization of the
- * customer's selected shower configuration for the quote summary.
- * Uses gemini-3-pro-image-preview (Nano Banana Pro) for best quality.
+ * Gemini image generation — turns the 3D enclosure reference image into a
+ * photorealistic visualization with the customer's chosen finishes applied.
+ *
+ * Strategy: instead of describing every detail in text (which was overloading
+ * the prompt and producing slow / wrong results), we send the existing 3D
+ * shower-style image as visual context and only ask the model to:
+ *   - convert it to a photorealistic bathroom photo
+ *   - apply the chosen hardware finish, handle style, glass type, and extras
  */
+
+import { images } from '../data/image-map';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const IMAGE_MODEL = 'gemini-3-pro-image-preview';
 
 /* ------------------------------------------------------------------ */
-/*  Detailed enclosure descriptions for accurate image generation      */
+/*  Map an enclosure choice string to its 3D reference image          */
 /* ------------------------------------------------------------------ */
 
-const ENCLOSURE_DESCRIPTIONS: Record<string, string> = {
-  'single door': 'a single frameless glass door panel (24-36 inches wide) mounted with two pivot hinges on one side, swinging outward. No fixed panels — just one clean sheet of tempered glass forming the shower entry in an alcove setting. The hinges attach directly to the wall with minimal metal clips.',
-
-  'door + panel': 'a frameless hinged glass door paired with a fixed glass panel on one side, designed for wider shower openings (48-60 inches). The door swings open on pivot hinges while the stationary panel is secured with wall-mount clips. A small gap between door and panel is sealed with a clear sweep.',
-
-  'neo-angle': 'a neo-angle frameless shower enclosure fitted into a corner, consisting of three glass panels forming a diamond/pentagonal shape — two angled side panels and a center door panel that opens outward. Glass-to-glass clips connect the panels at the angles. The enclosure sits on a corner shower base.',
-
-  'frameless slider': 'a frameless sliding glass shower door system with two large glass panels — one fixed and one sliding on a top-mounted track/rail. The sliding panel glides smoothly behind the fixed panel. No swing clearance needed. Mounted with minimal hardware clips at top and bottom.',
-
-  'curved': 'a curved frameless glass shower enclosure with a single radius-formed bent glass panel that curves elegantly around the shower space. No straight edges on the curved section. The glass is heat-bent into a smooth arc shape, creating a sleek spa-like entry.',
-
-  'arched': 'a frameless glass shower enclosure with an arched/curved top edge on the glass panels. The sides are straight but the top of the glass door features a decorative arch shape, creating an elegant statement piece. Mounted with standard pivot hinges.',
-
-  'splash panel': 'a single fixed frameless glass splash panel (24-30 inches wide) mounted to the wall with simple wall clips. NO door, NO hinges, NO moving parts — just one stationary sheet of glass acting as a water barrier for an open walk-in shower design. The entry side is completely open with no glass.',
-
-  'steam shower': 'a fully enclosed floor-to-ceiling frameless glass steam shower enclosure. The glass panels extend all the way to the ceiling with a transom panel above the door to create a complete seal. No gaps anywhere — designed to contain steam. The door has a tight seal strip.',
-
-  'custom': 'a custom multi-panel frameless glass shower enclosure with a unique bespoke configuration tailored to an irregular bathroom space. Multiple glass panels joined with glass-to-glass clips at various angles.',
-};
-
-const GLASS_DESCRIPTIONS: Record<string, string> = {
-  'clear glass': 'crystal clear tempered glass with no coating, tint, or texture — fully transparent, showing the tile work behind it with maximum light transmission',
-  'frosted glass': 'acid-etched frosted tempered glass with a uniform satin/matte finish across the entire surface, translucent but not transparent, diffusing light softly for privacy',
-  'rain glass': 'rain-textured tempered glass with a vertical water-droplet pattern embossed into one side of the glass, providing artistic privacy while letting distorted light through',
-};
-
-const HANDLE_DESCRIPTIONS: Record<string, string> = {
-  'pull handle': 'a vertical tubular pull handle (6-8 inches long) mounted through-hole in the glass door',
-  'pull handles': 'a vertical tubular pull handle (6-8 inches long) mounted through-hole in the glass door',
-  'u-handle': 'a U-shaped handle mounted on the glass door surface with two attachment points',
-  'u-handles': 'a U-shaped handle mounted on the glass door surface with two attachment points',
-  'ladder pull': 'a ladder-style door pull with horizontal rungs between two vertical bars, mounted on the glass',
-  'ladder pulls': 'a ladder-style door pull with horizontal rungs between two vertical bars, mounted on the glass',
-  'knob': 'a small round glass door knob mounted through-hole in the glass',
-  'knobs': 'a small round glass door knob mounted through-hole in the glass',
-};
+function findEnclosureImage(choice: string): string {
+  const lower = choice.toLowerCase();
+  const list = images.showers.enclosures;
+  // Keyword → label match
+  const keywordMap: Array<[string, string]> = [
+    ['splash', 'Splash Panel'],
+    ['walk', 'Splash Panel'],
+    ['neo', 'Neo-Angle'],
+    ['slider', 'Frameless Slider'],
+    ['slide', 'Frameless Slider'],
+    ['curved', 'Curved'],
+    ['arch', 'Arched'],
+    ['steam', 'Steam Shower'],
+    ['custom', 'Custom'],
+    ['door + panel', 'Door + Panel'],
+    ['door+panel', 'Door + Panel'],
+    ['panel', 'Door + Panel'],
+    ['single', 'Single Door'],
+    ['door', 'Single Door'],
+  ];
+  for (const [kw, label] of keywordMap) {
+    if (lower.includes(kw)) {
+      const found = list.find((e) => e.label === label);
+      if (found) return found.src;
+    }
+  }
+  return list[0].src; // fallback: single door
+}
 
 /* ------------------------------------------------------------------ */
-/*  Prompt builder                                                     */
+/*  Fetch local image as base64 inlineData                             */
+/* ------------------------------------------------------------------ */
+
+async function imageToInlineData(src: string): Promise<{ mimeType: string; data: string } | null> {
+  try {
+    const res = await fetch(src);
+    if (!res.ok) {
+      console.warn('[ImageGen] Could not fetch reference image:', src, res.status);
+      return null;
+    }
+    const blob = await res.blob();
+    const mimeType = blob.type || 'image/webp';
+    const buf = await blob.arrayBuffer();
+    // base64 encode
+    let binary = '';
+    const bytes = new Uint8Array(buf);
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    const data = btoa(binary);
+    return { mimeType, data };
+  } catch (err) {
+    console.warn('[ImageGen] imageToInlineData failed:', err);
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Concise prompt — relies on the reference image for layout         */
 /* ------------------------------------------------------------------ */
 
 function buildPrompt(choices: Record<string, string>): string {
-  const enclosureRaw = (choices.enclosure || 'single door').toLowerCase();
-  const glassRaw = (choices.glass || 'clear glass').toLowerCase();
-  const hardwareRaw = (choices.hardware || 'chrome').toLowerCase();
-  const handleRaw = (choices.handle || 'pull handle').toLowerCase();
-  const extras = choices.extras && choices.extras.toLowerCase() !== 'none' ? choices.extras : '';
+  const glass = (choices.glass || 'clear glass').trim();
+  const hardware = (choices.hardware || 'polished chrome').trim();
+  const handle = (choices.handle || '').trim();
+  const extras = (choices.extras || '').trim();
+  const enclosureLower = (choices.enclosure || '').toLowerCase();
+  const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
 
-  // Find best match from description maps
-  const enclosureDesc = Object.entries(ENCLOSURE_DESCRIPTIONS).find(([k]) => enclosureRaw.includes(k))?.[1]
-    || ENCLOSURE_DESCRIPTIONS['single door'];
-  const glassDesc = Object.entries(GLASS_DESCRIPTIONS).find(([k]) => enclosureRaw.includes(k) || glassRaw.includes(k))?.[1]
-    || GLASS_DESCRIPTIONS['clear glass'];
-  const handleDesc = Object.entries(HANDLE_DESCRIPTIONS).find(([k]) => handleRaw.includes(k))?.[1]
-    || 'a pull handle mounted on the glass door';
+  const parts: string[] = [];
+  parts.push(
+    'Recreate the EXACT shower enclosure shape, layout, and panel configuration shown in the reference image, but as a photorealistic interior photograph of that shower installed in a luxury modern bathroom.',
+  );
+  parts.push(`Glass type: ${glass}.`);
+  parts.push(`All hardware (hinges, clips, brackets) finished in ${hardware}.`);
 
-  let prompt = `Generate a photorealistic interior design photograph of a luxury bathroom shower, shot at eye level with a wide-angle lens.
-
-SHOWER ENCLOSURE: ${enclosureDesc}
-
-GLASS TYPE: The glass panels are ${glassDesc}.
-
-HARDWARE FINISH: All metal hardware (hinges, clips, handles, support bars) is in a ${hardwareRaw} finish.
-
-HANDLE: The door features ${handleDesc} in ${hardwareRaw} finish.`;
-
-  if (extras) {
-    prompt += `\n\nUPGRADES: The shower also includes ${extras}.`;
+  if (isWalkIn) {
+    parts.push('This is an open walk-in layout — there is NO door and NO handle. Do not add a handle to the glass.');
+  } else if (handle && handle.toLowerCase() !== 'none') {
+    parts.push(`Door handle: ${handle}, in ${hardware} finish.`);
   }
 
-  prompt += `
+  if (extras && extras.toLowerCase() !== 'none') {
+    parts.push(`Additional features: ${extras}.`);
+  }
 
-CRITICAL DETAILS:
-- FRAMELESS means there are NO metal frames or channels around the edges of the glass. The glass edges are exposed and polished. Only small discrete hardware pieces (hinges, clips) attach the glass to walls.
-- The bathroom has contemporary large-format wall tiles, a modern tile floor, recessed LED lighting, and a rain showerhead.
-- Professional architectural photography style, warm natural lighting, high-end real estate quality.
-- Show the full shower enclosure from a 3/4 angle so the door configuration and glass type are clearly visible.`;
+  parts.push(
+    'Frameless construction (no metal frames around glass edges). Contemporary large-format tile, recessed lighting, rain showerhead. Architectural photography, eye-level 3/4 angle, warm natural lighting.',
+  );
 
-  return prompt;
+  return parts.join(' ');
 }
 
 /* ------------------------------------------------------------------ */
@@ -105,9 +122,18 @@ export async function generateShowerImage(
   }
 
   const prompt = buildPrompt(choices);
+  const refSrc = findEnclosureImage(choices.enclosure || '');
+  console.log('[ImageGen] Reference image:', refSrc);
+  console.log('[ImageGen] Prompt:', prompt);
 
-  console.log('[ImageGen] Generating with model:', IMAGE_MODEL);
-  console.log('[ImageGen] Prompt:', prompt.substring(0, 200) + '...');
+  const refData = await imageToInlineData(refSrc);
+
+  const promptParts: any[] = [{ text: prompt }];
+  if (refData) {
+    promptParts.push({ inlineData: refData });
+  } else {
+    console.warn('[ImageGen] Proceeding without reference image');
+  }
 
   try {
     const response = await fetch(
@@ -116,9 +142,7 @@ export async function generateShowerImage(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }],
-          }],
+          contents: [{ parts: promptParts }],
           generationConfig: {
             responseModalities: ['TEXT', 'IMAGE'],
             aspectRatio: '1:1',
@@ -134,23 +158,21 @@ export async function generateShowerImage(
     }
 
     const data = await response.json();
-    console.log('[ImageGen] Response received, checking for image data...');
-
     const parts = data?.candidates?.[0]?.content?.parts;
     if (!parts) {
-      console.warn('[ImageGen] No parts in response:', JSON.stringify(data).substring(0, 300));
+      console.warn('[ImageGen] No parts in response');
       return null;
     }
 
     for (const part of parts) {
       if (part.inlineData?.mimeType?.startsWith('image/')) {
         const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        console.log('[ImageGen] Generated image successfully (' + part.inlineData.mimeType + ')');
+        console.log('[ImageGen] Generated image successfully');
         return dataUrl;
       }
     }
 
-    console.warn('[ImageGen] No image in response parts:', parts.map((p: any) => Object.keys(p)));
+    console.warn('[ImageGen] No image in response parts');
     return null;
   } catch (err) {
     console.warn('[ImageGen] Error:', err);
