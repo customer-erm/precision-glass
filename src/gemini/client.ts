@@ -73,15 +73,15 @@ export class GeminiLiveClient {
           },
           outputAudioTranscription: {},
           inputAudioTranscription: {},
-          // Aggressive end-of-speech detection so quick replies like "sure"
-          // or "ok" trigger the agent within ~250-300ms instead of waiting
-          // for the default ~800ms silence window.
+          // Faster end-of-speech detection so quick replies like "sure"
+          // trigger the agent in ~450-500ms instead of the default ~800ms,
+          // but not so aggressive that the server cuts the agent off.
           realtimeInputConfig: {
             automaticActivityDetection: {
               startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
               endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-              prefixPaddingMs: 80,
-              silenceDurationMs: 280,
+              prefixPaddingMs: 150,
+              silenceDurationMs: 450,
             },
           },
         } as any,
@@ -173,14 +173,21 @@ export class GeminiLiveClient {
       this.onStateChange?.('speaking');
       setState({ agentState: 'speaking' });
 
+      let audioBytes = 0;
       for (const part of content.modelTurn.parts) {
         if (part.inlineData?.data) {
+          audioBytes += part.inlineData.data.length;
           this.audioPlayer.enqueue(part.inlineData.data);
           this.lastAudioOutAt = Date.now();
         }
         if (part.text) {
-          console.log('[Gemini] Text:', part.text.substring(0, 100));
+          console.log('[Gemini] Text part:', part.text.substring(0, 200));
         }
+      }
+      if (audioBytes === 0) {
+        console.warn('[Gemini] modelTurn arrived with NO audio bytes. Parts:', content.modelTurn.parts);
+      } else {
+        console.log('[Gemini] Enqueued audio bytes:', audioBytes);
       }
     }
 
