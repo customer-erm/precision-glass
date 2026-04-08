@@ -17,6 +17,8 @@ export class GeminiLiveClient {
   private hasSpokenOnce = false;
   private listeningTimer: ReturnType<typeof setTimeout> | null = null;
   private toolCallInFlight = false;
+  private isAgentSpeaking = false;
+  private lastAudioOutAt = 0;
 
   private cancelListeningTimer(): void {
     if (this.listeningTimer) {
@@ -156,12 +158,14 @@ export class GeminiLiveClient {
         this.hasSpokenOnce = true;
       }
       this.cancelListeningTimer();
+      this.isAgentSpeaking = true;
       this.onStateChange?.('speaking');
       setState({ agentState: 'speaking' });
 
       for (const part of content.modelTurn.parts) {
         if (part.inlineData?.data) {
           this.audioPlayer.enqueue(part.inlineData.data);
+          this.lastAudioOutAt = Date.now();
         }
         if (part.text) {
           console.log('[Gemini] Text:', part.text.substring(0, 100));
@@ -172,14 +176,22 @@ export class GeminiLiveClient {
     // Handle turn completion
     if (content.turnComplete) {
       console.log('[Gemini] Turn complete');
+      this.isAgentSpeaking = false;
       if (this.hasSpokenOnce && !this.toolCallInFlight) {
         this.scheduleListening();
       }
     }
 
-    // Handle interruption
+    // Handle interruption — but ignore if it fires while we're still
+    // streaming our own audio out (almost certainly speaker bleed/echo
+    // bouncing back into the mic, not the user actually interrupting).
     if (content.interrupted) {
-      console.log('[Gemini] Interrupted');
+      const sinceAudio = Date.now() - this.lastAudioOutAt;
+      if (this.isAgentSpeaking || sinceAudio < 1500) {
+        console.log('[Gemini] Interrupted IGNORED (likely echo) sinceAudio=', sinceAudio);
+        return;
+      }
+      console.log('[Gemini] Interrupted (real)');
       this.audioPlayer.clearQueue();
       if (this.hasSpokenOnce) {
         this.scheduleListening();
@@ -201,14 +213,19 @@ export class GeminiLiveClient {
     try {
       console.log('[Gemini] Requesting mic access...');
       await this.audioCapture.start((base64) => {
-        if (this.session) {
-          this.session.sendRealtimeInput({
-            audio: {
-              data: base64,
-              mimeType: 'audio/pcm;rate=16000',
-            },
-          });
-        }
+        if (!this.session) return;
+        // Suppress mic upload while the agent is speaking, during tool
+        // execution, and for 600ms after the last audio chunk leaves the
+        // speakers — this prevents the agent's own voice (echoing back
+        // through the mic) from being interpreted as a user interruption.
+        if (this.isAgentSpeaking || this.toolCallInFlight) return;
+        if (Date.now() - this.lastAudioOutAt < 600) return;
+        this.session.sendRealtimeInput({
+          audio: {
+            data: base64,
+            mimeType: 'audio/pcm;rate=16000',
+          },
+        });
       });
       console.log('[Gemini] Mic started');
     } catch (err) {
