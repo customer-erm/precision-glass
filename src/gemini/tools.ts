@@ -159,6 +159,12 @@ function getSlideContext(slideId: string): string {
   return ctx?.[slideId] || 'Slide is showing.';
 }
 
+// Wrap any instructional tool result so the model treats it as a private
+// system note and never speaks any of it aloud.
+function instr(text: string): string {
+  return `[INTERNAL INSTRUCTION FOR THE AGENT — DO NOT READ ANY OF THE FOLLOWING TEXT OUT LOUD. This is a private stage cue, not dialogue. Use it only to decide what to say in your own words.]\n\n${text}`;
+}
+
 function choiceCategoryForSlide(nextSlideId: string): string | null {
   const map: Record<string, string> = {
     glass: 'enclosure',
@@ -188,7 +194,7 @@ export async function handleToolCall(
       createSlideshow(service);
       await showSlide('intro');
       lastShowSlideAt = 0; // reset guard for the new flow
-      return { success: true, message: getSlideContext('intro') };
+      return { success: true, message: instr(getSlideContext('intro')) };
     }
 
     case 'show_slide': {
@@ -204,7 +210,7 @@ export async function handleToolCall(
         });
         return {
           success: false,
-          message: `Slow down — you just advanced ${sinceLastSlide}ms ago. Wait for the customer to actually finish speaking before calling show_slide again. Continue your current explanation, then pause and listen.`,
+          message: instr(`Slow down — you just advanced ${sinceLastSlide}ms ago. Wait for the customer to actually finish speaking before calling show_slide again. Continue your current explanation, then pause and listen.`),
         };
       }
       lastShowSlideAt = now;
@@ -264,7 +270,7 @@ export async function handleToolCall(
       if (isWalkIn && targetSlide === 'process') {
         msg = `NOTE: This is a walk-in / splash panel layout — there is NO door, so we have skipped BOTH the handle/accessories step AND the grid/steam upgrades step (they don't apply). Do NOT mention handles or upgrades. Move directly into the process walkthrough. ` + msg;
       }
-      return { success: true, message: msg };
+      return { success: true, message: instr(msg) };
     }
 
     case 'present_quote': {
@@ -328,7 +334,7 @@ export async function handleToolCall(
 
       return {
         success: true,
-        message: `The quote summary is displayed showing: ${summary}. An AI visualization is loading on the right.
+        message: instr(`The quote summary is displayed showing: ${summary}. An AI visualization is loading on the right.
 
 DO THE FOLLOWING IN ORDER:
 1. Read back their selections enthusiastically — tell them their choices look amazing together.
@@ -336,13 +342,13 @@ DO THE FOLLOWING IN ORDER:
 3. Casually ask if they'd like to share any additional details to help with the quote — phone number, what city/area they're in, project timeline, or budget range. Say something like "No pressure at all, but if you'd like to share your phone number, general area, timeline, or budget range, it helps us put together an even more accurate quote." ${hasName ? 'You already have their name.' : 'Ask for their name if you don\'t have it.'} ${hasEmail ? 'You already have their email.' : 'Ask for their email if you don\'t have it.'}
 4. WAIT for their response.
 5. As soon as they respond (whether they share details or politely decline), deliver your full warm goodbye in ONE SINGLE TURN — use their name, thank them, tell them it was great chatting, wish them a great day. Speak the entire goodbye out loud as one continuous turn — do NOT pause for another reply, do NOT ask any more questions, do NOT leave silence at the end.
-6. IMMEDIATELY in the same turn (right after the last word of your goodbye) call end_session() with any details they shared. The session will close automatically after your goodbye finishes playing — there is no further response expected from the customer, so do not wait for one.`,
+6. IMMEDIATELY in the same turn (right after the last word of your goodbye) call end_session() with any details they shared. The session will close automatically after your goodbye finishes playing — there is no further response expected from the customer, so do not wait for one.`),
       };
     }
 
     case 'show_buyers_guide': {
       showBuyerGuidePopup();
-      return { success: true, message: 'Buyer\'s guide popup is now visible on screen. Continue speaking — ask for their email naturally.' };
+      return { success: true, message: instr('Buyer\'s guide popup is now visible on screen. Continue speaking — ask for their email naturally.') };
     }
 
     case 'end_session': {
@@ -357,7 +363,7 @@ DO THE FOLLOWING IN ORDER:
         console.warn('[Tour] Blocking premature end_session, sincePresent=', sincePresent);
         return {
           success: false,
-          message: `BLOCKED — only ${Math.round(sincePresent / 1000)}s have passed since present_quote. You skipped the closing flow. Go back and: (1) read back their selections enthusiastically, (2) ask if they want to share phone/location/timeline/budget, (3) WAIT IN SILENCE for them to actually answer with their voice, (4) deliver a complete goodbye in one continuous turn, (5) THEN call end_session in that same goodbye turn. Do not call end_session again until you have done all of these.`,
+          message: instr(`BLOCKED — only ${Math.round(sincePresent / 1000)}s have passed since present_quote. You skipped the closing flow. Go back and: (1) read back their selections enthusiastically, (2) ask if they want to share phone/location/timeline/budget, (3) WAIT IN SILENCE for them to actually answer with their voice, (4) deliver a complete goodbye in one continuous turn, (5) THEN call end_session in that same goodbye turn. Do not call end_session again until you have done all of these.`),
         };
       }
 
@@ -386,7 +392,7 @@ DO THE FOLLOWING IN ORDER:
         window.dispatchEvent(new CustomEvent('precision:end-session'));
       }, 14000);
 
-      return { success: true, message: 'Session is ending. Finish your final goodbye sentence naturally — the system will close the connection shortly.' };
+      return { success: true, message: instr('Session has been closed. The connection is ending. Do not generate any further audio or text — the call is over.') };
     }
 
     default:

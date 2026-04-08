@@ -101,6 +101,11 @@ function buildPrompt(choices: Record<string, string>): string {
   const extras = (choices.extras || '').trim();
   const enclosureLower = (choices.enclosure || '').toLowerCase();
   const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
+  const isSlider = enclosureLower.includes('slider') || enclosureLower.includes('slide') || enclosureLower.includes('bypass');
+  const isCurved = enclosureLower.includes('curved');
+  const isArched = enclosureLower.includes('arched');
+  const isNeo = enclosureLower.includes('neo');
+  const isSteam = enclosureLower.includes('steam');
 
   const parts: string[] = [];
   parts.push(
@@ -108,6 +113,22 @@ function buildPrompt(choices: Record<string, string>): string {
   );
   parts.push(`Glass type: ${glass}.`);
   parts.push(`All hardware (hinges, clips, brackets) finished in ${hardware}.`);
+
+  if (isSlider) {
+    parts.push('CRITICAL — ENCLOSURE TYPE: This is a FRAMELESS SLIDING shower door (bypass slider). It has TWO large rectangular glass panels: one fixed and one that slides horizontally. The sliding panel hangs from a continuous top-mounted metal RAIL/TRACK that spans the full width of the opening, suspended by two clearly visible ROLLER WHEELS / trolley assemblies that ride along the rail. Small floor guides keep the bottom of the sliding panel in place. The door SLIDES — it does NOT swing. There are absolutely NO hinges, NO pivots, NO swinging door panels anywhere in this enclosure. Show the top rail and the roller hardware clearly in the image.');
+  }
+  if (isCurved) {
+    parts.push('CRITICAL — ENCLOSURE TYPE: This is a CURVED frameless shower with a single radius-bent glass panel forming a smooth arc. No straight glass panels in the curved section.');
+  }
+  if (isArched) {
+    parts.push('CRITICAL — ENCLOSURE TYPE: The top edge of the glass door has a decorative ARCHED / curved cutout shape. The sides remain straight.');
+  }
+  if (isNeo) {
+    parts.push('CRITICAL — ENCLOSURE TYPE: This is a NEO-ANGLE shower in a corner — three glass panels (two angled side panels + a center door) forming a diamond/pentagonal footprint.');
+  }
+  if (isSteam) {
+    parts.push('CRITICAL — ENCLOSURE TYPE: This is a STEAM SHOWER — fully sealed, glass panels run floor to ceiling with a transom panel above the door.');
+  }
 
   if (isWalkIn) {
     parts.push('This is an open walk-in layout — there is NO door and NO handle. Do not add a handle to the glass.');
@@ -142,8 +163,14 @@ function buildPrompt(choices: Record<string, string>): string {
 
   // Negative constraints: don't add hardware that wasn't explicitly listed.
   const negatives: string[] = [];
-  negatives.push('NO horizontal support bars or stabilizer bars across the top of the enclosure');
-  negatives.push('NO header bars or top channels connecting the panels');
+  if (!isSlider) {
+    negatives.push('NO horizontal support bars or stabilizer bars across the top of the enclosure');
+    negatives.push('NO header bars or top channels connecting the panels');
+  }
+  if (isSlider) {
+    negatives.push('NO hinges anywhere — this is a slider, not a hinged door');
+    negatives.push('NO pivots, NO swing arms');
+  }
   if (!accessories || !/towel/i.test(accessories)) negatives.push('NO towel bars');
   if (!accessories || !/robe|hook/i.test(accessories)) negatives.push('NO robe hooks');
   if (!accessories || !/support/i.test(accessories)) negatives.push('NO support bars of any kind');
