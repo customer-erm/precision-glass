@@ -1082,9 +1082,9 @@ img { max-width: 100%; display: block; }
 .ss-quote-img-wrap {
   position: relative;
   width: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: 16px;
   overflow: hidden;
-  min-height: 320px;
   background: rgba(255,255,255,0.03);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow-lg);
@@ -1215,7 +1215,7 @@ img { max-width: 100%; display: block; }
   .ss-process-strip { grid-template-columns: repeat(3, 1fr); }
   .ss-quote-layout { grid-template-columns: 1fr; }
   .ss-quote-card { padding: 32px 28px; }
-  .ss-quote-img-wrap { min-height: 200px; }
+  .ss-quote-img-wrap { aspect-ratio: 1 / 1; }
 }
 @media (max-width: 600px) {
   .tour-slide { padding: 60px 16px 80px; }
