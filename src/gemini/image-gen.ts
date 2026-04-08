@@ -140,6 +140,15 @@ function buildPrompt(choices: Record<string, string>): string {
     'Frameless construction (no metal frames around glass edges). Contemporary large-format tile, recessed lighting, rain showerhead. Architectural photography, eye-level 3/4 angle, warm natural lighting.',
   );
 
+  // Negative constraints: don't add hardware that wasn't explicitly listed.
+  const negatives: string[] = [];
+  negatives.push('NO horizontal support bars or stabilizer bars across the top of the enclosure');
+  negatives.push('NO header bars or top channels connecting the panels');
+  if (!accessories || !/towel/i.test(accessories)) negatives.push('NO towel bars');
+  if (!accessories || !/robe|hook/i.test(accessories)) negatives.push('NO robe hooks');
+  if (!accessories || !/support/i.test(accessories)) negatives.push('NO support bars of any kind');
+  parts.push(`STRICT NEGATIVE CONSTRAINTS — do NOT include any of the following in the image: ${negatives.join('; ')}. Only show hardware that was explicitly listed above.`);
+
   return parts.join(' ');
 }
 

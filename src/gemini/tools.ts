@@ -10,6 +10,7 @@ import type { ServiceType } from '../utils/state';
 
 const quoteChoices: Record<string, string> = {};
 let pendingImageUrl: string | null = null;
+let presentQuoteAt = 0;
 
 // Track timing of show_slide calls to detect / block auto-advance hallucinations.
 // We only enforce a minimum interval between calls — relying on transcription
@@ -255,6 +256,7 @@ export async function handleToolCall(
       }
 
       await showSlide('quote');
+      presentQuoteAt = Date.now();
       setTimeout(() => populateQuoteSummary(quoteChoices), 500);
 
       // Use cached image from process slide, or generate now as fallback
@@ -306,6 +308,19 @@ DO THE FOLLOWING IN ORDER:
     case 'end_session': {
       console.log('[Session End] Extra details:', args);
 
+      // Block end_session if it fires too soon after present_quote — that
+      // means the agent skipped the closing flow (read-back, ask for
+      // optional details, wait, full goodbye) and tried to close the
+      // session immediately.
+      const sincePresent = Date.now() - presentQuoteAt;
+      if (presentQuoteAt > 0 && sincePresent < 12000) {
+        console.warn('[Tour] Blocking premature end_session, sincePresent=', sincePresent);
+        return {
+          success: false,
+          message: `BLOCKED — only ${Math.round(sincePresent / 1000)}s have passed since present_quote. You skipped the closing flow. Go back and: (1) read back their selections enthusiastically, (2) ask if they want to share phone/location/timeline/budget, (3) WAIT IN SILENCE for them to actually answer with their voice, (4) deliver a complete goodbye in one continuous turn, (5) THEN call end_session in that same goodbye turn. Do not call end_session again until you have done all of these.`,
+        };
+      }
+
       // Save any extra details provided
       if (args.customer_name) quoteChoices['name'] = args.customer_name;
       if (args.email) quoteChoices['email'] = args.email;
@@ -319,14 +334,9 @@ DO THE FOLLOWING IN ORDER:
       // Re-populate so any newly provided contact details show on the quote screen
       populateQuoteSummary(quoteChoices);
 
-      // Trigger the "Quote Sent!" success animation
-      setTimeout(() => showQuoteSent(), 400);
-
-      // Show restart button
-      setTimeout(() => {
-        const restartBtn = document.getElementById('quote-restart-btn');
-        if (restartBtn) restartBtn.classList.add('visible');
-      }, 2500);
+      // Trigger the "Quote Sent!" success animation immediately so the
+      // user sees it even if the agent gets disconnected mid-goodbye.
+      showQuoteSent();
 
       // Stop the mic immediately so we stop sending audio to the API,
       // but leave the WebSocket open long enough for the agent's full
