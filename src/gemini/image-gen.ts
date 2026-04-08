@@ -25,6 +25,9 @@ function findEnclosureImage(choice: string): string {
   const keywordMap: Array<[string, string]> = [
     ['splash', 'Splash Panel'],
     ['walk', 'Splash Panel'],
+    ['90', '90° Corner'],
+    ['ninety', '90° Corner'],
+    ['corner', '90° Corner'],
     ['neo', 'Neo-Angle'],
     ['slider', 'Frameless Slider'],
     ['slide', 'Frameless Slider'],

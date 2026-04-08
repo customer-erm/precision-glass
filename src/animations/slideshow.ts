@@ -8,7 +8,7 @@ import { images } from '../data/image-map';
 let slideshowEl: HTMLElement | null = null;
 let currentSlide: HTMLElement | null = null;
 let galleryInterval: ReturnType<typeof setInterval> | null = null;
-let carouselInterval: ReturnType<typeof setInterval> | null = null;
+let carouselInterval: ReturnType<typeof setInterval> | null = null; // legacy, retained for safety
 
 const SLIDE_ORDER = ['intro', 'gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'];
 const TOTAL_SLIDES = SLIDE_ORDER.length;
@@ -58,6 +58,8 @@ export function showSlide(slideId: string): Promise<void> {
     // Clean up intervals when leaving slides
     if (galleryInterval && slideId !== 'gallery') { clearInterval(galleryInterval); galleryInterval = null; }
     if (carouselInterval && slideId !== 'enclosures') { clearInterval(carouselInterval); carouselInterval = null; }
+    // Hide buyer's guide popup when leaving the gallery slide
+    if (slideId !== 'gallery') hideBuyerGuidePopup();
 
     const delay = currentSlide ? 400 : 0;
     setTimeout(() => {
@@ -67,8 +69,10 @@ export function showSlide(slideId: string): Promise<void> {
       const els = target.querySelectorAll('.slide-el');
       els.forEach((el, i) => setTimeout(() => (el as HTMLElement).classList.add('revealed'), 120 + i * 140));
 
-      if (slideId === 'gallery') startGalleryFade();
-      if (slideId === 'enclosures') startCarouselScroll();
+      if (slideId === 'gallery') {
+        startGalleryFade();
+        showBuyerGuidePopup();
+      }
 
       const idx = SLIDE_ORDER.indexOf(slideId);
       const bar = document.getElementById('ss-progress-bar');
@@ -129,29 +133,26 @@ function startGalleryFade(): void {
   }, 4000);
 }
 
-function startCarouselScroll(): void {
-  const track = document.getElementById('enc-carousel-track');
-  if (!track) return;
-  let scrollPos = 0;
-  const speed = 0.5;
-  const step = () => {
-    scrollPos += speed;
-    if (scrollPos >= track.scrollWidth / 2) scrollPos = 0;
-    track.style.transform = `translateX(-${scrollPos}px)`;
-    carouselInterval = requestAnimationFrame(step) as unknown as ReturnType<typeof setInterval>;
-  };
-  carouselInterval = requestAnimationFrame(step) as unknown as ReturnType<typeof setInterval>;
-
-  // Pause on hover
-  const wrapper = track.parentElement;
-  if (wrapper) {
-    wrapper.addEventListener('mouseenter', () => {
-      if (carouselInterval) cancelAnimationFrame(carouselInterval as unknown as number);
-    });
-    wrapper.addEventListener('mouseleave', () => {
-      carouselInterval = requestAnimationFrame(step) as unknown as ReturnType<typeof setInterval>;
-    });
+function showBuyerGuidePopup(): void {
+  let popup = document.getElementById('buyer-guide-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'buyer-guide-popup';
+    popup.className = 'buyer-guide-popup';
+    popup.innerHTML = `
+      <img src="/images/buyersguide.png" alt="Free Frameless Shower Buyer's Guide" />
+      <div class="bg-popup-caption">Free Buyer's Guide</div>
+    `;
+    document.body.appendChild(popup);
   }
+  // Force reflow then add visible class for animation
+  void popup.offsetWidth;
+  popup.classList.add('visible');
+}
+
+function hideBuyerGuidePopup(): void {
+  const popup = document.getElementById('buyer-guide-popup');
+  if (popup) popup.classList.remove('visible');
 }
 
 /* ---- Slide Builders ---- */
@@ -173,7 +174,7 @@ function buildGallerySlide(): HTMLElement {
   const content = h('div', { className: 'slide-content' });
   content.appendChild(makeHeader('PORTFOLIO', 'Our Recent Work'));
   const container = h('div', { className: 'ss-gallery-fade slide-el' });
-  images.showers.gallery.slice(0, 4).forEach((src, i) => {
+  images.showers.gallery.forEach((src, i) => {
     container.appendChild(h('img', { src, alt: `Installation ${i + 1}` }));
   });
   content.appendChild(container);
@@ -184,23 +185,20 @@ function buildGallerySlide(): HTMLElement {
 function buildEnclosuresSlide(): HTMLElement {
   const slide = makeSlide('enclosures');
   const content = h('div', { className: 'slide-content' });
-  content.appendChild(makeHeader('ENCLOSURE TYPES', 'Choose Your Configuration', 'All 9 styles shown \u2014 scroll or let them glide'));
+  const count = images.showers.enclosures.length;
+  content.appendChild(makeHeader('ENCLOSURE TYPES', 'Choose Your Configuration', `All ${count} styles \u2014 every layout we build`));
 
-  // Auto-scrolling carousel with contain-mode images
-  const wrapper = h('div', { className: 'ss-carousel-wrapper slide-el' });
-  const track = h('div', { className: 'ss-carousel-track', id: 'enc-carousel-track' });
-
-  // Duplicate items for seamless loop
-  const allItems = [...images.showers.enclosures, ...images.showers.enclosures];
-  allItems.forEach((item) => {
-    const card = h('div', { className: 'ss-carousel-card' });
+  const grid = h('div', { className: 'ss-enc-grid slide-el' });
+  images.showers.enclosures.forEach((item) => {
+    const card = h('div', { className: 'ss-enc-card' });
     card.appendChild(h('img', { src: item.src, alt: item.label }));
-    card.appendChild(h('h4', { textContent: item.label }));
-    card.appendChild(h('p', { textContent: item.desc }));
-    track.appendChild(card);
+    const info = h('div', { className: 'ss-card-info' });
+    info.appendChild(h('h4', { textContent: item.label }));
+    info.appendChild(h('p', { textContent: item.desc }));
+    card.appendChild(info);
+    grid.appendChild(card);
   });
-  wrapper.appendChild(track);
-  content.appendChild(wrapper);
+  content.appendChild(grid);
   slide.appendChild(content);
   return slide;
 }

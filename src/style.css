@@ -818,52 +818,96 @@ img { max-width: 100%; display: block; }
 .ss-gallery-fade img:nth-child(4) { animation-delay: -15s; animation-direction: alternate-reverse; }
 .ss-gallery-fade img.gf-active { opacity: 1; }
 
-/* ---- Enclosures: auto-scrolling carousel ---- */
-.ss-carousel-wrapper {
+/* ---- Enclosures: 2-row grid (no carousel) ---- */
+.ss-enc-grid {
   width: 100%;
-  overflow: hidden;
-  border-radius: 14px;
-  padding: 10px 0;
-}
-.ss-carousel-track {
-  display: flex;
+  max-width: 1400px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: 1fr;
   gap: 16px;
-  will-change: transform;
 }
-.ss-carousel-card {
-  flex: 0 0 220px;
+.ss-enc-card {
   border-radius: 14px;
   overflow: hidden;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   text-align: center;
-  transition: border-color 0.3s, box-shadow 0.3s;
-  padding-bottom: 14px;
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+  display: flex;
+  flex-direction: column;
 }
-.ss-carousel-card:hover {
+.ss-enc-card:hover {
   border-color: var(--glass-border-light);
   box-shadow: var(--glass-shadow);
+  transform: translateY(-2px);
 }
-.ss-carousel-card img {
+.ss-enc-card img {
   width: 100%;
-  height: 200px;
+  height: 22vh;
+  max-height: 180px;
   object-fit: contain;
-  padding: 12px;
+  padding: 10px;
   background: rgba(255,255,255,0.02);
 }
-.ss-carousel-card h4 {
+.ss-enc-card .ss-card-info {
+  padding: 10px 12px 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.ss-enc-card h4 {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--white);
-  margin: 8px 12px 2px;
+  margin: 0 0 4px;
 }
-.ss-carousel-card p {
-  font-size: 0.72rem;
+.ss-enc-card p {
+  font-size: 0.7rem;
   color: var(--white-50);
   font-weight: 300;
-  padding: 0 12px;
   line-height: 1.4;
+  margin: 0;
+}
+
+/* ---- Buyer's guide popup (gallery slide) ---- */
+.buyer-guide-popup {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 200px;
+  background: rgba(12, 25, 48, 0.95);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-light);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  box-shadow: var(--glass-shadow-lg);
+  opacity: 0;
+  transform: translateY(20px) scale(0.9);
+  transition: opacity 0.5s ease, transform 0.5s var(--ease-out-expo);
+  pointer-events: none;
+  z-index: 9000;
+}
+.buyer-guide-popup.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.buyer-guide-popup img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+}
+.buyer-guide-popup .bg-popup-caption {
+  margin-top: 10px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--white);
+  text-align: center;
+  letter-spacing: 0.02em;
 }
 
 /* ---- Shared card info ---- */
@@ -1203,10 +1247,14 @@ img { max-width: 100%; display: block; }
 }
 
 /* ---- Slideshow responsive ---- */
+@media (max-width: 1200px) {
+  .ss-enc-grid { grid-template-columns: repeat(4, 1fr); }
+  .ss-enc-card img { height: 18vh; }
+}
 @media (max-width: 900px) {
   .tour-slide { padding: 70px 24px 90px; }
-  .ss-carousel-card { flex: 0 0 180px; }
-  .ss-carousel-card img { height: 150px; }
+  .ss-enc-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .ss-enc-card img { height: 16vh; }
   .ss-glass-grid { grid-template-columns: 1fr; }
   .ss-glass-card img { height: 24vh; }
   .ss-hw-grid { grid-template-columns: repeat(3, 1fr); }
@@ -1216,15 +1264,18 @@ img { max-width: 100%; display: block; }
   .ss-quote-layout { grid-template-columns: 1fr; }
   .ss-quote-card { padding: 32px 28px; }
   .ss-quote-img-wrap { aspect-ratio: 1 / 1; }
+  .buyer-guide-popup { width: 150px; bottom: 24px; right: 24px; }
 }
 @media (max-width: 600px) {
   .tour-slide { padding: 60px 16px 80px; }
   .ss-gallery-fade { max-height: 40vh; }
-  .ss-carousel-card { flex: 0 0 160px; }
-  .ss-carousel-card img { height: 120px; }
+  .ss-enc-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .ss-enc-card img { height: 14vh; }
   .ss-hw-grid { grid-template-columns: repeat(2, 1fr); }
   .ss-acc-grid { grid-template-columns: 1fr; }
   .ss-process-strip { grid-template-columns: repeat(2, 1fr); }
   .ss-quote-card { padding: 24px 20px; }
   .agent-tip { font-size: 0.72rem; }
+  .buyer-guide-popup { width: 120px; bottom: 90px; right: 16px; padding: 10px; }
+  .buyer-guide-popup .bg-popup-caption { font-size: 0.68rem; }
 }

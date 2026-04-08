@@ -19,6 +19,7 @@ export const images = {
       { id: 'enc-arched', src: '/images/shower-details/enclosures/arched-shower.webp', label: 'Arched', desc: 'Distinctive arched top for a statement look' },
       { id: 'enc-splash', src: '/images/shower-details/enclosures/splash-panel.webp', label: 'Splash Panel', desc: 'Simple fixed panel for open shower designs' },
       { id: 'enc-steam', src: '/images/shower-details/enclosures/steamshower.webp', label: 'Steam Shower', desc: 'Fully sealed enclosure for steam functionality' },
+      { id: 'enc-90', src: '/images/shower-details/enclosures/90-degree.webp', label: '90° Corner', desc: 'Two glass panels meeting at a right angle for corner showers' },
       { id: 'enc-custom', src: '/images/shower-details/enclosures/custom-work.webp', label: 'Custom', desc: 'Bespoke designs for unique spaces' },
     ],
     glass: [
