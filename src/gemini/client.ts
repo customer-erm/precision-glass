@@ -97,7 +97,7 @@ export class GeminiLiveClient {
 
       // Send greeting IMMEDIATELY to keep connection alive
       console.log('[Gemini] Sending initial greeting prompt...');
-      this.session.sendRealtimeInput({ text: '[SYSTEM: A new visitor has just opened the Precision Glass website. Begin Step 1 of the conversation flow now: greet them warmly, introduce yourself as Alex, ask for their name, then stop talking and wait silently for them to reply.]' });
+      this.session.sendRealtimeInput({ text: '[STAGE CUE — NOT FROM THE USER]: The webpage has loaded. The customer has NOT spoken yet. You have NOT heard their voice. They have NOT chosen a service. They have NOT given a name. Your only task right now is: deliver your Step 1 greeting (one short turn — introduce yourself as Alex and ask their name), then STOP TALKING and wait in complete silence for the customer to reply with their actual voice. Do NOT call any tools. Do NOT mention showers or any service. Do NOT pretend the user said anything. Just greet and wait.]' });
 
       // Start mic in parallel (non-blocking)
       console.log('[Gemini] Starting mic...');
