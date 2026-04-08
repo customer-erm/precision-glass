@@ -73,7 +73,18 @@ export class GeminiLiveClient {
           },
           outputAudioTranscription: {},
           inputAudioTranscription: {},
-        },
+          // Aggressive end-of-speech detection so quick replies like "sure"
+          // or "ok" trigger the agent within ~250-300ms instead of waiting
+          // for the default ~800ms silence window.
+          realtimeInputConfig: {
+            automaticActivityDetection: {
+              startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+              endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+              prefixPaddingMs: 80,
+              silenceDurationMs: 280,
+            },
+          },
+        } as any,
         callbacks: {
           onopen: () => {
             console.log('[Gemini] WebSocket open');

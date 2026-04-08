@@ -5,7 +5,7 @@ import { playLandingAnimation } from './animations/landing';
 import { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
 import type { AgentState } from './utils/state';
-import { getCurrentSlideId, showBuyerGuidePopup, hideBuyerGuidePopup } from './animations/slideshow';
+// (slideshow popup is now driven by an explicit agent tool call)
 
 // --- Build DOM ---
 const app = document.getElementById('app')!;
@@ -86,13 +86,6 @@ gemini.setCallbacks({
   },
   onStateChange: (state) => {
     updateMicState(state);
-    // Buyer's guide popup: only show when Alex is done talking on the gallery slide
-    if (getCurrentSlideId() === 'gallery' && state === 'listening') {
-      showBuyerGuidePopup();
-    } else if (state === 'speaking' || state === 'connecting') {
-      // hide while Alex is mid-sentence so it doesn't compete visually
-      if (getCurrentSlideId() !== 'gallery') hideBuyerGuidePopup();
-    }
   },
 });
 

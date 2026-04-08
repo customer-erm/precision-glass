@@ -11,6 +11,19 @@
 
 import { images } from '../data/image-map';
 
+/* Map a handle choice → the accessory reference image we ship in /public */
+function findHandleImage(choice: string): string | null {
+  const lower = (choice || '').toLowerCase();
+  if (!lower || lower === 'none' || lower === 'n/a') return null;
+  const list = images.showers.accessories;
+  const find = (id: string) => list.find((a) => a.id === id)?.src || null;
+  if (lower.includes('ladder')) return find('acc-ladder');
+  if (lower.includes('u-handle') || lower.includes('u handle') || lower.includes('uhandle')) return find('acc-uhandle');
+  if (lower.includes('knob')) return find('acc-knob');
+  if (lower.includes('pull')) return find('acc-pull');
+  return null;
+}
+
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const IMAGE_MODEL = 'gemini-3-pro-image-preview';
 
@@ -141,18 +154,29 @@ export async function generateShowerImage(
   console.log('[ImageGen] === START === choices:', choices);
   const prompt = buildPrompt(choices);
   const refSrc = findEnclosureImage(choices.enclosure || '');
-  console.log('[ImageGen] Reference image src:', refSrc);
+  const handleSrc = findHandleImage(choices.handle || '');
+  console.log('[ImageGen] Enclosure ref:', refSrc);
+  console.log('[ImageGen] Handle ref:', handleSrc);
   console.log('[ImageGen] Prompt:', prompt);
 
-  const refData = await imageToInlineData(refSrc);
-  if (refData) {
-    console.log('[ImageGen] Reference image loaded:', refData.mimeType, 'base64 length:', refData.data.length);
-  } else {
-    console.warn('[ImageGen] Proceeding WITHOUT reference image');
-  }
+  const [refData, handleData] = await Promise.all([
+    imageToInlineData(refSrc),
+    handleSrc ? imageToInlineData(handleSrc) : Promise.resolve(null),
+  ]);
+  if (refData) console.log('[ImageGen] Enclosure ref loaded:', refData.mimeType, refData.data.length);
+  if (handleData) console.log('[ImageGen] Handle ref loaded:', handleData.mimeType, handleData.data.length);
 
-  const promptParts: any[] = [{ text: prompt }];
-  if (refData) promptParts.push({ inlineData: refData });
+  const promptParts: any[] = [
+    { text: prompt },
+  ];
+  if (refData) {
+    promptParts.push({ text: 'REFERENCE IMAGE 1 (enclosure layout — copy this exact shape and panel configuration):' });
+    promptParts.push({ inlineData: refData });
+  }
+  if (handleData) {
+    promptParts.push({ text: 'REFERENCE IMAGE 2 (door handle style — the door must use a handle that looks exactly like this):' });
+    promptParts.push({ inlineData: handleData });
+  }
 
   try {
     console.log('[ImageGen] POST → ', IMAGE_MODEL);

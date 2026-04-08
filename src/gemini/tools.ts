@@ -1,5 +1,5 @@
 import { playTransformAnimation } from '../animations/transform';
-import { createSlideshow, showSlide, endSlideshow, showQuoteSent } from '../animations/slideshow';
+import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup } from '../animations/slideshow';
 import { setState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
 import type { ServiceType } from '../utils/state';
@@ -81,6 +81,15 @@ export const TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'show_buyers_guide',
+    description: 'Display the small Buyer\'s Guide popup on screen. Call this in the SAME turn that you offer the free buyer\'s guide to the customer (right before or as you ask for their email), so the popup appears alongside your offer.',
+    parameters: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: 'end_session',
     description: 'Cleanly end the voice session after saying goodbye. Call this ONLY after your final goodbye message.',
     parameters: {
@@ -105,7 +114,7 @@ export const TOOL_DECLARATIONS = [
 const SLIDE_CONTEXT: Record<string, string> = {
   intro: `A dramatic frameless shower fills the screen. Give an exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass. They add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
 
-  gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN, in a separate sentence, offer the buyer's guide: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" STOP TALKING and wait silently for their reply. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
+  gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN, RIGHT BEFORE you offer the buyer's guide, call the show_buyers_guide tool so the visual popup appears at the same moment you mention it. Then in a separate sentence offer it: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" STOP TALKING and wait silently for their reply. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures"). IMPORTANT: do NOT call show_buyers_guide until you have already finished selling the work — it should appear together with the email request, not at the start of the slide.`,
 
   enclosures: `A grid shows all enclosure types. Touch on the key options: Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle for corner showers), Frameless Slider (no swing room needed), Curved (spa feel), Arched (statement piece), Splash Panel (open walk-in, just a fixed panel), Steam Shower (sealed floor-to-ceiling), and Custom for unique spaces. Mention the most popular are Single Door and Door + Panel. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
@@ -283,6 +292,11 @@ DO THE FOLLOWING IN ORDER:
 5. As soon as they respond (whether they share details or politely decline), deliver your full warm goodbye in ONE SINGLE TURN — use their name, thank them, tell them it was great chatting, wish them a great day. Speak the entire goodbye out loud as one continuous turn — do NOT pause for another reply, do NOT ask any more questions, do NOT leave silence at the end.
 6. IMMEDIATELY in the same turn (right after the last word of your goodbye) call end_session() with any details they shared. The session will close automatically after your goodbye finishes playing — there is no further response expected from the customer, so do not wait for one.`,
       };
+    }
+
+    case 'show_buyers_guide': {
+      showBuyerGuidePopup();
+      return { success: true, message: 'Buyer\'s guide popup is now visible on screen. Continue speaking — ask for their email naturally.' };
     }
 
     case 'end_session': {
