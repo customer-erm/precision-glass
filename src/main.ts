@@ -130,7 +130,8 @@ endBtn?.addEventListener('click', () => {
 // Listen for session kill from tools (e.g. after quote is presented)
 window.addEventListener('precision:end-session', () => {
   console.log('[Main] Ending session via custom event');
-  gemini.disconnect();
+  // Keep buffered goodbye audio playing locally; cut mic + WebSocket immediately.
+  gemini.disconnect({ keepAudioQueue: true });
   hideAgentBar();
   stopTipRotation();
 });

@@ -249,10 +249,9 @@ DO THE FOLLOWING IN ORDER:
         if (restartBtn) restartBtn.classList.add('visible');
       }, 1500);
 
-      // Kill the voice agent after a longer delay to let the full goodbye audio flush
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('precision:end-session'));
-      }, 9000);
+      // Immediately cut off mic + API session. Local audio queue keeps playing
+      // the goodbye that's already buffered, but no further API usage occurs.
+      window.dispatchEvent(new CustomEvent('precision:end-session'));
 
       return { success: true, message: 'Session ending. Goodbye audio is playing.' };
     }

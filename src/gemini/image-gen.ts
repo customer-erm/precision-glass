@@ -121,21 +121,26 @@ export async function generateShowerImage(
     return null;
   }
 
+  const t0 = performance.now();
+  console.log('[ImageGen] === START === choices:', choices);
   const prompt = buildPrompt(choices);
   const refSrc = findEnclosureImage(choices.enclosure || '');
-  console.log('[ImageGen] Reference image:', refSrc);
+  console.log('[ImageGen] Reference image src:', refSrc);
   console.log('[ImageGen] Prompt:', prompt);
 
   const refData = await imageToInlineData(refSrc);
-
-  const promptParts: any[] = [{ text: prompt }];
   if (refData) {
-    promptParts.push({ inlineData: refData });
+    console.log('[ImageGen] Reference image loaded:', refData.mimeType, 'base64 length:', refData.data.length);
   } else {
-    console.warn('[ImageGen] Proceeding without reference image');
+    console.warn('[ImageGen] Proceeding WITHOUT reference image');
   }
 
+  const promptParts: any[] = [{ text: prompt }];
+  if (refData) promptParts.push({ inlineData: refData });
+
   try {
+    console.log('[ImageGen] POST → ', IMAGE_MODEL);
+    const tFetch = performance.now();
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${API_KEY}`,
       {
@@ -145,37 +150,48 @@ export async function generateShowerImage(
           contents: [{ parts: promptParts }],
           generationConfig: {
             responseModalities: ['TEXT', 'IMAGE'],
-            aspectRatio: '1:1',
+            imageConfig: {
+              aspectRatio: '1:1',
+            },
           },
         }),
       },
     );
 
+    console.log('[ImageGen] HTTP', response.status, `(${Math.round(performance.now() - tFetch)}ms)`);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.warn('[ImageGen] API error:', response.status, errorText.substring(0, 300));
+      console.error('[ImageGen] API error body:', errorText.substring(0, 800));
       return null;
     }
 
     const data = await response.json();
+    console.log('[ImageGen] Response keys:', Object.keys(data || {}));
+    if (data?.promptFeedback) console.log('[ImageGen] promptFeedback:', JSON.stringify(data.promptFeedback));
+    if (data?.candidates?.[0]?.finishReason) console.log('[ImageGen] finishReason:', data.candidates[0].finishReason);
+    if (data?.candidates?.[0]?.safetyRatings) console.log('[ImageGen] safetyRatings:', JSON.stringify(data.candidates[0].safetyRatings));
+
     const parts = data?.candidates?.[0]?.content?.parts;
     if (!parts) {
-      console.warn('[ImageGen] No parts in response');
+      console.warn('[ImageGen] No parts in response. Full data:', JSON.stringify(data).substring(0, 800));
       return null;
     }
+    console.log('[ImageGen] Parts received:', parts.length, 'shapes:', parts.map((p: any) => Object.keys(p)));
 
     for (const part of parts) {
+      if (part.text) console.log('[ImageGen] text part:', part.text.substring(0, 200));
       if (part.inlineData?.mimeType?.startsWith('image/')) {
         const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        console.log('[ImageGen] Generated image successfully');
+        console.log('[ImageGen] ✅ SUCCESS', part.inlineData.mimeType, 'base64 len:', part.inlineData.data.length, `total ${Math.round(performance.now() - t0)}ms`);
         return dataUrl;
       }
     }
 
-    console.warn('[ImageGen] No image in response parts');
+    console.warn('[ImageGen] ❌ No image part in response');
     return null;
   } catch (err) {
-    console.warn('[ImageGen] Error:', err);
+    console.error('[ImageGen] Exception:', err);
     return null;
   }
 }

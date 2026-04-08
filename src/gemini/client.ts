@@ -216,10 +216,13 @@ export class GeminiLiveClient {
     }
   }
 
-  disconnect(): void {
-    console.log('[Gemini] Disconnecting...');
+  disconnect(opts: { keepAudioQueue?: boolean } = {}): void {
+    console.log('[Gemini] Disconnecting...', opts);
+    this.cancelListeningTimer();
     this.audioCapture.stop();
-    this.audioPlayer.clearQueue();
+    if (!opts.keepAudioQueue) {
+      this.audioPlayer.clearQueue();
+    }
     if (this.session) {
       try {
         this.session.close();
