@@ -59,6 +59,10 @@ export const TOOL_DECLARATIONS = [
           type: 'string' as const,
           description: 'Customer name once they have told it to you',
         },
+        accessories: {
+          type: 'string' as const,
+          description: 'Optional add-on accessories the customer chose alongside their handle (e.g. "robe hook, towel bar"). Comma-separated. Use only when advancing past the accessories slide.',
+        },
       },
       required: ['slide_id'],
     },
@@ -73,6 +77,7 @@ export const TOOL_DECLARATIONS = [
         glass: { type: 'string' as const },
         hardware: { type: 'string' as const },
         handle: { type: 'string' as const },
+        accessories: { type: 'string' as const, description: 'Add-on accessories like robe hook, towel bar, support bar — comma-separated' },
         extras: { type: 'string' as const },
         customer_name: { type: 'string' as const, description: 'Customer name if known' },
         email: { type: 'string' as const, description: 'Customer email if known' },
@@ -114,7 +119,7 @@ export const TOOL_DECLARATIONS = [
 const SLIDE_CONTEXT: Record<string, string> = {
   intro: `A dramatic frameless shower fills the screen. Give an exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass. They add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
 
-  gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN, RIGHT BEFORE you offer the buyer's guide, call the show_buyers_guide tool so the visual popup appears at the same moment you mention it. Then in a separate sentence offer it: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" STOP TALKING and wait silently for their reply. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures"). IMPORTANT: do NOT call show_buyers_guide until you have already finished selling the work — it should appear together with the email request, not at the start of the slide.`,
+  gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN ask for the email in a single clear sentence: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" The VERY LAST action of this turn (after you finish saying that sentence) must be to call the show_buyers_guide tool, so the popup appears at the exact moment you stop talking and start waiting for their email. Then STOP completely and wait silently. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
 
   enclosures: `A grid shows all enclosure types. Touch on the key options: Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle for corner showers), Frameless Slider (no swing room needed), Curved (spa feel), Arched (statement piece), Splash Panel (open walk-in, just a fixed panel), Steam Shower (sealed floor-to-ceiling), and Custom for unique spaces. Mention the most popular are Single Door and Door + Panel. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
@@ -122,7 +127,7 @@ const SLIDE_CONTEXT: Record<string, string> = {
 
   hardware: `Five hardware finishes displayed. FIRST, take 2-3 sentences to explain what "hardware" means on a frameless shower — it's all the metal that holds the glass: the hinges that let the door swing, the wall clips that anchor fixed panels, any handles or pulls, and (if applicable) towel bars or support bars. All of these pieces come in a matching finish that ties the shower into the rest of the bathroom's fixtures (faucets, lights, mirrors). THEN describe the five finishes: Polished Chrome (timeless, most popular, matches almost anything), Brushed Nickel (warm satin tone, hides water spots), Matte Black (bold modern contrast), Polished Brass (classic luxury warmth), Satin Brass (soft golden, very on-trend right now). Ask which finish complements their bathroom. STOP and wait. Call show_slide("accessories") with their choice.`,
 
-  accessories: `Handle and accessory options shown. Describe: Pull Handles (sleek tubular, most popular), U-Handles (classic U-shape), Ladder Pulls (ladder-style, design statement), Knobs (minimalist), Towel Bars, Robe Hooks, Support Bars. Mention hinges are always included standard. Ask what handle style they prefer. WAIT. Call show_slide("extras") with their choice.`,
+  accessories: `Handle and accessory options shown. Describe the HANDLE choices first: Pull Handles (sleek vertical tubular bar, most popular), U-Handles (classic U-shape bracket), Ladder Pulls (ladder-style bar with horizontal rungs, design statement), Knobs (minimalist round). Then mention the OPTIONAL ADD-ONS the customer can pair with any handle: Towel Bars, Robe Hooks, Support Bars. Mention hinges are always included standard. Ask which handle style they prefer AND whether they want any of the add-ons (towel bar, robe hook, support bar) — they can pick zero, one, or several. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
 
   extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. Ask if they're interested in either upgrade or want to move on. WAIT. Call show_slide("process") with their choice (use "none" if they decline).`,
 
@@ -189,6 +194,10 @@ export async function handleToolCall(
       if (args.customer_name) {
         quoteChoices['name'] = args.customer_name;
       }
+      if (args.accessories) {
+        quoteChoices['accessories'] = args.accessories;
+        console.log('[Quote] Saved accessories:', args.accessories);
+      }
       // Save choice from current slide
       if (args.choice) {
         const category = choiceCategoryForSlide(args.slide_id);
@@ -239,6 +248,7 @@ export async function handleToolCall(
       if (args.glass) quoteChoices['glass'] = args.glass;
       if (args.hardware) quoteChoices['hardware'] = args.hardware;
       if (args.handle) quoteChoices['handle'] = args.handle;
+      if (args.accessories) quoteChoices['accessories'] = args.accessories;
       if (args.extras) quoteChoices['extras'] = args.extras;
       if (args.customer_name) quoteChoices['name'] = args.customer_name;
       if (args.email) quoteChoices['email'] = args.email;
@@ -345,7 +355,7 @@ DO THE FOLLOWING IN ORDER:
 /* ------------------------------------------------------------------ */
 
 function populateQuoteSummary(choices: Record<string, string>): void {
-  const fields = ['enclosure', 'glass', 'hardware', 'handle', 'extras', 'name', 'email', 'phone', 'location', 'timeline', 'budget'];
+  const fields = ['enclosure', 'glass', 'hardware', 'handle', 'accessories', 'extras', 'name', 'email', 'phone', 'location', 'timeline', 'budget'];
   for (const field of fields) {
     const el = document.getElementById(`qs-${field}`);
     if (el && choices[field]) {

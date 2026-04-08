@@ -97,6 +97,7 @@ function buildPrompt(choices: Record<string, string>): string {
   const glass = (choices.glass || 'clear glass').trim();
   const hardware = (choices.hardware || 'polished chrome').trim();
   const handle = (choices.handle || '').trim();
+  const accessories = (choices.accessories || '').trim();
   const extras = (choices.extras || '').trim();
   const enclosureLower = (choices.enclosure || '').toLowerCase();
   const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
@@ -114,17 +115,21 @@ function buildPrompt(choices: Record<string, string>): string {
     const handleLower = handle.toLowerCase();
     let handleDetail = '';
     if (handleLower.includes('ladder')) {
-      handleDetail = 'a LADDER PULL handle — a tall vertical bar with multiple horizontal rungs between two vertical rails (looks like a small ladder mounted on the door). This must be clearly visible and unmistakably ladder-shaped.';
-    } else if (handleLower.includes('u-handle') || handleLower.includes('u handle')) {
-      handleDetail = 'a U-SHAPED handle — a U-bracket pull mounted on the glass with two attachment points and a horizontal grip bar between them.';
+      handleDetail = 'a LADDER PULL handle — a tall vertical bar with multiple horizontal rungs between two vertical rails (looks like a small ladder mounted vertically on the door). NOT a single bar. NOT a towel bar. It must have visible horizontal rungs.';
+    } else if (handleLower.includes('u-handle') || handleLower.includes('u handle') || handleLower.includes('uhandle')) {
+      handleDetail = 'a U-SHAPED handle — a U-bracket pull mounted on the glass surface with two short stand-off attachment points and a single horizontal grip bar between them. NOT a vertical bar. NOT a towel bar. The shape is a clear U.';
     } else if (handleLower.includes('knob')) {
-      handleDetail = 'a small ROUND KNOB — a discreet circular doorknob mounted through-hole in the glass.';
+      handleDetail = 'a small ROUND KNOB — a single discreet circular doorknob mounted through-hole in the glass. NO bar, NO pull, just a small round knob.';
     } else if (handleLower.includes('pull')) {
-      handleDetail = 'a single VERTICAL TUBULAR PULL HANDLE about 8 inches long, mounted through-hole in the glass.';
+      handleDetail = 'a single SHORT VERTICAL TUBULAR PULL HANDLE roughly 8 inches long, mounted through-hole on the door. It is a SHORT pull, NOT a long towel bar, NOT a horizontal bar. Mounted vertically on the glass door.';
     } else {
       handleDetail = `a ${handle} door handle`;
     }
-    parts.push(`CRITICAL — DOOR HANDLE: ${handleDetail} The handle finish is ${hardware}. The handle must match the description exactly — do not substitute a different style.`);
+    parts.push(`CRITICAL — DOOR HANDLE (this MUST match the second reference image exactly): ${handleDetail} The handle finish is ${hardware}. Do not substitute a different style. The handle is mounted ONLY on the door panel — no other glass panels have handles.`);
+  }
+
+  if (accessories) {
+    parts.push(`Additional fitted accessories on the shower (must be visible in the photo, in ${hardware} finish): ${accessories}. Place them in plausible locations — towel bars on a fixed glass panel, robe hooks on the wall side, support bars horizontally inside the enclosure.`);
   }
 
   if (extras && extras.toLowerCase() !== 'none') {

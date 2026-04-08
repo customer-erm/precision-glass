@@ -349,6 +349,7 @@ function buildQuoteSummarySlide(): HTMLElement {
     { key: 'glass', label: 'Glass' },
     { key: 'hardware', label: 'Hardware' },
     { key: 'handle', label: 'Handle' },
+    { key: 'accessories', label: 'Add-Ons' },
     { key: 'extras', label: 'Upgrades' },
   ].forEach((f) => {
     const row = h('div', { className: 'ss-quote-row' });
@@ -387,23 +388,38 @@ function buildQuoteSummarySlide(): HTMLElement {
   imgWrap.appendChild(spinner);
   layout.appendChild(imgWrap);
 
-  // "Quote sent" success overlay with built-in Start Over button
+  // "Quote sent" success overlay — first shows a celebratory check + message,
+  // then morphs into an action panel with Start Over + Download buttons.
   const sentOverlay = h('div', { className: 'ss-quote-sent', id: 'qs-sent-overlay' });
   sentOverlay.innerHTML = `
-    <div class="ss-quote-sent-card">
-      <svg class="ss-quote-sent-check" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="11" class="ss-check-circle"/>
-        <path d="M7 12.5l3.5 3.5L17 9" class="ss-check-mark"/>
-      </svg>
-      <h3>Quote Sent!</h3>
-      <p>Our specialists will reach out within 24 hours for next steps.</p>
-      <button class="ss-restart-btn" id="quote-restart-btn" onclick="window.location.reload()">
-        <span>Start Over</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-      </button>
+    <div class="ss-quote-sent-card" id="qs-sent-card">
+      <div class="ss-quote-sent-stage ss-quote-sent-stage-celebrate" id="qs-sent-stage-celebrate">
+        <svg class="ss-quote-sent-check" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="11" class="ss-check-circle"/>
+          <path d="M7 12.5l3.5 3.5L17 9" class="ss-check-mark"/>
+        </svg>
+        <h3>Quote Sent!</h3>
+        <p>Our specialists will reach out within 24 hours for next steps.</p>
+      </div>
+      <div class="ss-quote-sent-stage ss-quote-sent-stage-actions" id="qs-sent-stage-actions">
+        <h3>What's next?</h3>
+        <p>Save your visualization or build another configuration.</p>
+        <div class="ss-sent-actions">
+          <button class="ss-action-btn ss-action-secondary" id="qs-download-btn" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Download Visualization</span>
+          </button>
+          <button class="ss-action-btn ss-action-primary" id="quote-restart-btn" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            <span>Start Over</span>
+          </button>
+        </div>
+      </div>
     </div>
   `;
   slide.appendChild(sentOverlay);
+
+  // Wire button handlers (assigned after the slide is in the DOM via showQuoteSent)
 
   content.appendChild(layout);
   slide.appendChild(content);
@@ -412,8 +428,34 @@ function buildQuoteSummarySlide(): HTMLElement {
 
 export function showQuoteSent(): void {
   const overlay = document.getElementById('qs-sent-overlay');
-  if (overlay) {
-    void overlay.offsetWidth;
-    overlay.classList.add('visible');
+  if (!overlay) return;
+  void overlay.offsetWidth;
+  overlay.classList.add('visible');
+  // After the celebration animation has had time to land, fade the
+  // celebrate stage out and reveal the action buttons.
+  setTimeout(() => {
+    overlay.classList.add('show-actions');
+  }, 3200);
+
+  // Wire up Start Over + Download buttons (idempotent: cloning replaces listeners)
+  const restartBtn = document.getElementById('quote-restart-btn');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => window.location.reload(), { once: true });
+  }
+  const downloadBtn = document.getElementById('qs-download-btn');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+      if (!img || !img.src || !img.classList.contains('loaded')) {
+        console.warn('[Download] Visualization not ready yet');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = img.src;
+      a.download = 'precision-glass-shower-visualization.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
   }
 }
