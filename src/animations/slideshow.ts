@@ -387,18 +387,7 @@ function buildQuoteSummarySlide(): HTMLElement {
   imgWrap.appendChild(spinner);
   layout.appendChild(imgWrap);
 
-  // Thank you message + restart button
-  const footer = h('div', { className: 'ss-quote-footer', id: 'quote-restart-btn' });
-  footer.innerHTML = `
-    <p class="ss-quote-thankyou">Thank you for building your custom configuration! Our team will reach out within 24 hours with detailed pricing.</p>
-    <button class="ss-restart-btn" onclick="window.location.reload()">
-      <span>Start Over</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-    </button>
-  `;
-  layout.appendChild(footer);
-
-  // "Quote sent" success overlay (hidden until end_session fires)
+  // "Quote sent" success overlay with built-in Start Over button
   const sentOverlay = h('div', { className: 'ss-quote-sent', id: 'qs-sent-overlay' });
   sentOverlay.innerHTML = `
     <div class="ss-quote-sent-card">
@@ -408,6 +397,10 @@ function buildQuoteSummarySlide(): HTMLElement {
       </svg>
       <h3>Quote Sent!</h3>
       <p>Our specialists will reach out within 24 hours for next steps.</p>
+      <button class="ss-restart-btn" id="quote-restart-btn" onclick="window.location.reload()">
+        <span>Start Over</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
     </div>
   `;
   slide.appendChild(sentOverlay);

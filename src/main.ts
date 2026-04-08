@@ -138,9 +138,13 @@ endBtn?.addEventListener('click', () => {
 // Listen for session kill from tools (e.g. after quote is presented)
 // Soft end: stop sending mic audio (no more API usage from us) but keep
 // the WebSocket open so the agent can finish streaming its goodbye sentence.
+// Also hide the agent bar immediately so the user does not see "listening"
+// after the goodbye — Alex's buffered voice keeps playing in the background.
 window.addEventListener('precision:end-session-soft', () => {
-  console.log('[Main] Soft-ending: muting mic, leaving WebSocket open');
+  console.log('[Main] Soft-ending: muting mic, hiding agent bar, audio keeps playing');
   gemini.muteMic();
+  hideAgentBar();
+  stopTipRotation();
 });
 
 window.addEventListener('precision:end-session', () => {

@@ -280,8 +280,8 @@ DO THE FOLLOWING IN ORDER:
 2. Let them know you're preparing a detailed quote and a specialist from your team will reach out within 24 hours with pricing.
 3. Casually ask if they'd like to share any additional details to help with the quote — phone number, what city/area they're in, project timeline, or budget range. Say something like "No pressure at all, but if you'd like to share your phone number, general area, timeline, or budget range, it helps us put together an even more accurate quote." ${hasName ? 'You already have their name.' : 'Ask for their name if you don\'t have it.'} ${hasEmail ? 'You already have their email.' : 'Ask for their email if you don\'t have it.'}
 4. WAIT for their response.
-5. After they respond, give a warm genuine goodbye using their name. Thank them, tell them it was great chatting, wish them a great day.
-6. THEN call end_session() with any details they shared (phone, location, timeline, budget).`,
+5. As soon as they respond (whether they share details or politely decline), deliver your full warm goodbye in ONE SINGLE TURN — use their name, thank them, tell them it was great chatting, wish them a great day. Speak the entire goodbye out loud as one continuous turn — do NOT pause for another reply, do NOT ask any more questions, do NOT leave silence at the end.
+6. IMMEDIATELY in the same turn (right after the last word of your goodbye) call end_session() with any details they shared. The session will close automatically after your goodbye finishes playing — there is no further response expected from the customer, so do not wait for one.`,
       };
     }
 
