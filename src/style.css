@@ -1272,7 +1272,6 @@ img { max-width: 100%; display: block; }
 }
 .ss-quote-sent-card {
   text-align: center;
-  padding: 48px 56px;
   background: linear-gradient(140deg, rgba(36, 113, 163, 0.25), rgba(12, 25, 48, 0.85));
   border: 1px solid rgba(120, 180, 240, 0.35);
   border-radius: 22px;
@@ -1280,7 +1279,10 @@ img { max-width: 100%; display: block; }
   transform: translateY(20px) scale(0.92);
   opacity: 0;
   transition: opacity 0.7s 0.15s ease, transform 0.8s 0.15s var(--ease-out-expo);
-  max-width: 460px;
+  width: 480px;
+  max-width: 92vw;
+  height: 360px;
+  position: relative;
 }
 .ss-quote-sent.visible .ss-quote-sent-card {
   opacity: 1;
@@ -1311,7 +1313,6 @@ img { max-width: 100%; display: block; }
   letter-spacing: -0.01em;
 }
 /* Two-stage card content (celebrate → actions) */
-.ss-quote-sent-card { position: relative; min-height: 280px; }
 .ss-quote-sent-stage {
   position: absolute;
   inset: 0;

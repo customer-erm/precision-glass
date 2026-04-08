@@ -129,7 +129,7 @@ function buildPrompt(choices: Record<string, string>): string {
   }
 
   if (accessories) {
-    parts.push(`Additional fitted accessories on the shower (must be visible in the photo, in ${hardware} finish): ${accessories}. Place them in plausible locations — towel bars on a fixed glass panel, robe hooks on the wall side, support bars horizontally inside the enclosure.`);
+    parts.push(`Additional fitted accessories on the shower in ${hardware} finish (must be visible in the photo): ${accessories}. CRITICAL — all of these accessories mount THROUGH THE GLASS ITSELF, never on the bathroom wall: robe hooks are through-glass (small metal hook screwed through the glass panel with a back washer, hanging off the glass surface), towel bars are mounted through the glass on two stand-off posts that pierce the glass panel, support bars are mounted through the glass at both ends. None of these touch the tile wall — they are all glass-mounted.`);
   }
 
   if (extras && extras.toLowerCase() !== 'none') {

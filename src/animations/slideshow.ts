@@ -77,10 +77,12 @@ export function showSlide(slideId: string): Promise<void> {
 
       if (slideId === 'gallery') {
         startGalleryFade();
-        // NOTE: buyer guide popup is now triggered from main.ts when the
-        // agent transitions into "listening" state on the gallery slide,
-        // so it appears only once Alex is done talking and the customer is
-        // about to be asked for their email.
+        // Buyer's guide popup: deterministic 6-second delay after the slide
+        // enters so it lands while Alex is in the middle of selling the
+        // work, just before the email ask.
+        setTimeout(() => {
+          if (currentSlideId === 'gallery') showBuyerGuidePopup();
+        }, 6000);
       }
 
       const idx = SLIDE_ORDER.indexOf(slideId);
