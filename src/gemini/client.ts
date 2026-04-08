@@ -97,7 +97,7 @@ export class GeminiLiveClient {
 
       // Send greeting IMMEDIATELY to keep connection alive
       console.log('[Gemini] Sending initial greeting prompt...');
-      this.session.sendRealtimeInput({ text: 'Hello, I just arrived at the Precision Glass website.' });
+      this.session.sendRealtimeInput({ text: '[SYSTEM: A new visitor has just opened the Precision Glass website. Begin Step 1 of the conversation flow now: greet them warmly, introduce yourself as Alex, ask for their name, then stop talking and wait silently for them to reply.]' });
 
       // Start mic in parallel (non-blocking)
       console.log('[Gemini] Starting mic...');
@@ -214,6 +214,11 @@ export class GeminiLiveClient {
     } catch (err) {
       console.error('[Gemini] Mic error:', err);
     }
+  }
+
+  muteMic(): void {
+    console.log('[Gemini] Muting mic (soft end) — WebSocket remains open');
+    this.audioCapture.stop();
   }
 
   disconnect(opts: { keepAudioQueue?: boolean } = {}): void {

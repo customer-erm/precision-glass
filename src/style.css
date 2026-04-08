@@ -1199,6 +1199,100 @@ img { max-width: 100%; display: block; }
 .ss-quote-value.filled {
   color: var(--white);
 }
+
+/* Contact details section on quote card */
+.ss-quote-contact {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ss-quote-contact-header {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--white-50);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.ss-quote-contact-row {
+  padding-bottom: 8px;
+}
+.ss-quote-contact-row .ss-quote-value {
+  font-size: 0.88rem;
+}
+
+/* "Quote Sent!" success overlay */
+.ss-quote-sent {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 14, 30, 0);
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease, background 0.6s ease, backdrop-filter 0.6s ease;
+  z-index: 50;
+}
+.ss-quote-sent.visible {
+  opacity: 1;
+  background: rgba(6, 14, 30, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+.ss-quote-sent-card {
+  text-align: center;
+  padding: 48px 56px;
+  background: linear-gradient(140deg, rgba(36, 113, 163, 0.25), rgba(12, 25, 48, 0.85));
+  border: 1px solid rgba(120, 180, 240, 0.35);
+  border-radius: 22px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 60px rgba(80, 160, 255, 0.15);
+  transform: translateY(20px) scale(0.92);
+  opacity: 0;
+  transition: opacity 0.7s 0.15s ease, transform 0.8s 0.15s var(--ease-out-expo);
+  max-width: 460px;
+}
+.ss-quote-sent.visible .ss-quote-sent-card {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.ss-quote-sent-check {
+  color: #6ee7b7;
+  margin-bottom: 18px;
+}
+.ss-quote-sent-check .ss-check-circle {
+  stroke-dasharray: 70;
+  stroke-dashoffset: 70;
+  transition: stroke-dashoffset 0.8s 0.4s ease;
+}
+.ss-quote-sent-check .ss-check-mark {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  transition: stroke-dashoffset 0.5s 1.1s ease;
+}
+.ss-quote-sent.visible .ss-quote-sent-check .ss-check-circle { stroke-dashoffset: 0; }
+.ss-quote-sent.visible .ss-quote-sent-check .ss-check-mark { stroke-dashoffset: 0; }
+.ss-quote-sent-card h3 {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--white);
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+.ss-quote-sent-card p {
+  font-size: 1rem;
+  font-weight: 300;
+  color: var(--white-70);
+  line-height: 1.5;
+  margin: 0;
+}
 .ss-quote-footer {
   grid-column: 1 / -1;
   text-align: center;

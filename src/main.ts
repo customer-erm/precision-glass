@@ -5,6 +5,7 @@ import { playLandingAnimation } from './animations/landing';
 import { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
 import type { AgentState } from './utils/state';
+import { getCurrentSlideId, showBuyerGuidePopup, hideBuyerGuidePopup } from './animations/slideshow';
 
 // --- Build DOM ---
 const app = document.getElementById('app')!;
@@ -85,6 +86,13 @@ gemini.setCallbacks({
   },
   onStateChange: (state) => {
     updateMicState(state);
+    // Buyer's guide popup: only show when Alex is done talking on the gallery slide
+    if (getCurrentSlideId() === 'gallery' && state === 'listening') {
+      showBuyerGuidePopup();
+    } else if (state === 'speaking' || state === 'connecting') {
+      // hide while Alex is mid-sentence so it doesn't compete visually
+      if (getCurrentSlideId() !== 'gallery') hideBuyerGuidePopup();
+    }
   },
 });
 
@@ -128,9 +136,16 @@ endBtn?.addEventListener('click', () => {
 });
 
 // Listen for session kill from tools (e.g. after quote is presented)
+// Soft end: stop sending mic audio (no more API usage from us) but keep
+// the WebSocket open so the agent can finish streaming its goodbye sentence.
+window.addEventListener('precision:end-session-soft', () => {
+  console.log('[Main] Soft-ending: muting mic, leaving WebSocket open');
+  gemini.muteMic();
+});
+
 window.addEventListener('precision:end-session', () => {
   console.log('[Main] Ending session via custom event');
-  // Keep buffered goodbye audio playing locally; cut mic + WebSocket immediately.
+  // Keep buffered goodbye audio playing locally; cut mic + WebSocket fully now.
   gemini.disconnect({ keepAudioQueue: true });
   hideAgentBar();
   stopTipRotation();

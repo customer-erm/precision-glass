@@ -7,6 +7,11 @@ import { images } from '../data/image-map';
 
 let slideshowEl: HTMLElement | null = null;
 let currentSlide: HTMLElement | null = null;
+let currentSlideId: string | null = null;
+
+export function getCurrentSlideId(): string | null {
+  return currentSlideId;
+}
 let galleryInterval: ReturnType<typeof setInterval> | null = null;
 let carouselInterval: ReturnType<typeof setInterval> | null = null; // legacy, retained for safety
 
@@ -65,13 +70,17 @@ export function showSlide(slideId: string): Promise<void> {
     setTimeout(() => {
       target.classList.add('active');
       currentSlide = target;
+      currentSlideId = slideId;
 
       const els = target.querySelectorAll('.slide-el');
       els.forEach((el, i) => setTimeout(() => (el as HTMLElement).classList.add('revealed'), 120 + i * 140));
 
       if (slideId === 'gallery') {
         startGalleryFade();
-        showBuyerGuidePopup();
+        // NOTE: buyer guide popup is now triggered from main.ts when the
+        // agent transitions into "listening" state on the gallery slide,
+        // so it appears only once Alex is done talking and the customer is
+        // about to be asked for their email.
       }
 
       const idx = SLIDE_ORDER.indexOf(slideId);
@@ -133,7 +142,7 @@ function startGalleryFade(): void {
   }, 4000);
 }
 
-function showBuyerGuidePopup(): void {
+export function showBuyerGuidePopup(): void {
   let popup = document.getElementById('buyer-guide-popup');
   if (!popup) {
     popup = document.createElement('div');
@@ -150,7 +159,7 @@ function showBuyerGuidePopup(): void {
   popup.classList.add('visible');
 }
 
-function hideBuyerGuidePopup(): void {
+export function hideBuyerGuidePopup(): void {
   const popup = document.getElementById('buyer-guide-popup');
   if (popup) popup.classList.remove('visible');
 }
@@ -348,6 +357,25 @@ function buildQuoteSummarySlide(): HTMLElement {
     selections.appendChild(row);
   });
   card.appendChild(selections);
+
+  // Customer contact details (filled progressively as the agent collects them)
+  const contact = h('div', { className: 'ss-quote-contact', id: 'qs-contact' });
+  const contactHeader = h('div', { className: 'ss-quote-contact-header', textContent: 'Contact' });
+  contact.appendChild(contactHeader);
+  [
+    { key: 'name', label: 'Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'location', label: 'Location' },
+    { key: 'timeline', label: 'Timeline' },
+    { key: 'budget', label: 'Budget' },
+  ].forEach((f) => {
+    const row = h('div', { className: 'ss-quote-row ss-quote-contact-row', id: `qs-contact-${f.key}` });
+    row.appendChild(h('span', { className: 'ss-quote-label', textContent: f.label }));
+    row.appendChild(h('span', { className: 'ss-quote-value', id: `qs-${f.key}`, textContent: '\u2014' }));
+    contact.appendChild(row);
+  });
+  card.appendChild(contact);
   layout.appendChild(card);
 
   // RIGHT — AI-generated image
@@ -370,7 +398,29 @@ function buildQuoteSummarySlide(): HTMLElement {
   `;
   layout.appendChild(footer);
 
+  // "Quote sent" success overlay (hidden until end_session fires)
+  const sentOverlay = h('div', { className: 'ss-quote-sent', id: 'qs-sent-overlay' });
+  sentOverlay.innerHTML = `
+    <div class="ss-quote-sent-card">
+      <svg class="ss-quote-sent-check" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="11" class="ss-check-circle"/>
+        <path d="M7 12.5l3.5 3.5L17 9" class="ss-check-mark"/>
+      </svg>
+      <h3>Quote Sent!</h3>
+      <p>Our specialists will reach out within 24 hours for next steps.</p>
+    </div>
+  `;
+  slide.appendChild(sentOverlay);
+
   content.appendChild(layout);
   slide.appendChild(content);
   return slide;
+}
+
+export function showQuoteSent(): void {
+  const overlay = document.getElementById('qs-sent-overlay');
+  if (overlay) {
+    void overlay.offsetWidth;
+    overlay.classList.add('visible');
+  }
 }

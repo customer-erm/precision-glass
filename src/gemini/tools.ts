@@ -1,5 +1,5 @@
 import { playTransformAnimation } from '../animations/transform';
-import { createSlideshow, showSlide, endSlideshow } from '../animations/slideshow';
+import { createSlideshow, showSlide, endSlideshow, showQuoteSent } from '../animations/slideshow';
 import { setState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
 import type { ServiceType } from '../utils/state';
@@ -44,6 +44,10 @@ export const TOOL_DECLARATIONS = [
           type: 'string' as const,
           description: 'Customer email if they provided it for the buyer\'s guide',
         },
+        customer_name: {
+          type: 'string' as const,
+          description: 'Customer name once they have told it to you',
+        },
       },
       required: ['slide_id'],
     },
@@ -59,6 +63,8 @@ export const TOOL_DECLARATIONS = [
         hardware: { type: 'string' as const },
         handle: { type: 'string' as const },
         extras: { type: 'string' as const },
+        customer_name: { type: 'string' as const, description: 'Customer name if known' },
+        email: { type: 'string' as const, description: 'Customer email if known' },
       },
       required: ['enclosure', 'glass', 'hardware'],
     },
@@ -69,6 +75,8 @@ export const TOOL_DECLARATIONS = [
     parameters: {
       type: 'object' as const,
       properties: {
+        customer_name: { type: 'string' as const, description: 'Customer name if known' },
+        email: { type: 'string' as const, description: 'Customer email if known' },
         phone: { type: 'string' as const, description: 'Customer phone number if provided' },
         location: { type: 'string' as const, description: 'Customer city/area if provided' },
         timeline: { type: 'string' as const, description: 'Project timeline if provided' },
@@ -86,7 +94,7 @@ export const TOOL_DECLARATIONS = [
 const SLIDE_CONTEXT: Record<string, string> = {
   intro: `A dramatic frameless shower fills the screen. Give an exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass. They add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
 
-  gallery: `A slideshow is cycling through recent installations. Briefly describe the variety — modern, spa-like, each custom. Then offer the buyer's guide: "I'd love to send you our free frameless shower buyer's guide. Can I grab your email?" WAIT. If they give an email, call show_slide("enclosures") with the email parameter. If they decline, just call show_slide("enclosures").`,
+  gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN, in a separate sentence, offer the buyer's guide: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" STOP TALKING and wait silently for their reply. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
 
   enclosures: `A grid shows all enclosure types. Touch on the key options: Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle for corner showers), Frameless Slider (no swing room needed), Curved (spa feel), Arched (statement piece), Splash Panel (open walk-in, just a fixed panel), Steam Shower (sealed floor-to-ceiling), and Custom for unique spaces. Mention the most popular are Single Door and Door + Panel. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
@@ -138,6 +146,9 @@ export async function handleToolCall(
         setState({ customerEmail: args.email });
         quoteChoices['email'] = args.email;
       }
+      if (args.customer_name) {
+        quoteChoices['name'] = args.customer_name;
+      }
       // Save choice from current slide
       if (args.choice) {
         const category = choiceCategoryForSlide(args.slide_id);
@@ -147,14 +158,16 @@ export async function handleToolCall(
         }
       }
 
-      // Skip handle (accessories) step for walk-in / splash panel layouts — no door, no handle.
+      // Walk-in / splash panel: no door, so no handle AND no extras (grid/steam don't apply).
+      // Jump straight from hardware → process, marking handle and extras as N/A.
       let targetSlide = args.slide_id;
       const enclosureLower = (quoteChoices['enclosure'] || '').toLowerCase();
       const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
-      if (targetSlide === 'accessories' && isWalkIn) {
-        console.log('[Tour] Walk-in/splash panel detected — skipping handle step');
-        quoteChoices['handle'] = 'none';
-        targetSlide = 'extras';
+      if (isWalkIn && (targetSlide === 'accessories' || targetSlide === 'extras')) {
+        console.log('[Tour] Walk-in/splash panel detected — skipping handle and extras');
+        quoteChoices['handle'] = 'N/A';
+        quoteChoices['extras'] = 'N/A';
+        targetSlide = 'process';
       }
       await showSlide(targetSlide);
       // Reassign so downstream logic uses the resolved slide
@@ -175,8 +188,8 @@ export async function handleToolCall(
       }
 
       let msg = SLIDE_CONTEXT[args.slide_id] || 'Slide is showing.';
-      if (isWalkIn && targetSlide === 'extras') {
-        msg = `NOTE: This is a walk-in / splash panel layout — there is NO door, so we are skipping the handle step entirely. Do NOT mention handles. ` + msg;
+      if (isWalkIn && targetSlide === 'process') {
+        msg = `NOTE: This is a walk-in / splash panel layout — there is NO door, so we have skipped BOTH the handle/accessories step AND the grid/steam upgrades step (they don't apply). Do NOT mention handles or upgrades. Move directly into the process walkthrough. ` + msg;
       }
       return { success: true, message: msg };
     }
@@ -187,6 +200,15 @@ export async function handleToolCall(
       if (args.hardware) quoteChoices['hardware'] = args.hardware;
       if (args.handle) quoteChoices['handle'] = args.handle;
       if (args.extras) quoteChoices['extras'] = args.extras;
+      if (args.customer_name) quoteChoices['name'] = args.customer_name;
+      if (args.email) quoteChoices['email'] = args.email;
+
+      // Walk-in/splash always wins over a stale value the agent may pass.
+      const enclLower = (quoteChoices['enclosure'] || '').toLowerCase();
+      if (enclLower.includes('splash') || enclLower.includes('walk')) {
+        quoteChoices['handle'] = 'N/A';
+        quoteChoices['extras'] = 'N/A';
+      }
 
       await showSlide('quote');
       setTimeout(() => populateQuoteSummary(quoteChoices), 500);
@@ -236,6 +258,8 @@ DO THE FOLLOWING IN ORDER:
       console.log('[Session End] Extra details:', args);
 
       // Save any extra details provided
+      if (args.customer_name) quoteChoices['name'] = args.customer_name;
+      if (args.email) quoteChoices['email'] = args.email;
       if (args.phone) quoteChoices['phone'] = args.phone;
       if (args.location) quoteChoices['location'] = args.location;
       if (args.timeline) quoteChoices['timeline'] = args.timeline;
@@ -243,17 +267,27 @@ DO THE FOLLOWING IN ORDER:
 
       console.log('[Final Quote Data]', quoteChoices);
 
+      // Re-populate so any newly provided contact details show on the quote screen
+      populateQuoteSummary(quoteChoices);
+
+      // Trigger the "Quote Sent!" success animation
+      setTimeout(() => showQuoteSent(), 400);
+
       // Show restart button
       setTimeout(() => {
         const restartBtn = document.getElementById('quote-restart-btn');
         if (restartBtn) restartBtn.classList.add('visible');
-      }, 1500);
+      }, 2500);
 
-      // Immediately cut off mic + API session. Local audio queue keeps playing
-      // the goodbye that's already buffered, but no further API usage occurs.
-      window.dispatchEvent(new CustomEvent('precision:end-session'));
+      // Stop the mic immediately so we stop sending audio to the API,
+      // but leave the WebSocket open long enough for the agent's full
+      // goodbye sentence to finish streaming + playing locally.
+      window.dispatchEvent(new CustomEvent('precision:end-session-soft'));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('precision:end-session'));
+      }, 14000);
 
-      return { success: true, message: 'Session ending. Goodbye audio is playing.' };
+      return { success: true, message: 'Session is ending. Finish your final goodbye sentence naturally — the system will close the connection shortly.' };
     }
 
     default:
@@ -266,7 +300,7 @@ DO THE FOLLOWING IN ORDER:
 /* ------------------------------------------------------------------ */
 
 function populateQuoteSummary(choices: Record<string, string>): void {
-  const fields = ['enclosure', 'glass', 'hardware', 'handle', 'extras'];
+  const fields = ['enclosure', 'glass', 'hardware', 'handle', 'extras', 'name', 'email', 'phone', 'location', 'timeline', 'budget'];
   for (const field of fields) {
     const el = document.getElementById(`qs-${field}`);
     if (el && choices[field]) {
