@@ -214,12 +214,12 @@ export class GeminiLiveClient {
       console.log('[Gemini] Requesting mic access...');
       await this.audioCapture.start((base64) => {
         if (!this.session) return;
-        // Suppress mic upload while the agent is speaking, during tool
-        // execution, and for 600ms after the last audio chunk leaves the
-        // speakers — this prevents the agent's own voice (echoing back
-        // through the mic) from being interpreted as a user interruption.
+        // Only gate while the agent is actively producing a turn or
+        // executing a tool. As soon as turnComplete fires we let the
+        // user's audio through immediately so quick replies like "sure"
+        // or "ok" are not clipped. Browser echo-cancellation handles
+        // residual speaker bleed.
         if (this.isAgentSpeaking || this.toolCallInFlight) return;
-        if (Date.now() - this.lastAudioOutAt < 600) return;
         this.session.sendRealtimeInput({
           audio: {
             data: base64,
