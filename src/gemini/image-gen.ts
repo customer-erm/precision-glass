@@ -97,8 +97,21 @@ function buildPrompt(choices: Record<string, string>): string {
 
   if (isWalkIn) {
     parts.push('This is an open walk-in layout — there is NO door and NO handle. Do not add a handle to the glass.');
-  } else if (handle && handle.toLowerCase() !== 'none') {
-    parts.push(`Door handle: ${handle}, in ${hardware} finish.`);
+  } else if (handle && handle.toLowerCase() !== 'none' && handle.toLowerCase() !== 'n/a') {
+    const handleLower = handle.toLowerCase();
+    let handleDetail = '';
+    if (handleLower.includes('ladder')) {
+      handleDetail = 'a LADDER PULL handle — a tall vertical bar with multiple horizontal rungs between two vertical rails (looks like a small ladder mounted on the door). This must be clearly visible and unmistakably ladder-shaped.';
+    } else if (handleLower.includes('u-handle') || handleLower.includes('u handle')) {
+      handleDetail = 'a U-SHAPED handle — a U-bracket pull mounted on the glass with two attachment points and a horizontal grip bar between them.';
+    } else if (handleLower.includes('knob')) {
+      handleDetail = 'a small ROUND KNOB — a discreet circular doorknob mounted through-hole in the glass.';
+    } else if (handleLower.includes('pull')) {
+      handleDetail = 'a single VERTICAL TUBULAR PULL HANDLE about 8 inches long, mounted through-hole in the glass.';
+    } else {
+      handleDetail = `a ${handle} door handle`;
+    }
+    parts.push(`CRITICAL — DOOR HANDLE: ${handleDetail} The handle finish is ${hardware}. The handle must match the description exactly — do not substitute a different style.`);
   }
 
   if (extras && extras.toLowerCase() !== 'none') {

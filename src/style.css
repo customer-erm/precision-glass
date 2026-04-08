@@ -1079,6 +1079,12 @@ img { max-width: 100%; display: block; }
 }
 
 /* ---- Quote summary: side-by-side editorial layout ---- */
+#slide-quote .slide-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 180px);
+}
 .ss-quote-layout {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
@@ -1086,7 +1092,8 @@ img { max-width: 100%; display: block; }
   max-width: 1080px;
   width: 100%;
   max-height: 82vh;
-  align-items: stretch;
+  align-items: center;
+  margin: auto;
 }
 .ss-quote-card {
   background: rgba(12, 25, 48, 0.95);

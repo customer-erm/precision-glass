@@ -11,6 +11,17 @@ import type { ServiceType } from '../utils/state';
 const quoteChoices: Record<string, string> = {};
 let pendingImageUrl: string | null = null;
 
+// Track timing of show_slide calls to detect / block auto-advance hallucinations.
+// If the agent calls show_slide twice in rapid succession with no real user
+// audio in between, we know it's making things up.
+let lastShowSlideAt = 0;
+let lastUserSpeechAt = 0;
+const MIN_SLIDE_INTERVAL_MS = 2500;
+
+window.addEventListener('precision:user-spoke', () => {
+  lastUserSpeechAt = Date.now();
+});
+
 export const TOOL_DECLARATIONS = [
   {
     name: 'select_service',
@@ -141,6 +152,26 @@ export async function handleToolCall(
     }
 
     case 'show_slide': {
+      // Anti-hallucination guard: refuse the call if it's chained too quickly
+      // after the previous one, or if no user speech has been heard since the
+      // last show_slide. This blocks the model from auto-advancing through
+      // the tour without listening to the customer.
+      const now = Date.now();
+      const sinceLastSlide = now - lastShowSlideAt;
+      const heardUserSinceLastSlide = lastUserSpeechAt > lastShowSlideAt;
+      if (lastShowSlideAt > 0 && (sinceLastSlide < MIN_SLIDE_INTERVAL_MS || !heardUserSinceLastSlide)) {
+        console.warn('[Tour] Blocking auto-advance show_slide:', {
+          slide_id: args.slide_id,
+          sinceLastSlide,
+          heardUserSinceLastSlide,
+        });
+        return {
+          success: false,
+          message: `BLOCKED — you tried to advance to slide "${args.slide_id}" but the customer has NOT actually said anything yet on this slide. You are hallucinating their response. Do NOT call show_slide again. Instead, wait silently for the customer's real voice. Only after you literally hear them speak through the microphone may you advance.`,
+        };
+      }
+      lastShowSlideAt = now;
+
       // Save email if provided
       if (args.email) {
         setState({ customerEmail: args.email });

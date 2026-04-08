@@ -200,8 +200,14 @@ export class GeminiLiveClient {
 
     // Handle transcription
     if (content.inputTranscription?.text) {
-      console.log('[Gemini] User:', content.inputTranscription.text);
-      this.onTranscript?.('user', content.inputTranscription.text);
+      const txt = content.inputTranscription.text.trim();
+      console.log('[Gemini] User:', txt);
+      this.onTranscript?.('user', txt);
+      // Notify the rest of the app that we heard real human audio so the
+      // anti-hallucination guard in tools.ts can clear its lock.
+      if (txt.length > 0) {
+        window.dispatchEvent(new CustomEvent('precision:user-spoke', { detail: { text: txt } }));
+      }
     }
     if (content.outputTranscription?.text) {
       console.log('[Gemini] Agent:', content.outputTranscription.text);
