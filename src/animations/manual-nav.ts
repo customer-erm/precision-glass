@@ -22,6 +22,7 @@ import { generateShowerImage } from '../gemini/image-gen';
 import { saveUser } from '../utils/user-storage';
 import { setState, getState } from '../utils/state';
 import { getGuideEntry } from '../data/buyer-guide';
+import { saveCustomerGeneration } from '../utils/save-generation';
 
 /* ------------------------------------------------------------------ */
 /*  Per-service slide order for manual walk                            */
@@ -560,6 +561,19 @@ async function submitManualQuote(): Promise<void> {
       }
       const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
       if (sp) sp.style.display = 'none';
+      // Persist to the customer-generations gallery (fire and forget)
+      saveCustomerGeneration(url, {
+        service: 'showers',
+        enclosure: browseChoices['enclosure'],
+        glass: browseChoices['glass'],
+        hardware: browseChoices['hardware'],
+        handle: browseChoices['handle'],
+        accessories: browseChoices['accessories'],
+        extras: browseChoices['extras'],
+        customerName: name,
+        customerEmail: email,
+        mode: 'browse',
+      });
     }).catch((err) => console.warn('[Browse] Image gen failed:', err));
   } else {
     // Non-shower services: just hide the spinner (no AI viz for railings/commercial)

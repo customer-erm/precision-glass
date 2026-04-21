@@ -17,6 +17,7 @@
 import { handleToolCall } from './tools';
 import { loadUser, saveUser } from '../utils/user-storage';
 import { generateShowerImage } from './image-gen';
+import { saveCustomerGeneration } from '../utils/save-generation';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
@@ -834,5 +835,18 @@ function unlockAndGenerateViz(choices: Record<string, string>): void {
     }
     const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
     if (sp) sp.style.display = 'none';
+    // Persist to the customer-generations gallery (fire and forget)
+    saveCustomerGeneration(url, {
+      service: (document.querySelector('.tour-slideshow')?.getAttribute('data-service') as any) || 'showers',
+      enclosure: choices.enclosure,
+      glass: choices.glass,
+      hardware: choices.hardware,
+      handle: choices.handle,
+      accessories: choices.accessories,
+      extras: choices.extras,
+      customerName: choices.name,
+      customerEmail: choices.email,
+      mode: 'chat',
+    });
   }).catch((err) => console.warn('[Chat] viz gen failed:', err));
 }

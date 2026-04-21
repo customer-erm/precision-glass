@@ -22,6 +22,7 @@ export function buildAboutSection(): HTMLElement {
   section.appendChild(buildAboutHero());
   section.appendChild(buildStatsStrip());
   section.appendChild(buildWhyUs());
+  section.appendChild(buildWorkshopBand());
   section.appendChild(buildFounderStory());
   section.appendChild(buildTrustBadges());
   section.appendChild(buildTestimonials());
@@ -40,7 +41,7 @@ function buildAboutHero(): HTMLElement {
   const wrap = el('div', { className: 'about-hero' });
   wrap.innerHTML = `
     <div class="about-hero-bg">
-      <img src="${images.showers.gallery[4]}" alt="" loading="lazy">
+      <img src="/images/about/hero-luxury.jpg" alt="" loading="lazy">
     </div>
     <div class="about-hero-inner">
       <div class="about-hero-eyebrow">
@@ -141,6 +142,33 @@ function buildWhyUs(): HTMLElement {
 }
 
 /* ------------------------------------------------------------------ */
+/*  3b. Workshop band — two-image cinematic strip                      */
+/* ------------------------------------------------------------------ */
+
+function buildWorkshopBand(): HTMLElement {
+  const wrap = el('div', { className: 'about-workshop' });
+  wrap.innerHTML = `
+    <div class="about-workshop-inner">
+      <div class="about-workshop-image large">
+        <img src="/images/about/workshop.jpg" alt="Our glass fabrication workshop" loading="lazy">
+        <div class="about-workshop-caption">
+          <strong>Our fabrication floor</strong>
+          <span>Custom cutting, polishing, and tempering — all in-house.</span>
+        </div>
+      </div>
+      <div class="about-workshop-image small">
+        <img src="/images/about/installation.jpg" alt="Installation in progress" loading="lazy">
+        <div class="about-workshop-caption">
+          <strong>Installation day</strong>
+          <span>Our certified crew, on-site in South Florida.</span>
+        </div>
+      </div>
+    </div>
+  `;
+  return wrap;
+}
+
+/* ------------------------------------------------------------------ */
 /*  4. Founder story                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -149,7 +177,7 @@ function buildFounderStory(): HTMLElement {
   wrap.innerHTML = `
     <div class="about-founder-inner">
       <div class="about-founder-image">
-        <img src="${images.showers.gallery[1]}" alt="Founder at work" loading="lazy">
+        <img src="/images/about/founder-portrait.jpg" alt="Miguel Alvarez, Founder" loading="lazy">
         <div class="about-founder-badge">
           <strong>Miguel Alvarez</strong>
           <span>Founder & Master Glazier</span>
@@ -358,13 +386,13 @@ function buildFinalCTA(): HTMLElement {
   const wrap = el('div', { className: 'about-final-cta' });
   wrap.innerHTML = `
     <div class="about-final-cta-inner">
-      <div class="about-final-cta-badge">This week only \u00B7 Free in-home design consult</div>
-      <h3 class="about-final-cta-title">Ready to see what your space could look like?</h3>
+      <div class="about-final-cta-badge">Limited this month \u00B7 Free Diamon-Fusion coating ($395 value)</div>
+      <h3 class="about-final-cta-title">Book this month \u2014 we\u2019ll coat your glass on us.</h3>
       <p class="about-final-cta-lead">
-        In 30 minutes we\u2019ll measure, sketch options, and show you exactly what\u2019s possible \u2014 with an itemized quote you can take home. Zero pressure, zero deposit.
+        Schedule your project before the end of the month and we\u2019ll include a professional <strong>Diamon-Fusion</strong> glass coating at no charge. It\u2019s a $395 value that makes cleanup easier and keeps your glass looking new for years.
       </p>
       <div class="about-final-cta-row">
-        <button type="button" class="about-final-cta-btn" data-about-cta="contact">Book my free consultation</button>
+        <button type="button" class="about-final-cta-btn" data-about-cta="contact">Claim my free coating \u2192</button>
         <a href="tel:+18005551234" class="about-final-cta-phone">
           <span>or call</span>
           <strong>(800) 555-1234</strong>

@@ -127,7 +127,7 @@ function buildPrompt(choices: Record<string, string>): string {
     parts.push('CRITICAL — ENCLOSURE TYPE: This is a NEO-ANGLE shower in a corner — three glass panels (two angled side panels + a center door) forming a diamond/pentagonal footprint.');
   }
   if (isSteam) {
-    parts.push('CRITICAL — ENCLOSURE TYPE: This is a STEAM SHOWER — fully sealed, glass panels run floor to ceiling with a transom panel above the door.');
+    parts.push('CRITICAL — ENCLOSURE TYPE: This is a STEAM SHOWER. The GLASS MUST RUN FROM THE FLOOR ALL THE WAY TO THE CEILING — every panel is full-height, floor to ceiling, with NO gap at the top. A clear transom panel sits above the door carrying the glass up to the ceiling. Compression seals visible around all edges. The enclosure must LOOK fully sealed and steam-ready. Do NOT render the glass stopping partway up the wall — it MUST reach the ceiling.');
   }
 
   if (isWalkIn) {

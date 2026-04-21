@@ -2,6 +2,7 @@ import { playTransformAnimation } from '../animations/transform';
 import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService } from '../animations/slideshow';
 import { setState, getState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
+import { saveCustomerGeneration } from '../utils/save-generation';
 import { saveUser } from '../utils/user-storage';
 import type { ServiceType } from '../utils/state';
 
@@ -373,6 +374,19 @@ export async function handleToolCall(
           }
           const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement;
           if (spinner) spinner.style.display = 'none';
+          // Persist to the customer-generations gallery (fire and forget)
+          saveCustomerGeneration(url, {
+            service: 'showers',
+            enclosure: quoteChoices.enclosure,
+            glass: quoteChoices.glass,
+            hardware: quoteChoices.hardware,
+            handle: quoteChoices.handle,
+            accessories: quoteChoices.accessories,
+            extras: quoteChoices.extras,
+            customerName: quoteChoices.name || args.customer_name,
+            customerEmail: quoteChoices.email || args.email,
+            mode: 'voice',
+          });
         };
         if (pendingImageUrl) {
           setTimeout(() => applyImage(pendingImageUrl!), 600);
