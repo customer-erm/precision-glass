@@ -65,13 +65,7 @@ export function buildHero(): HTMLElement {
   // Title
   const title = el('h1', {
     className: 'hero-title',
-    innerHTML: 'Craftsmanship in<br>Every <span class="accent">Detail</span>',
-  });
-
-  // Subtitle
-  const subtitle = el('p', {
-    className: 'hero-subtitle',
-    textContent: 'From frameless shower enclosures to commercial storefronts, we bring precision and elegance to every glass installation.',
+    innerHTML: 'Custom glass solutions serving <span class="accent">Miami, Ft.&nbsp;Lauderdale and West&nbsp;Palm&nbsp;Beach.</span>',
   });
 
   // Service cards
@@ -100,7 +94,7 @@ export function buildHero(): HTMLElement {
 
   // Single centered block: title + subtitle + action icons grouped tightly
   const headline = el('div', { className: 'hero-headline' });
-  headline.append(title, subtitle, modePicker);
+  headline.append(title, modePicker);
 
   // Services grid is retained but hidden (kept in DOM for any deep-links
   // that still query .service-card — we rely on the mode picker now).

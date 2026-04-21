@@ -301,10 +301,11 @@ img { max-width: 100%; display: block; }
 }
 .hero-title {
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 6.5vw, 5rem);
-  font-weight: 800; line-height: 1.08;
+  font-size: clamp(2.52rem, 5.85vw, 4.5rem);
+  font-weight: 800; line-height: 1.12;
   margin-bottom: 20px; color: var(--white);
   letter-spacing: -0.02em;
+  max-width: 18ch;
 }
 .hero-title .accent {
   background: linear-gradient(135deg, var(--blue-300), var(--blue-400), var(--blue-200));
