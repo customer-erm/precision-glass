@@ -219,6 +219,8 @@ function buildTrustBadges(): HTMLElement {
     { icon: '\u{1F3C6}', label: 'Houzz \u201CBest of Service\u201D', sub: '5 years running' },
     { icon: '\u2B50', label: 'Top-Rated on Google', sub: '320+ 5-star reviews' },
     { icon: '\u{1F4D0}', label: 'HVHZ Code Compliant', sub: 'Miami-Dade NOA certified' },
+    { icon: '\u{1F4A7}', label: 'Diamon-Fusion Certified', sub: 'Factory-authorized installer' },
+    { icon: '\u{1F91D}', label: 'Angi Super Service', sub: 'Awarded 4 years running' },
   ];
   wrap.innerHTML = `
     <div class="about-badges-inner">
@@ -268,6 +270,16 @@ function buildTestimonials(): HTMLElement {
       quote: 'The curved enclosure they fabricated for our master bath is a piece of art. Neighbors stop by just to see it. Worth every penny.',
       name: 'Carlos M.',
       role: 'Homeowner \u00B7 Miami Beach',
+    },
+    {
+      quote: 'Our pool-deck railings look incredible and have held up perfectly through two hurricane seasons. The engineering team pulled permits and NOAs without us lifting a finger.',
+      name: 'Rachel T.',
+      role: 'Homeowner \u00B7 Delray Beach',
+    },
+    {
+      quote: 'Replaced our entire restaurant storefront after a fender-bender took out the main entry. They had temporary glass up within 24 hours and the permanent install done in a week. Lifesavers.',
+      name: 'Anthony P.',
+      role: 'Restaurant Owner \u00B7 Miami',
     },
   ];
   wrap.innerHTML = `
