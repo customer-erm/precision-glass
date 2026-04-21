@@ -113,7 +113,7 @@ export function buildNav(): HTMLElement {
     className: 'nav-logo',
     href: '#',
     ariaLabel: 'Precision Glass home',
-    innerHTML: '<img src="/images/logo/lockup-dark.jpg" alt="Precision Glass">',
+    innerHTML: '<img src="/images/logo/logo.png" alt="Precision Glass">',
   });
 
   // Service links in the middle of the nav

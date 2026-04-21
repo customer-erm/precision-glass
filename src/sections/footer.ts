@@ -28,7 +28,7 @@ export function buildFooter(): HTMLElement {
   // --- Brand column ---
   const brand = el('div', { className: 'footer-col footer-brand' });
   brand.innerHTML = `
-    <div class="footer-logo"><img src="/images/logo/lockup-dark.jpg" alt="Precision Glass"></div>
+    <div class="footer-logo"><img src="/images/logo/logo.png" alt="Precision Glass"></div>
     <p class="footer-tagline">Custom frameless glass installations \u2014 designed, fabricated, and installed by a family-owned South Florida glass shop serving Miami, Fort Lauderdale, and Palm Beach since 2004.</p>
     <div class="footer-socials">
       <a href="#" class="footer-social" aria-label="Facebook">${FB_SVG}</a>
