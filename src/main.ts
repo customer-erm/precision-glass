@@ -3,6 +3,10 @@ import { buildHero, buildNav, buildBackground, buildAgentBar } from './sections/
 import { buildShowerContent } from './sections/showers';
 import { buildRailingsContent, buildCommercialContent } from './sections/browse-extra';
 import { buildChatPanel, startChat, stopChat, wireChatPanelEvents } from './sections/chat-panel';
+import { buildBrowseDrawer, openBrowseDrawer, wireBrowseDrawer, closeBrowseDrawer } from './sections/browse-drawer';
+import { buildHelpLauncher } from './sections/help-launcher';
+import { buildContactModal, openContactModal, wireContactModal } from './sections/contact-modal';
+import { buildContentModal, closeContentModal } from './sections/content-modal';
 import { playLandingAnimation } from './animations/landing';
 import { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
@@ -23,6 +27,10 @@ const railingsContent = buildRailingsContent();
 const commercialContent = buildCommercialContent();
 const agentBar = buildAgentBar();
 const chatPanel = buildChatPanel();
+const browseDrawer = buildBrowseDrawer();
+const helpLauncher = buildHelpLauncher();
+const contactModal = buildContactModal();
+const contentModal = buildContentModal();
 
 app.appendChild(bgEl);
 app.appendChild(nav);
@@ -32,6 +40,10 @@ app.appendChild(railingsContent);
 app.appendChild(commercialContent);
 app.appendChild(agentBar);
 app.appendChild(chatPanel);
+app.appendChild(browseDrawer);
+app.appendChild(helpLauncher);
+app.appendChild(contactModal);
+app.appendChild(contentModal);
 
 // --- Landing animation ---
 requestAnimationFrame(() => {
@@ -129,21 +141,48 @@ async function enterChatMode(): Promise<void> {
 function enterBrowseMode(): void {
   setState({ currentMode: 'browse' });
   saveUser({ preferredMode: 'browse' });
-  // Scroll to the showers section by default (it's first in the page)
-  document.getElementById('service-showers')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  openBrowseDrawer('showers');
 }
 
 // Click handler on mode-picker-grid (event delegation)
 document.addEventListener('click', async (e) => {
   const target = e.target as HTMLElement;
 
-  // Mode picker cards
+  // Mode picker cards / inline mode links
   const card = target.closest('[data-mode]') as HTMLElement | null;
   if (card) {
     const mode = card.getAttribute('data-mode') as InteractionMode;
     if (mode === 'voice') await enterVoiceMode();
     else if (mode === 'chat') await enterChatMode();
     else if (mode === 'browse') enterBrowseMode();
+    return;
+  }
+
+  // Top-right nav CTA
+  if (target.closest('#nav-cta-btn')) {
+    openContactModal();
+    return;
+  }
+
+  // Floating help menu actions (voice / chat / quote)
+  const helpAction = target.closest('[data-help-action]') as HTMLElement | null;
+  if (helpAction) {
+    const action = helpAction.getAttribute('data-help-action');
+    document.getElementById('help-menu')?.classList.remove('visible');
+    if (action === 'voice') await enterVoiceMode();
+    else if (action === 'chat') await enterChatMode();
+    else if (action === 'quote') openContactModal();
+    return;
+  }
+
+  // Content modal CTA actions (agent's show_topic modal)
+  const contentAction = target.closest('[data-content-action]') as HTMLElement | null;
+  if (contentAction) {
+    const action = contentAction.getAttribute('data-content-action');
+    closeContentModal();
+    if (action === 'open_contact') openContactModal();
+    else if (action === 'launch_voice') await enterVoiceMode();
+    else if (action === 'launch_chat') await enterChatMode();
     return;
   }
 
@@ -168,6 +207,10 @@ document.addEventListener('click', async (e) => {
     return;
   }
 });
+
+// Wire browse drawer + contact modal event handlers
+wireBrowseDrawer();
+wireContactModal();
 
 // Agent bar mic toggles voice session
 const agentMic = document.getElementById('agent-mic');

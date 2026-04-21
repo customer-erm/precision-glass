@@ -94,6 +94,29 @@ export const TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'show_topic',
+    description: "Surface a large on-screen content modal to visually answer a question or highlight a topic with images from our library. Use this when the customer asks about something outside the main tour flow — e.g. \"show me some matte black installs\", \"what do steam showers look like\", \"tell me about curved enclosures\". You write the title and body (keep body to 1-3 short paragraphs). Specify image_tags (keywords like 'matte-black', 'frosted-glass', 'steam', 'curved', 'railings', 'storefront') and the system will pull the most relevant images from our library. This is a spontaneous teaching moment — it does NOT advance the tour and does NOT replace show_slide.",
+    parameters: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string' as const, description: 'Short heading shown at top of the modal' },
+        body: { type: 'string' as const, description: '1-3 short paragraphs of supporting copy. Supports **bold** and *italic*.' },
+        image_tags: {
+          type: 'array' as const,
+          items: { type: 'string' as const },
+          description: 'Keywords to find relevant images (e.g. ["matte black", "hardware"], ["frosted glass"], ["neo-angle", "corner"], ["steam shower"], ["railings", "pool deck"], ["storefront"]). The system scores each image in the library against these.',
+        },
+        primary_cta_label: { type: 'string' as const, description: 'Optional CTA button label. Defaults to "Start a quote".' },
+        primary_cta_action: {
+          type: 'string' as const,
+          enum: ['open_contact', 'launch_voice', 'launch_chat', 'close'],
+          description: 'What the primary CTA button does. Default: open_contact.',
+        },
+      },
+      required: ['title', 'body'],
+    },
+  },
+  {
     name: 'end_session',
     description: 'Cleanly end the voice session after saying goodbye. Call this ONLY after your final goodbye message.',
     parameters: {
@@ -392,6 +415,36 @@ DO THE FOLLOWING IN ORDER:
     case 'show_buyers_guide': {
       showBuyerGuidePopup();
       return { success: true, message: instr('Buyer\'s guide popup is now visible on screen. Continue speaking — ask for their email naturally.') };
+    }
+
+    case 'show_topic': {
+      // Dynamically pull the content-modal module (it's already loaded in main)
+      const { showTopic } = await import('../sections/content-modal');
+      const title = String(args.title || '').trim() || 'Here you go';
+      const body = String(args.body || '').trim();
+      const image_tags = Array.isArray(args.image_tags)
+        ? (args.image_tags as unknown as string[])
+        : typeof args.image_tags === 'string'
+        ? String(args.image_tags).split(',').map((s) => s.trim())
+        : [];
+      const primaryCtaLabel = args.primary_cta_label ? String(args.primary_cta_label) : undefined;
+      const primaryCtaAction = args.primary_cta_action ? String(args.primary_cta_action) : undefined;
+      showTopic({
+        title,
+        body,
+        image_tags,
+        primary_cta:
+          primaryCtaLabel || primaryCtaAction
+            ? {
+                label: primaryCtaLabel || 'Start a quote',
+                action: (primaryCtaAction as 'open_contact' | 'launch_voice' | 'launch_chat' | 'close') || 'open_contact',
+              }
+            : undefined,
+      });
+      return {
+        success: true,
+        message: instr(`A content modal is now showing on screen with the title "${title}" and ${image_tags.length ? 'relevant images from our library' : 'a default image selection'}. Briefly acknowledge that you pulled it up for them — one short sentence like "I've got some examples on screen for you" — then wait for them to engage or ask the next question. Do NOT read the modal body aloud.`),
+      };
     }
 
     case 'end_session': {
