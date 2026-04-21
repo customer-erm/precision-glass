@@ -1,70 +1,62 @@
 /**
- * Save a customer's AI-generated shower visualization to persistent storage
- * so we can use them in galleries later.
- *
- * Uses Vercel Blob. If BLOB_READ_WRITE_TOKEN isn't set in Vercel env,
- * falls back to a no-op so the client doesn't fail.
+ * Save a customer's AI-generated shower visualization to Vercel Blob
+ * so we can surface them in galleries later.
  *
  * POST /api/save-generation
  *   body: { image: "data:image/png;base64,...", meta: {...} }
- *   returns: { ok: true, url: "...", pathname: "..." }
+ *
+ * Requires BLOB_READ_WRITE_TOKEN env var. If missing, returns a soft
+ * no-op so the client never breaks.
  */
 
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { put } from '@vercel/blob';
 
-export const config = {
-  runtime: 'edge',
-};
-
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   if (req.method !== 'POST') {
-    return json({ error: 'method_not_allowed' }, 405);
+    res.status(405).json({ error: 'method_not_allowed' });
+    return;
   }
 
-  let body: { image?: string; meta?: Record<string, unknown> };
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: 'invalid_json' }, 400);
+  const body = req.body as { image?: string; meta?: Record<string, unknown> } | undefined;
+  if (!body) {
+    res.status(400).json({ error: 'missing_body' });
+    return;
   }
 
   const dataUrl = body.image;
   if (!dataUrl || !dataUrl.startsWith('data:image/')) {
-    return json({ error: 'invalid_image' }, 400);
+    res.status(400).json({ error: 'invalid_image' });
+    return;
   }
 
-  // Parse data URL: data:image/png;base64,XXXX
   const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
   if (!match) {
-    return json({ error: 'invalid_data_url' }, 400);
+    res.status(400).json({ error: 'invalid_data_url' });
+    return;
   }
   const mimeType = match[1];
   const base64 = match[2];
   const ext = mimeType.split('/')[1]?.split('+')[0] || 'png';
 
-  // Build a filename with a timestamp + short meta hint
   const meta = body.meta || {};
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const service = String(meta.service || 'showers').replace(/[^a-zA-Z0-9]/g, '');
   const pathname = `customer-generations/${service}/${ts}.${ext}`;
 
   try {
-    // Decode base64 to bytes (edge runtime supports atob + Uint8Array)
-    const bin = atob(base64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const buf = Buffer.from(base64, 'base64');
 
-    const blob = await put(pathname, bytes, {
+    const blob = await put(pathname, buf, {
       access: 'public',
       contentType: mimeType,
       addRandomSuffix: false,
     });
 
-    // Also save a sidecar JSON with metadata for later gallery building
     const metaPayload = JSON.stringify({ ...meta, pathname, url: blob.url, savedAt: ts });
     await put(
       pathname.replace(/\.[^.]+$/, '.json'),
-      new TextEncoder().encode(metaPayload),
+      Buffer.from(metaPayload, 'utf-8'),
       {
         access: 'public',
         contentType: 'application/json',
@@ -72,23 +64,15 @@ export default async function handler(req: Request): Promise<Response> {
       },
     );
 
-    return json({ ok: true, url: blob.url, pathname });
+    res.status(200).json({ ok: true, url: blob.url, pathname });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // Surface BLOB_READ_WRITE_TOKEN missing as a soft no-op so the client
-    // never errors during a user session
-    if (message.includes('BLOB_READ_WRITE_TOKEN')) {
+    if (message.includes('BLOB_READ_WRITE_TOKEN') || message.includes('No token')) {
       console.warn('[save-generation] Vercel Blob token missing — skipping save.');
-      return json({ ok: false, skipped: true, reason: 'blob_not_configured' }, 200);
+      res.status(200).json({ ok: false, skipped: true, reason: 'blob_not_configured' });
+      return;
     }
     console.error('[save-generation] error:', message);
-    return json({ ok: false, error: message }, 500);
+    res.status(500).json({ ok: false, error: message });
   }
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
 }
