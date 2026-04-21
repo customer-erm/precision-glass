@@ -1,12 +1,34 @@
 import { el } from '../utils/dom';
 import { buildModePicker } from './mode-picker';
+import { images } from '../data/image-map';
 
 export function buildHero(): HTMLElement {
   const section = el('section', { className: 'hero', id: 'hero' });
 
-  // Hero background image
-  const heroBg = el('div', { className: 'hero-bg-image' });
-  heroBg.appendChild(el('img', { src: '/images/showers/showers-3.webp', alt: '', loading: 'eager' }));
+  // Hero background: Ken Burns slideshow cycling through all three services
+  const heroBg = el('div', { className: 'hero-bg-image hero-bg-kb' });
+  const kbImages = [
+    images.showers.hero,
+    images.railings.hero,
+    images.commercial.hero,
+    images.showers.gallery[0],
+    images.railings.gallery[0],
+    images.commercial.gallery[0],
+    images.showers.gallery[2],
+    images.railings.gallery[2],
+  ];
+  kbImages.forEach((src, i) => {
+    const img = el('img', { src, alt: '', loading: i < 2 ? 'eager' : 'lazy' });
+    if (i === 0) img.classList.add('kb-active');
+    heroBg.appendChild(img);
+  });
+  let kbIdx = 0;
+  setInterval(() => {
+    const imgs = heroBg.querySelectorAll('img');
+    imgs.forEach((img) => img.classList.remove('kb-active'));
+    kbIdx = (kbIdx + 1) % imgs.length;
+    imgs[kbIdx].classList.add('kb-active');
+  }, 6000);
   section.appendChild(heroBg);
 
   // Badge

@@ -16,6 +16,7 @@
 
 import { handleToolCall } from './tools';
 import { loadUser, saveUser } from '../utils/user-storage';
+import { generateShowerImage } from './image-gen';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
@@ -340,9 +341,76 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'done',
       agent: (ctx) =>
         `All set${ctx.choices.name ? ', ' + ctx.choices.name.split(' ')[0] : ''}! I\u2019ve sent your details over. A specialist will be in touch within 24 hours. Thanks for chatting!`,
+      onEnter: (ctx) => injectSubmittedCard(ctx.choices),
       chips: [{ label: 'Close', action: { kind: 'close' } }],
     },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Submitted confirmation card                                        */
+/* ------------------------------------------------------------------ */
+
+function injectSubmittedCard(choices: Record<string, string>): void {
+  const container = document.getElementById('chat-extras');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const rows: Array<[string, string]> = [];
+  const push = (label: string, key: string) => {
+    if (choices[key]) rows.push([label, choices[key]]);
+  };
+  push('Name', 'name');
+  push('Email', 'email');
+  push('Phone', 'phone');
+  push('City', 'location');
+  push('Timeline', 'timeline');
+  push('Budget', 'budget');
+
+  const selectionRows: Array<[string, string]> = [];
+  const pushSel = (label: string, key: string) => {
+    if (choices[key] && choices[key] !== 'none') selectionRows.push([label, choices[key]]);
+  };
+  pushSel('Enclosure', 'enclosure');
+  pushSel('Glass', 'glass');
+  pushSel('Hardware', 'hardware');
+  pushSel('Handle', 'handle');
+  pushSel('Upgrades', 'extras');
+  pushSel('Rail type', 'rail-type');
+  pushSel('Rail glass', 'rail-glass');
+  pushSel('Rail finish', 'rail-finish');
+  pushSel('Project type', 'com-type');
+  pushSel('Glass spec', 'com-glass');
+  pushSel('Framing', 'com-framing');
+  pushSel('Scope', 'com-scope');
+
+  const card = document.createElement('div');
+  card.className = 'chat-submitted-card';
+  card.innerHTML = `
+    <div class="chat-submitted-check">\u2713</div>
+    <div class="chat-submitted-title">Quote request sent!</div>
+    ${
+      selectionRows.length
+        ? `<div class="chat-submitted-section-title">Your configuration</div>
+           <div class="chat-submitted-rows">${selectionRows
+             .map(([k, v]) => `<div class="chat-submitted-row"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`)
+             .join('')}</div>`
+        : ''
+    }
+    ${
+      rows.length
+        ? `<div class="chat-submitted-section-title">Your details</div>
+           <div class="chat-submitted-rows">${rows
+             .map(([k, v]) => `<div class="chat-submitted-row"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`)
+             .join('')}</div>`
+        : ''
+    }
+  `;
+  container.appendChild(card);
+}
+
+function escapeHtml(s: string): string {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 /* ------------------------------------------------------------------ */
@@ -535,20 +603,14 @@ export class ChatDriver {
           if (this.ctx.choices.email && slideId === 'enclosures') args.email = this.ctx.choices.email;
           await handleToolCall('show_slide', args);
         }
-        // When we reach the 'showers-contact' step, the slideshow is on the
-        // quote slide — also call present_quote so the editorial card gets
-        // populated with all the accumulated selections.
+        // When reaching the contact step, populate the editorial card
+        // and inject the AI-viz lock overlay. The real image generation
+        // is deferred until the user submits the form (lead-gate).
         if (action.next === 'showers-contact' || action.next === 'railings-contact' || action.next === 'commercial-contact') {
-          await handleToolCall('present_quote', {
-            enclosure: this.ctx.choices.enclosure || this.ctx.choices['rail-type'] || this.ctx.choices['com-type'] || '',
-            glass: this.ctx.choices.glass || this.ctx.choices['rail-glass'] || this.ctx.choices['com-glass'] || '',
-            hardware: this.ctx.choices.hardware || this.ctx.choices['rail-finish'] || this.ctx.choices['com-framing'] || 'Standard',
-            handle: this.ctx.choices.handle || this.ctx.choices['rail-mounting'] || this.ctx.choices['com-scope'] || '',
-            accessories: this.ctx.choices.accessories || '',
-            extras: this.ctx.choices.extras || '',
-            customer_name: this.ctx.choices.name || '',
-            email: this.ctx.choices.email || '',
-          });
+          setTimeout(() => {
+            populateEditorialFromChoices(this.ctx.choices);
+            injectLockOverlay();
+          }, 100);
         }
         setTimeout(() => this.goToStep(action.next), 300);
         break;
@@ -563,8 +625,17 @@ export class ChatDriver {
         break;
       }
       case 'submit-quote': {
-        // Gather form data
+        // Validate required fields
         const form = readContactForm();
+        if (!form.name || !form.email) {
+          const nameInput = document.querySelector('#chat-inline-form [name="name"]') as HTMLInputElement | null;
+          const emailInput = document.querySelector('#chat-inline-form [name="email"]') as HTMLInputElement | null;
+          if (nameInput && !form.name) nameInput.classList.add('invalid');
+          if (emailInput && !form.email) emailInput.classList.add('invalid');
+          this.cbs.onAgentMessage?.('Could you add your name and email? Those help us reach you with the quote.');
+          return;
+        }
+
         Object.assign(this.ctx.choices, form);
 
         // Persist user
@@ -589,8 +660,11 @@ export class ChatDriver {
 
         console.log('[Chat] Quote submitted:', this.ctx.choices);
 
-        // Trigger the quote-sent overlay via the present_quote tool (and the end-session soft event via tools)
-        const quoteArgs: Record<string, string> = {
+        // Unlock the AI visualization now that we have the lead
+        unlockAndGenerateViz(this.ctx.choices);
+
+        // Show the quote-sent success overlay
+        await handleToolCall('present_quote', {
           enclosure: this.ctx.choices.enclosure || this.ctx.choices['rail-type'] || this.ctx.choices['com-type'] || '',
           glass: this.ctx.choices.glass || this.ctx.choices['rail-glass'] || this.ctx.choices['com-glass'] || '',
           hardware: this.ctx.choices.hardware || this.ctx.choices['rail-finish'] || this.ctx.choices['com-framing'] || 'Standard',
@@ -599,8 +673,8 @@ export class ChatDriver {
           extras: this.ctx.choices.extras || '',
           customer_name: this.ctx.choices.name || '',
           email: this.ctx.choices.email || '',
-        };
-        await handleToolCall('present_quote', quoteArgs);
+          skip_viz: 'true', // already handled by unlockAndGenerateViz
+        });
 
         setTimeout(() => this.goToStep('done'), 500);
         break;
@@ -694,4 +768,75 @@ function escape(s: string): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Quote slide DOM helpers (editorial card + lock overlay)            */
+/* ------------------------------------------------------------------ */
+
+function populateEditorialFromChoices(choices: Record<string, string>): void {
+  const fields: Array<[string, string]> = [
+    ['qs-enclosure', choices.enclosure || choices['rail-type'] || choices['com-type'] || ''],
+    ['qs-glass', choices.glass || choices['rail-glass'] || choices['com-glass'] || ''],
+    ['qs-hardware', choices.hardware || choices['rail-finish'] || choices['com-framing'] || ''],
+    ['qs-handle', choices.handle || choices['rail-mounting'] || choices['com-scope'] || ''],
+    ['qs-extras', choices.extras || ''],
+    ['qs-name', choices.name || ''],
+    ['qs-email', choices.email || ''],
+    ['qs-phone', choices.phone || ''],
+  ];
+  fields.forEach(([id, val]) => {
+    if (!val) return;
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = val;
+      el.classList.add('filled');
+    }
+  });
+}
+
+function injectLockOverlay(): void {
+  const wrap = document.querySelector('.ss-quote-img-wrap') as HTMLElement | null;
+  if (!wrap) return;
+  const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  if (spinner) spinner.style.display = 'none';
+  if (wrap.querySelector('.ss-quote-lock')) return;
+  const lock = document.createElement('div');
+  lock.className = 'ss-quote-lock';
+  lock.innerHTML = `
+    <div class="ss-quote-lock-icon">
+      <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="ss-quote-lock-title">Your AI visualization is ready</div>
+    <div class="ss-quote-lock-desc">Finish with your contact details to unlock your custom-rendered preview.</div>
+  `;
+  wrap.appendChild(lock);
+}
+
+function unlockAndGenerateViz(choices: Record<string, string>): void {
+  const lock = document.querySelector('.ss-quote-lock') as HTMLElement | null;
+  const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  if (lock) lock.remove();
+  if (spinner) {
+    spinner.style.display = 'flex';
+    const label = spinner.querySelector('span');
+    if (label) label.textContent = 'Rendering your custom shower\u2026';
+  }
+
+  // Only generate for shower flows
+  const service = document.querySelector('.tour-slideshow')?.getAttribute('data-service');
+  if (service && service !== 'showers') {
+    if (spinner) spinner.style.display = 'none';
+    return;
+  }
+  generateShowerImage(choices).then((url) => {
+    if (!url) return;
+    const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+    if (img) {
+      img.src = url;
+      img.classList.add('loaded');
+    }
+    const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+    if (sp) sp.style.display = 'none';
+  }).catch((err) => console.warn('[Chat] viz gen failed:', err));
 }

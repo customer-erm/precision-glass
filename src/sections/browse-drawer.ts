@@ -15,7 +15,8 @@ import { saveUser } from '../utils/user-storage';
 type ServiceKey = 'showers' | 'railings' | 'commercial';
 
 interface SectionDef {
-  id: string;          // DOM id to scroll to (either existing on the service section page, or a section within it)
+  /** Slide id to launch the configurator at */
+  slide: string;
   label: string;
   hint?: string;
 }
@@ -23,7 +24,7 @@ interface SectionDef {
 interface ServiceDef {
   key: ServiceKey;
   label: string;
-  anchorId: string;    // top-level section id
+  anchorId: string;    // top-level section id (for preview hero)
   sections: SectionDef[];
 }
 
@@ -33,14 +34,15 @@ const SERVICES: ServiceDef[] = [
     label: 'Frameless Showers',
     anchorId: 'service-showers',
     sections: [
-      { id: 'shower-hero', label: 'Overview' },
-      { id: 'shower-gallery', label: 'Portfolio', hint: 'Recent installations' },
-      { id: 'enclosure-types', label: 'Enclosure types', hint: 'Single door, slider, neo-angle\u2026' },
-      { id: 'glass-options', label: 'Glass options' },
-      { id: 'hardware-finishes', label: 'Hardware finishes' },
-      { id: 'accessories', label: 'Handles & accessories' },
-      { id: 'our-process', label: 'Our process' },
-      { id: 'showers-bottom-cta', label: 'Get your quote' },
+      { slide: 'intro', label: 'Overview', hint: 'What is a frameless shower' },
+      { slide: 'gallery', label: 'Portfolio', hint: 'Recent installations' },
+      { slide: 'enclosures', label: 'Enclosure types', hint: 'Single door, slider, neo-angle\u2026' },
+      { slide: 'glass', label: 'Glass options', hint: 'Clear, frosted, rain' },
+      { slide: 'hardware', label: 'Hardware finishes', hint: 'Chrome, nickel, matte black\u2026' },
+      { slide: 'accessories', label: 'Handles & accessories' },
+      { slide: 'extras', label: 'Premium upgrades', hint: 'Grid, steam' },
+      { slide: 'process', label: 'Our process' },
+      { slide: 'quote', label: 'Build your quote', hint: 'Configure + submit' },
     ],
   },
   {
@@ -48,7 +50,14 @@ const SERVICES: ServiceDef[] = [
     label: 'Glass Railings',
     anchorId: 'service-railings',
     sections: [
-      { id: 'service-railings', label: 'Overview' },
+      { slide: 'intro', label: 'Overview' },
+      { slide: 'gallery', label: 'Portfolio' },
+      { slide: 'rail-types', label: 'Mounting types', hint: 'Standoff, base shoe\u2026' },
+      { slide: 'rail-glass', label: 'Glass spec' },
+      { slide: 'rail-finish', label: 'Finish' },
+      { slide: 'rail-mounting', label: 'Install method' },
+      { slide: 'process', label: 'Our process' },
+      { slide: 'quote', label: 'Build your quote' },
     ],
   },
   {
@@ -56,7 +65,14 @@ const SERVICES: ServiceDef[] = [
     label: 'Commercial Glass',
     anchorId: 'service-commercial',
     sections: [
-      { id: 'service-commercial', label: 'Overview' },
+      { slide: 'intro', label: 'Overview' },
+      { slide: 'gallery', label: 'Project portfolio' },
+      { slide: 'com-types', label: 'Project types', hint: 'Storefront, curtain wall\u2026' },
+      { slide: 'com-glass', label: 'Glass spec', hint: 'Insulated, impact, tint\u2026' },
+      { slide: 'com-framing', label: 'Framing system' },
+      { slide: 'com-scope', label: 'Project scope' },
+      { slide: 'process', label: 'Our process' },
+      { slide: 'quote', label: 'Request a quote' },
     ],
   },
 ];
@@ -157,7 +173,8 @@ function renderSectionsList(serviceKey: ServiceKey): void {
       className: 'browse-drawer-item',
       type: 'button',
     });
-    item.setAttribute('data-scroll-to', sec.id);
+    item.setAttribute('data-launch-slide', sec.slide);
+    item.setAttribute('data-launch-service', serviceKey);
     item.innerHTML = `
       <span class="browse-drawer-item-num">${String(i + 1).padStart(2, '0')}</span>
       <span class="browse-drawer-item-body">
@@ -216,35 +233,6 @@ export function expandBrowseDrawer(): void {
 /* ------------------------------------------------------------------ */
 
 export function wireBrowseDrawer(): void {
-  // Scroll-spy: highlight the drawer item whose target section is currently
-  // in view. Cheap, throttled with rAF.
-  let spyPending = false;
-  function runSpy(): void {
-    spyPending = false;
-    const items = document.querySelectorAll<HTMLElement>('.browse-drawer-item[data-scroll-to]');
-    if (!items.length) return;
-    const viewportMid = window.innerHeight / 3;
-    let closest: { el: HTMLElement; dist: number } | null = null;
-    items.forEach((item) => {
-      const id = item.getAttribute('data-scroll-to');
-      if (!id) return;
-      const target = document.getElementById(id);
-      if (!target) return;
-      const rect = target.getBoundingClientRect();
-      // Only consider targets that are above the viewport bottom
-      if (rect.bottom < 0) return;
-      const dist = Math.abs(rect.top - viewportMid);
-      if (!closest || dist < closest.dist) closest = { el: item, dist };
-    });
-    items.forEach((i) => i.classList.remove('active'));
-    if (closest) closest.el.classList.add('active');
-  }
-  window.addEventListener('scroll', () => {
-    if (spyPending) return;
-    spyPending = true;
-    requestAnimationFrame(runSpy);
-  }, { passive: true });
-
   document.addEventListener('click', async (e) => {
     const target = e.target as HTMLElement;
 
@@ -274,17 +262,21 @@ export function wireBrowseDrawer(): void {
       return;
     }
 
-    // Section jump — collapse drawer (don't close) so user can re-expand
-    // to jump somewhere else without re-opening the whole thing.
-    const scroll = target.closest('[data-scroll-to]') as HTMLElement | null;
-    if (scroll) {
-      const id = scroll.getAttribute('data-scroll-to');
-      if (id) {
-        // Mark item active immediately for visual feedback
+    // Drawer item click → launch the manual configurator for that service
+    // at the clicked slide. If already in that tour, just jump.
+    const launchItem = target.closest('[data-launch-slide]') as HTMLElement | null;
+    if (launchItem) {
+      const slide = launchItem.getAttribute('data-launch-slide');
+      const service = launchItem.getAttribute('data-launch-service') as ServiceKey | null;
+      if (slide && service) {
+        // Highlight active item
         document.querySelectorAll('.browse-drawer-item.active').forEach((n) => n.classList.remove('active'));
-        scroll.classList.add('active');
-        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        launchItem.classList.add('active');
         collapseBrowseDrawer();
+        // Kick off (or hop within) the manual tour
+        setState({ currentMode: 'browse' });
+        saveUser({ preferredMode: 'browse' });
+        await startBrowseTour(service, slide);
       }
       return;
     }

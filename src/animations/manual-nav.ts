@@ -21,6 +21,7 @@ import { playTransformAnimation } from './transform';
 import { generateShowerImage } from '../gemini/image-gen';
 import { saveUser } from '../utils/user-storage';
 import { setState, getState } from '../utils/state';
+import { getGuideEntry } from '../data/buyer-guide';
 
 /* ------------------------------------------------------------------ */
 /*  Per-service slide order for manual walk                            */
@@ -62,19 +63,45 @@ function choiceCategoryForSlide(slideId: string): string | null {
 /*  Public entry: start a browse-mode tour for a given service         */
 /* ------------------------------------------------------------------ */
 
-export async function startBrowseTour(service: 'showers' | 'railings' | 'commercial'): Promise<void> {
+export async function startBrowseTour(
+  service: 'showers' | 'railings' | 'commercial',
+  startAtSlideId?: string,
+): Promise<void> {
+  // If a browse tour is already active for the same service, just jump there
+  const existing = document.getElementById('tour-slideshow');
+  if (existing && getActiveService() === service) {
+    const target = startAtSlideId || 'intro';
+    await showSlide(target);
+    wireSlideInteraction();
+    setTimeout(wireSlideInteraction, 400);
+    setTimeout(wireSlideInteraction, 900);
+    updateNavCounter();
+    if (target === 'quote') {
+      onEnterQuoteSlide();
+      populateManualQuote();
+    }
+    return;
+  }
+
   setState({ currentService: service, currentMode: 'browse', isTransformed: true });
   // Clear choices from any previous session
   for (const k of Object.keys(browseChoices)) delete browseChoices[k];
 
   await playTransformAnimation();
   createSlideshow(service);
-  await showSlide('intro');
+  const startSlide = startAtSlideId || 'intro';
+  await showSlide(startSlide);
 
   injectManualNavBar();
   wireSlideInteraction();
   setTimeout(wireSlideInteraction, 400);
   setTimeout(wireSlideInteraction, 900);
+
+  if (startSlide === 'quote') {
+    onEnterQuoteSlide();
+    populateManualQuote();
+  }
+  updateNavCounter();
 }
 
 /* ------------------------------------------------------------------ */
@@ -234,12 +261,29 @@ function wireSlideInteraction(): void {
     card.style.cursor = 'pointer';
     // Derive a label from h4 if present
     const labelEl = card.querySelector('h4');
-    if (labelEl) card.setAttribute('data-label', (labelEl.textContent || '').trim());
+    const label = (labelEl?.textContent || '').trim();
+    if (label) card.setAttribute('data-label', label);
+
+    // Inject a learn-more info button if we have a buyer's-guide entry
+    if (label && getGuideEntry(label) && !card.querySelector('.card-info-btn')) {
+      const infoBtn = el('button', {
+        className: 'card-info-btn',
+        type: 'button',
+        innerHTML: '<span aria-hidden="true">i</span><span class="sr-only">Learn more</span>',
+        ariaLabel: `Learn more about ${label}`,
+      });
+      infoBtn.setAttribute('data-info-label', label);
+      infoBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openBuyerGuideModal(label);
+      });
+      card.appendChild(infoBtn);
+    }
+
     card.addEventListener('click', () => {
       slideEl.querySelectorAll('.browse-option.selected').forEach((e) => e.classList.remove('selected'));
       card.classList.add('selected');
       console.log('[Manual] Selected on', cur, '→', card.getAttribute('data-label'));
-      // Highlight the Next button to indicate user can advance
       const next = document.getElementById('manual-nav-next');
       if (next) next.classList.add('pulse-ready');
     });
@@ -247,22 +291,134 @@ function wireSlideInteraction(): void {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Buyer's Guide modal                                                */
+/* ------------------------------------------------------------------ */
+
+function openBuyerGuideModal(label: string): void {
+  const entry = getGuideEntry(label);
+  if (!entry) return;
+
+  let modal = document.getElementById('bg-modal');
+  if (!modal) {
+    modal = el('div', { className: 'bg-modal', id: 'bg-modal' });
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeBuyerGuideModal();
+    });
+  }
+
+  // Resolve image: prefer entry.image, else the card's own image
+  let img = entry.image;
+  if (!img) {
+    const currentLabel = label.toLowerCase();
+    const matchingCard = Array.from(document.querySelectorAll<HTMLElement>('.browse-option[data-label]')).find(
+      (c) => (c.getAttribute('data-label') || '').toLowerCase() === currentLabel,
+    );
+    const cardImg = matchingCard?.querySelector('img') as HTMLImageElement | null;
+    if (cardImg) img = cardImg.src;
+  }
+
+  modal.innerHTML = `
+    <div class="bg-modal-card">
+      <button type="button" class="bg-modal-close" aria-label="Close">\u2715</button>
+      <div class="bg-modal-body">
+        ${img ? `<div class="bg-modal-image"><img src="${img}" alt="${escapeAttr(entry.title)}"></div>` : ''}
+        <div class="bg-modal-content">
+          <div class="bg-modal-eyebrow">Buyer\u2019s guide</div>
+          <h2 class="bg-modal-title">${escapeHtml(entry.title)}</h2>
+          ${entry.subtitle ? `<p class="bg-modal-subtitle">${escapeHtml(entry.subtitle)}</p>` : ''}
+          <div class="bg-modal-copy">${formatBody(entry.body)}</div>
+          ${
+            entry.specs && entry.specs.length
+              ? `<div class="bg-modal-specs">${entry.specs
+                  .map((s) => `<div class="bg-modal-spec"><span>${escapeHtml(s.label)}</span><strong>${escapeHtml(s.value)}</strong></div>`)
+                  .join('')}</div>`
+              : ''
+          }
+          ${
+            entry.pros && entry.pros.length
+              ? `<div class="bg-modal-prosCons"><div class="bg-modal-list pros"><h4>Pros</h4><ul>${entry.pros
+                  .map((p) => `<li>${escapeHtml(p)}</li>`)
+                  .join('')}</ul></div>${
+                  entry.cons && entry.cons.length
+                    ? `<div class="bg-modal-list cons"><h4>Trade-offs</h4><ul>${entry.cons
+                        .map((c) => `<li>${escapeHtml(c)}</li>`)
+                        .join('')}</ul></div>`
+                    : ''
+                }</div>`
+              : ''
+          }
+          <div class="bg-modal-actions">
+            <button type="button" class="bg-modal-btn primary" data-bg-pick="${escapeAttr(label)}">Choose ${escapeHtml(entry.title)}</button>
+            <button type="button" class="bg-modal-btn" data-bg-dismiss>Keep browsing</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Wire close + select-from-modal
+  modal.querySelector('.bg-modal-close')?.addEventListener('click', closeBuyerGuideModal);
+  modal.querySelector('[data-bg-dismiss]')?.addEventListener('click', closeBuyerGuideModal);
+  modal.querySelector('[data-bg-pick]')?.addEventListener('click', (ev) => {
+    const pickLabel = (ev.currentTarget as HTMLElement).getAttribute('data-bg-pick') || '';
+    closeBuyerGuideModal();
+    const cur = getCurrentSlideId();
+    if (!cur) return;
+    const slide = document.getElementById(`slide-${cur}`);
+    if (!slide) return;
+    const matchCard = Array.from(slide.querySelectorAll<HTMLElement>('.browse-option')).find(
+      (c) => (c.getAttribute('data-label') || '').toLowerCase() === pickLabel.toLowerCase(),
+    );
+    if (matchCard) {
+      slide.querySelectorAll('.browse-option.selected').forEach((e) => e.classList.remove('selected'));
+      matchCard.classList.add('selected');
+    }
+  });
+
+  requestAnimationFrame(() => modal!.classList.add('visible'));
+}
+
+function closeBuyerGuideModal(): void {
+  const modal = document.getElementById('bg-modal');
+  if (modal) modal.classList.remove('visible');
+}
+
+function escapeHtml(s: string): string {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function escapeAttr(s: string): string {
+  return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function formatBody(s: string): string {
+  return escapeHtml(s)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n+/g, '</p><p>')
+    .replace(/^/, '<p>')
+    .replace(/$/, '</p>');
+}
+
+/* ------------------------------------------------------------------ */
 /*  Quote slide — turn into a fillable form                            */
 /* ------------------------------------------------------------------ */
 
 function onEnterQuoteSlide(): void {
-  // Kick off image generation with accumulated choices
-  if (currentService() === 'showers') {
-    generateShowerImage(browseChoices).then((url) => {
-      if (!url) return;
-      const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
-      if (img) {
-        img.src = url;
-        img.classList.add('loaded');
-      }
-      const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
-      if (sp) sp.style.display = 'none';
-    }).catch(() => {});
+  // Install a "locked" overlay on the AI viz slot so the user understands
+  // they need to submit their details before the visualization generates.
+  const wrap = document.querySelector('.ss-quote-img-wrap') as HTMLElement | null;
+  const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  if (wrap && !wrap.querySelector('.ss-quote-lock')) {
+    if (spinner) spinner.style.display = 'none';
+    const lock = document.createElement('div');
+    lock.className = 'ss-quote-lock';
+    lock.innerHTML = `
+      <div class="ss-quote-lock-icon">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div class="ss-quote-lock-title">Your AI visualization is ready</div>
+      <div class="ss-quote-lock-desc">Share your contact details to unlock your custom-rendered shower preview. A specialist will follow up with pricing within 24 hours.</div>
+    `;
+    wrap.appendChild(lock);
   }
 
   // Inject a contact form below the editorial card if not already present
@@ -370,6 +526,33 @@ async function submitManualQuote(): Promise<void> {
 
   console.log('[Browse] Quote submitted', { name, email, phone, location, timeline, budget, choices: browseChoices });
 
+  // NOW unlock the AI visualization. Swap the lock for a loader, kick off gen.
+  const lock = document.querySelector('.ss-quote-lock') as HTMLElement | null;
+  const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  if (lock) lock.remove();
+  if (spinner) {
+    spinner.style.display = 'flex';
+    const label = spinner.querySelector('span');
+    if (label) label.textContent = 'Rendering your custom shower\u2026';
+  }
+
+  if (currentService() === 'showers') {
+    generateShowerImage(browseChoices).then((url) => {
+      if (!url) return;
+      const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+      if (img) {
+        img.src = url;
+        img.classList.add('loaded');
+      }
+      const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+      if (sp) sp.style.display = 'none';
+    }).catch((err) => console.warn('[Browse] Image gen failed:', err));
+  } else {
+    // Non-shower services: just hide the spinner (no AI viz for railings/commercial)
+    if (spinner) spinner.style.display = 'none';
+  }
+
+  // Show success card + remove nav bar
   showQuoteSent();
   document.getElementById('manual-nav-bar')?.remove();
 }
