@@ -37,15 +37,24 @@ if (!API_KEY) {
 /* ================================================================== */
 
 const BASE_ENC_STYLE = `
-Style: clean modern 3D product render in editorial CGI style. Isolated on a
-soft neutral gradient studio background (light grey to subtle warm white).
+Style: clean modern 3D architectural product render in editorial CGI style.
+The shower enclosure is installed inside a MINIMAL BATHROOM CONTEXT so the
+viewer can clearly understand how it fits in a real bathroom:
+  - A deep navy / dark blue subway tile wall directly behind the shower
+    (large 4x8 inch glossy ceramic tiles, thin light grout lines), wrapping
+    inside the shower area
+  - A light grey / warm white tile floor extending out in front of the shower
+  - A simple chrome rain showerhead and single lever mixer on the rear wall
+  - Everything else (side walls, ceiling, surrounding room) fades into a soft
+    clean neutral gradient studio background
 Crystal-clear tempered glass panels (3/8 inch thick) with realistic subtle
-edge reflections and slight ambient occlusion. Brushed nickel hardware where
-applicable. Three-quarter angle view, eye-level camera, soft diffused lighting,
-no visible floor or walls. Architectural visualization quality, ultra-sharp,
-photorealistic materials. No bathroom environment, no tile, no fixtures —
-ONLY the shower enclosure itself floating in a clean product-shot void.
-No people, no text, no watermarks.
+edge reflections, light refraction, and slight ambient occlusion. Brushed
+nickel / chrome hardware where applicable. Three-quarter angle view slightly
+above eye-level so the floor tile is visible. Soft diffused natural lighting
+from the upper left. Architectural visualization quality, ultra-sharp,
+photorealistic materials. No people, no text, no watermarks, no brand logos.
+The shower is the hero — floor and back wall tile provide just enough
+context, nothing more.
 `.trim();
 
 const ENCLOSURES = [
@@ -67,7 +76,7 @@ const ENCLOSURES = [
   {
     id: 'corner-90',
     label: '90° Corner',
-    prompt: `Frameless 90-degree corner shower enclosure with two glass panels meeting at a right angle via glass-to-glass clips at top and bottom. Walk-in configuration with no door. Clean knife-edge corner where glass meets glass. Chrome clips. ${BASE_ENC_STYLE}`,
+    prompt: `Frameless 90-degree corner shower enclosure tucked into a bathroom corner. TWO glass walls meet at a clean right-angle corner via glass-to-glass clips at top and bottom. One of the walls includes a HINGED GLASS DOOR (approximately 24-28 inches wide) with two chrome pivot hinges mounted to the adjacent wall and a vertical chrome pull handle mounted through the glass on the door. The other wall is a fixed glass panel. Knife-edge glass-to-glass corner where the two walls meet. ${BASE_ENC_STYLE}`,
   },
   {
     id: 'slider',
@@ -82,7 +91,7 @@ const ENCLOSURES = [
   {
     id: 'arched',
     label: 'Arched',
-    prompt: `Frameless shower enclosure with a decorative arched top cutout on the glass door. Sides of the glass are straight but the top edge features an elegant architectural arch curve. Pivot hinges, chrome hardware. ${BASE_ENC_STYLE}`,
+    prompt: `Frameless arched shower enclosure fitted INSIDE an arched masonry opening in the bathroom wall. TWO matching hinged glass doors meeting in the middle — each door\u2019s top edge follows a smooth arch that matches the stone archway above. The outer sides of the doors are straight and vertical. Both doors have chrome pull handles mounted vertically through the glass near the center where they meet. Pivot hinges on both outer edges. The arched stone/tile opening frames the glass elegantly like a chapel entry, with a visible low stone threshold at the bottom. The glass itself is the star — the arches on the glass match the wall arch. ${BASE_ENC_STYLE}`,
   },
   {
     id: 'splash-panel',

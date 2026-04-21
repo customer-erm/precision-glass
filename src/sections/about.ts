@@ -21,12 +21,16 @@ export function buildAboutSection(): HTMLElement {
 
   section.appendChild(buildAboutHero());
   section.appendChild(buildStatsStrip());
+  section.appendChild(buildPortfolioStrip());
   section.appendChild(buildWhyUs());
+  section.appendChild(buildMidCTA('design'));
   section.appendChild(buildWorkshopBand());
   section.appendChild(buildFounderStory());
   section.appendChild(buildTrustBadges());
   section.appendChild(buildTestimonials());
+  section.appendChild(buildMidCTA('quote'));
   section.appendChild(buildGuarantee());
+  section.appendChild(buildGallerySplit());
   section.appendChild(buildFAQ());
   section.appendChild(buildFinalCTA());
 
@@ -87,6 +91,96 @@ function buildStatsStrip(): HTMLElement {
         </div>`,
         )
         .join('')}
+    </div>
+  `;
+  return wrap;
+}
+
+/* ------------------------------------------------------------------ */
+/*  2b. Portfolio strip — 4-image marquee                              */
+/* ------------------------------------------------------------------ */
+
+function buildPortfolioStrip(): HTMLElement {
+  const wrap = el('div', { className: 'about-portfolio' });
+  const pics = [
+    images.showers.gallery[0],
+    images.railings.gallery[0],
+    images.showers.gallery[2],
+    images.commercial.gallery[0],
+    images.showers.gallery[5],
+    images.railings.gallery[2],
+  ];
+  wrap.innerHTML = `
+    <div class="about-portfolio-header">
+      <div class="about-section-eyebrow">Recent projects</div>
+      <h3 class="about-section-title">A look at some of our work</h3>
+    </div>
+    <div class="about-portfolio-grid">
+      ${pics
+        .map(
+          (src) => `
+        <div class="about-portfolio-item">
+          <img src="${src}" alt="" loading="lazy">
+        </div>`,
+        )
+        .join('')}
+    </div>
+  `;
+  return wrap;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mid-page CTA break                                                 */
+/* ------------------------------------------------------------------ */
+
+function buildMidCTA(variant: 'design' | 'quote'): HTMLElement {
+  const wrap = el('div', { className: 'about-mid-cta' });
+  const content =
+    variant === 'design'
+      ? {
+          title: 'Curious what your space could look like?',
+          lead: 'Get a free photorealistic AI rendering of your custom shower \u2014 yours to keep, even if you don\u2019t book with us.',
+          cta: 'See my AI rendering',
+          action: 'contact',
+        }
+      : {
+          title: 'Ready for an accurate quote?',
+          lead: 'Tell us a bit about your project and we\u2019ll have a specialist reach out within 24 hours with itemized pricing.',
+          cta: 'Request my quote',
+          action: 'contact',
+        };
+  wrap.innerHTML = `
+    <div class="about-mid-cta-inner">
+      <div class="about-mid-cta-text">
+        <h4 class="about-mid-cta-title">${content.title}</h4>
+        <p class="about-mid-cta-lead">${content.lead}</p>
+      </div>
+      <button type="button" class="about-mid-cta-btn" data-about-cta="${content.action}">${content.cta} \u2192</button>
+    </div>
+  `;
+  return wrap;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Gallery split (appears after guarantee)                            */
+/* ------------------------------------------------------------------ */
+
+function buildGallerySplit(): HTMLElement {
+  const wrap = el('div', { className: 'about-gallery-split' });
+  wrap.innerHTML = `
+    <div class="about-gallery-split-inner">
+      <div class="about-gallery-left">
+        <img src="${images.showers.gallery[3]}" alt="Completed frameless shower" loading="lazy">
+        <img src="${images.railings.gallery[1]}" alt="Glass railing install" loading="lazy">
+      </div>
+      <div class="about-gallery-right">
+        <div class="about-section-eyebrow">Our standard</div>
+        <h3 class="about-gallery-split-title">Every install is photographed, inspected, and signed off by the founder before we leave.</h3>
+        <p class="about-gallery-split-copy">
+          We document each project from measure to final walkthrough. Every hinge torqued to spec, every seal tested, every edge polished. It\u2019s what \u201Clifetime warranty\u201D actually looks like behind the scenes.
+        </p>
+        <button type="button" class="about-gallery-split-cta" data-about-cta="contact">Start my project \u2192</button>
+      </div>
     </div>
   `;
   return wrap;

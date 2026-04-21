@@ -23,7 +23,7 @@ export function buildChatPanel(): HTMLElement {
   // Header
   const header = el('div', { className: 'chat-panel-header' });
   const avatar = el('div', { className: 'chat-panel-avatar' });
-  avatar.appendChild(el('img', { src: '/images/avatar.png', alt: 'Alex' }));
+  avatar.appendChild(el('img', { src: '/images/avatar.jpg', alt: 'Alex' }));
   const meta = el('div', { className: 'chat-panel-meta' });
   meta.appendChild(el('div', { className: 'chat-panel-name', textContent: 'Alex' }));
   meta.appendChild(el('div', { className: 'chat-panel-role', textContent: 'Glass Specialist' }));
@@ -103,7 +103,7 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
   const row = el('div', { className: `chat-msg chat-msg-${kind}` });
   if (kind === 'agent' || kind === 'typing') {
     const av = el('div', { className: 'chat-msg-avatar' });
-    av.appendChild(el('img', { src: '/images/avatar.png', alt: '' }));
+    av.appendChild(el('img', { src: '/images/avatar.jpg', alt: '' }));
     row.appendChild(av);
   }
   const bubble = el('div', { className: 'chat-msg-bubble' });

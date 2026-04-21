@@ -427,11 +427,9 @@ function onEnterQuoteSlide(): void {
     const lock = document.createElement('div');
     lock.className = 'ss-quote-lock';
     lock.innerHTML = `
-      <div class="ss-quote-lock-icon">
-        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      </div>
-      <div class="ss-quote-lock-title">Your AI visualization is ready</div>
-      <div class="ss-quote-lock-desc">Share your contact details to unlock your custom-rendered shower preview. A specialist will follow up with pricing within 24 hours.</div>
+      <div class="ss-quote-lock-sparkle">\u2728</div>
+      <div class="ss-quote-lock-title">Your free AI rendering is ready</div>
+      <div class="ss-quote-lock-desc">One last step \u2014 share your contact details and we\u2019ll unlock a photorealistic AI preview of <strong>your exact configuration</strong>. Yours to keep, no strings. A specialist will follow up within 24 hours.</div>
     `;
     wrap.appendChild(lock);
   }

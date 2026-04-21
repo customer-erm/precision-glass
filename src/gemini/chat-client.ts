@@ -18,6 +18,7 @@ import { handleToolCall } from './tools';
 import { loadUser, saveUser } from '../utils/user-storage';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
+import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto } from '../utils/bathroom-photo';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
@@ -114,28 +115,44 @@ function buildSteps(): Record<string, ChatStep> {
     'showers-intro': {
       id: 'showers-intro',
       progressStep: 1,
-      progressTotal: 8,
+      progressTotal: 9,
       agent: 'Frameless showers transform a bathroom — no bulky frames, no collecting grime, just clean precision glass that makes the space feel bigger and adds real home value. Want me to walk you through the options?',
       chips: [
-        { label: 'Yes, let\u2019s go', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
+        { label: 'Yes, let\u2019s go', primary: true, action: { kind: 'advance', next: 'showers-upload' } },
         { label: 'Tell me more first', action: { kind: 'advance', next: 'showers-intro-more' } },
       ],
+    },
+    'showers-upload': {
+      id: 'showers-upload',
+      progressStep: 2,
+      progressTotal: 9,
+      agent: 'Quick bonus: if you upload a photo of your current bathroom, I can tailor my suggestions to your actual layout \u2014 and at the end your free AI rendering will show the new shower *installed in your real space*. Totally optional, your call.',
+      onEnter: () => injectPhotoUploadUI(),
+      chips: () =>
+        getBathroomPhoto()
+          ? [
+              { label: 'Continue with this photo', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
+              { label: 'Skip and use a stock bathroom', action: { kind: 'advance', next: 'showers-gallery' } },
+            ]
+          : [
+              { label: 'Skip \u2014 use a stock bathroom', action: { kind: 'advance', next: 'showers-gallery' } },
+            ],
     },
     'showers-intro-more': {
       id: 'showers-intro-more',
       progressStep: 1,
-      progressTotal: 8,
+      progressTotal: 9,
       agent: 'Sure — frameless means the glass panels stand on their own with only small discrete hardware. It\u2019s custom-cut to your exact space, uses 3/8" or 1/2" tempered safety glass, and comes with a lifetime workmanship warranty. Most installs are done in a single day. Ready?',
       chips: [
-        { label: 'Ready, walk me through', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
+        { label: 'Ready, walk me through', primary: true, action: { kind: 'advance', next: 'showers-upload' } },
       ],
     },
     'showers-gallery': {
       id: 'showers-gallery',
-      progressStep: 2,
-      progressTotal: 8,
+      progressStep: 3,
+      progressTotal: 9,
       agent:
-        'Here are some of our recent installs on the main screen — modern, spa-like, every one custom. I can send you our free Frameless Shower Buyer\u2019s Guide if you\u2019d like — what\u2019s your email?',
+        'Here are some of our recent installs on the main screen — modern, spa-like, every one custom. Heads up: at the end of this walkthrough I\u2019ll generate a **free AI photorealistic rendering** of your custom shower — a unique preview you get to keep. \u2728\n\nBefore we continue, I\u2019d love to send you our Frameless Shower Buyer\u2019s Guide — what\u2019s your email?',
       requiresTextInput: true,
       chips: (ctx) =>
         ctx.choices.email
@@ -155,8 +172,8 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-enclosure': {
       id: 'showers-enclosure',
-      progressStep: 3,
-      progressTotal: 8,
+      progressStep: 4,
+      progressTotal: 9,
       agent: 'Great. There are 9 enclosure types on screen. Which style fits your space best?',
       chips: [
         { label: 'Single Door', hint: 'Clean, minimal', primary: true, action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Single Door' } },
@@ -173,8 +190,8 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-glass': {
       id: 'showers-glass',
-      progressStep: 4,
-      progressTotal: 8,
+      progressStep: 5,
+      progressTotal: 9,
       agent: (ctx) => `Perfect — ${ctx.choices.enclosure}. Now the glass: clear shows off your tile, frosted is acid-etched for privacy, rain has a water-droplet texture. Which draws you in?`,
       chips: [
         { label: 'Clear', hint: 'Bestseller', primary: true, action: { kind: 'advance', next: 'showers-hardware', choiceCategory: 'glass', choice: 'Clear Glass' } },
@@ -184,8 +201,8 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-hardware': {
       id: 'showers-hardware',
-      progressStep: 5,
-      progressTotal: 8,
+      progressStep: 6,
+      progressTotal: 9,
       agent: 'Five hardware finishes to pick from. What would complement your bathroom?',
       chips: [
         { label: 'Polished Chrome', hint: 'Most popular', primary: true, action: { kind: 'advance', next: 'showers-handle', choiceCategory: 'hardware', choice: 'Polished Chrome' } },
@@ -197,8 +214,8 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-handle': {
       id: 'showers-handle',
-      progressStep: 6,
-      progressTotal: 8,
+      progressStep: 7,
+      progressTotal: 9,
       agent: (ctx) =>
         ctx.choices.enclosure?.toLowerCase().includes('splash')
           ? 'Your splash panel is a walk-in, so no handle needed! Any extras?'
@@ -215,8 +232,8 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-extras': {
       id: 'showers-extras',
-      progressStep: 7,
-      progressTotal: 8,
+      progressStep: 8,
+      progressTotal: 9,
       agent: 'Last visual pick — any upgrades? Grid patterns add architectural character, steam upgrade seals the whole thing for a spa experience.',
       chips: [
         { label: 'Skip upgrades', primary: true, action: { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: 'none' } },
@@ -227,8 +244,8 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-quote': {
       id: 'showers-quote',
-      progressStep: 8,
-      progressTotal: 8,
+      progressStep: 9,
+      progressTotal: 9,
       agent: 'Here\u2019s your configuration on the main screen. Our AI is rendering a preview of your shower. Want to wrap up with a few quick contact details so we can send you a precise quote?',
       chips: [
         { label: 'Yes, collect my info', primary: true, action: { kind: 'advance', next: 'showers-contact' } },
@@ -236,8 +253,8 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-contact': {
       id: 'showers-contact',
-      progressStep: 8,
-      progressTotal: 8,
+      progressStep: 9,
+      progressTotal: 9,
       agent: 'Just fill in what you\u2019re comfortable sharing — anything blank is fine.',
       onEnter: (ctx) => {
         injectContactForm({
@@ -417,6 +434,70 @@ function escapeHtml(s: string): string {
 /* ------------------------------------------------------------------ */
 /*  Inline contact form injection                                      */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/*  Bathroom photo upload UI                                           */
+/* ------------------------------------------------------------------ */
+
+let photoUploadHandlerAttached = false;
+
+function injectPhotoUploadUI(): void {
+  const container = document.getElementById('chat-extras');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const existing = getBathroomPhoto();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-photo-upload';
+  wrap.innerHTML = existing
+    ? `
+        <div class="chat-photo-preview">
+          <img src="${existing.dataUrl}" alt="Your bathroom">
+          <button type="button" class="chat-photo-clear" aria-label="Remove photo">\u2715</button>
+        </div>
+        <p class="chat-photo-note">Got it \u2014 I\u2019ll use this bathroom as the canvas for your final AI rendering.</p>
+      `
+    : `
+        <label class="chat-photo-dropzone" for="chat-photo-input">
+          <span class="chat-photo-icon">\u{1F4F7}</span>
+          <span class="chat-photo-label-main">Upload a photo of your bathroom</span>
+          <span class="chat-photo-label-sub">JPG, PNG, or HEIC \u00B7 max 10MB</span>
+        </label>
+        <input type="file" id="chat-photo-input" accept="image/*" capture="environment" hidden>
+      `;
+  container.appendChild(wrap);
+
+  // Wire handlers (delegated to avoid duplicate listeners on re-enter)
+  if (photoUploadHandlerAttached) return;
+  photoUploadHandlerAttached = true;
+
+  document.addEventListener('change', async (e) => {
+    const target = e.target as HTMLInputElement;
+    if (target?.id !== 'chat-photo-input') return;
+    const file = target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setBathroomPhoto(dataUrl);
+      // Refresh the UI to show the preview
+      injectPhotoUploadUI();
+    } catch (err) {
+      console.warn('[Chat] Photo upload failed:', err);
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target?.closest('.chat-photo-clear')) {
+      const mod = target.closest('.chat-photo-upload');
+      mod?.remove();
+      // @ts-expect-error — dynamic import side-effect-free clear
+      import('../utils/bathroom-photo').then((m) => m.clearBathroomPhoto());
+      injectPhotoUploadUI();
+    }
+  });
+}
 
 function injectContactForm(prefill: { name: string; email: string; phone: string }): void {
   const container = document.getElementById('chat-extras');
@@ -801,11 +882,9 @@ function injectLockOverlay(): void {
   const lock = document.createElement('div');
   lock.className = 'ss-quote-lock';
   lock.innerHTML = `
-    <div class="ss-quote-lock-icon">
-      <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    </div>
-    <div class="ss-quote-lock-title">Your AI visualization is ready</div>
-    <div class="ss-quote-lock-desc">Finish with your contact details to unlock your custom-rendered preview.</div>
+    <div class="ss-quote-lock-sparkle">\u2728</div>
+    <div class="ss-quote-lock-title">Your free AI rendering is ready</div>
+    <div class="ss-quote-lock-desc">One last step \u2014 share your contact details and we\u2019ll unlock a photorealistic AI preview of <strong>your exact configuration</strong>. Yours to keep, no strings.</div>
   `;
   wrap.appendChild(lock);
 }

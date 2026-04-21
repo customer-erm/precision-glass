@@ -10,6 +10,7 @@
  */
 
 import { images } from '../data/image-map';
+import { getBathroomPhoto } from '../utils/bathroom-photo';
 
 /* Map a handle choice → the accessory reference image we ship in /public */
 function findHandleImage(choice: string): string | null {
@@ -207,15 +208,30 @@ export async function generateShowerImage(
   if (refData) console.log('[ImageGen] Enclosure ref loaded:', refData.mimeType, refData.data.length);
   if (handleData) console.log('[ImageGen] Handle ref loaded:', handleData.mimeType, handleData.data.length);
 
-  const promptParts: any[] = [
-    { text: prompt },
-  ];
+  // If the customer uploaded a photo of their actual bathroom, we render
+  // the shower INTO their real space instead of a stock luxury bathroom.
+  const userBathroom = getBathroomPhoto();
+
+  const promptParts: any[] = [];
+
+  if (userBathroom) {
+    // User-uploaded bathroom becomes the PRIMARY scene
+    promptParts.push({
+      text: `${prompt}\n\nIMPORTANT: The reference image of the customer\u2019s ACTUAL BATHROOM is attached. Render the new frameless shower INTO that exact bathroom — preserve their tile, their fixtures, their window, their vanity, their lighting. Only add the new shower enclosure where it logically belongs in their space. Keep the rest of the room identical to the reference photograph so they can see what the finished install will actually look like in their home.`,
+    });
+    promptParts.push({ text: 'CUSTOMER\u2019S ACTUAL BATHROOM (primary scene — render the new shower into this exact space):' });
+    const [mime, b64] = userBathroom.dataUrl.replace(/^data:/, '').split(';base64,');
+    promptParts.push({ inlineData: { mimeType: mime, data: b64 } });
+  } else {
+    promptParts.push({ text: prompt });
+  }
+
   if (refData) {
-    promptParts.push({ text: 'REFERENCE IMAGE 1 (enclosure layout — copy this exact shape and panel configuration):' });
+    promptParts.push({ text: `REFERENCE: enclosure layout — copy this exact shape and panel configuration:` });
     promptParts.push({ inlineData: refData });
   }
   if (handleData) {
-    promptParts.push({ text: 'REFERENCE IMAGE 2 (door handle style — the door must use a handle that looks exactly like this):' });
+    promptParts.push({ text: 'REFERENCE: door handle style — the door must use a handle that looks exactly like this:' });
     promptParts.push({ inlineData: handleData });
   }
 

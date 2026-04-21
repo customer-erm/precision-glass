@@ -201,7 +201,7 @@ export function buildAgentBar(): HTMLElement {
 
   // Avatar
   const avatar = el('div', { className: 'agent-avatar', id: 'agent-avatar' });
-  avatar.appendChild(el('img', { src: '/images/avatar.png', alt: 'Alex' }));
+  avatar.appendChild(el('img', { src: '/images/avatar.jpg', alt: 'Alex' }));
   bar.appendChild(avatar);
 
   // Agent info + tip
