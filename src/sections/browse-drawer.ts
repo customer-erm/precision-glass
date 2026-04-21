@@ -145,24 +145,9 @@ export function buildBrowseDrawer(): HTMLElement {
 
   drawer.appendChild(footer);
 
-  // Hamburger toggle — fixed at top-right, appears once browse mode is
-  // activated. Click toggles drawer open/closed.
-  const handle = el('button', {
-    className: 'browse-menu-toggle',
-    id: 'browse-menu-toggle',
-    type: 'button',
-    ariaLabel: 'Toggle menu',
-    innerHTML: `
-      <span class="browse-menu-toggle-bars" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </span>
-      <span class="browse-menu-toggle-label">Menu</span>
-    `,
-  });
-  // Append to OUTER wrap (sibling of drawer) so the toggle is unaffected
-  // by the drawer's transform when it slides off screen.
+  // Toggle hamburger lives in the site nav (buildNav) so it aligns with
+  // the other nav CTAs. We only own the drawer panel here.
   wrap.appendChild(drawer);
-  wrap.appendChild(handle);
 
   // Initialize section list for default service
   renderSectionsList(currentService);
@@ -216,8 +201,9 @@ export function openBrowseDrawer(service: ServiceKey = 'showers'): void {
   drawer.classList.remove('collapsed');
   drawer.classList.add('visible');
   // Once browse mode is active, the hamburger toggle persists even when
-  // the drawer is collapsed
+  // the drawer is collapsed. Body class makes the toggle visible.
   wrap?.classList.add('active');
+  document.body.classList.add('browse-active');
   // Sync hamburger: it's showing the "X" shape when drawer is open
   document.getElementById('browse-menu-toggle')?.classList.add('open');
 
@@ -237,6 +223,8 @@ export function closeBrowseDrawer(): void {
   const wrap = document.getElementById('browse-drawer-wrap');
   if (drawer) drawer.classList.remove('visible');
   wrap?.classList.remove('active');
+  document.body.classList.remove('browse-active');
+  document.getElementById('browse-menu-toggle')?.classList.remove('open');
 }
 
 export function collapseBrowseDrawer(): void {

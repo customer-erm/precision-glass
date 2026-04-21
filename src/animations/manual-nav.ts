@@ -223,7 +223,7 @@ async function exitManualTour(): Promise<void> {
   if (hero) {
     hero.style.display = '';
     hero.style.opacity = '1';
-    hero.querySelectorAll<HTMLElement>('.hero-badge, .hero-title, .hero-subtitle, .services-grid, .mode-picker-wrap, #mode-picker-wrap').forEach((el) => {
+    hero.querySelectorAll<HTMLElement>('.hero-eyebrow, .hero-title, .hero-subtitle, .services-grid, .mode-picker-wrap, #mode-picker-wrap').forEach((el) => {
       el.style.opacity = '1';
       el.style.transform = 'none';
     });

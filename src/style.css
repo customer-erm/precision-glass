@@ -160,11 +160,28 @@ img { max-width: 100%; display: block; }
 .hero {
   min-height: 100vh;
   display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
+  justify-content: stretch;
   text-align: center;
-  padding-top: 80px;
+  padding: 100px 20px 40px;
   position: relative; z-index: 1;
   overflow: hidden;
+}
+/* Headline block: vertically centered in its flex space */
+.hero-headline {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 20px;
+}
+/* Interactive zone: services + mode picker */
+.hero-interact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  padding-top: 10px;
 }
 .hero-bg-image {
   position: absolute; inset: 0; z-index: 0;
@@ -198,17 +215,53 @@ img { max-width: 100%; display: block; }
     radial-gradient(ellipse 70% 50% at 50% 40%, rgba(10, 22, 40, 0.15) 0%, rgba(10, 22, 40, 0.6) 70%),
     linear-gradient(180deg, rgba(10, 22, 40, 0.3) 0%, transparent 25%, transparent 75%, var(--blue-900) 100%);
 }
-.hero-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 20px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 100px;
-  font-size: 0.8rem; color: var(--blue-300);
-  margin-bottom: 28px;
-  letter-spacing: 0.12em; text-transform: uppercase;
-  font-weight: 500;
+/* Original eyebrow — thin decorative rules + orange diamond marks,
+   wordmark-style typography. Replaces the generic pill badge. */
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 34px;
+  max-width: min(90vw, 620px);
+  animation: eyebrowIn 1s var(--ease-smooth) 0.15s both;
+}
+@keyframes eyebrowIn {
+  from { opacity: 0; transform: translateY(-8px); letter-spacing: 0.25em; }
+  to { opacity: 1; transform: translateY(0); letter-spacing: 0.28em; }
+}
+.hero-eyebrow-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35) 50%, transparent);
+  min-width: 40px;
+}
+.hero-eyebrow-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--white-90);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.hero-eyebrow-mark {
+  color: var(--orange-400);
+  font-size: 0.55rem;
+  transform: translateY(-1px);
+  display: inline-block;
+  animation: eyebrowMarkTwinkle 4s ease-in-out infinite;
+  text-shadow: 0 0 12px rgba(255, 107, 44, 0.6);
+}
+.hero-eyebrow-mark:last-child { animation-delay: 2s; }
+@keyframes eyebrowMarkTwinkle {
+  0%, 100% { opacity: 0.65; transform: translateY(-1px) scale(1); }
+  50% { opacity: 1; transform: translateY(-1px) scale(1.15); }
+}
+.hero-eyebrow-words {
+  position: relative;
 }
 .hero-title {
   font-family: var(--font-display);
@@ -2853,46 +2906,35 @@ img { max-width: 100%; display: block; }
   line-height: 1.4;
 }
 
-/* Wrapper is a static container so the hamburger toggle can be fixed
-   to the viewport even when the drawer inside it is transformed. */
 .browse-drawer-wrap { position: static; }
 
-/* Hamburger toggle — appears once browse mode is activated. Always
-   visible until the user closes browse mode entirely. */
+/* Hamburger toggle lives INSIDE the nav alongside phone + Get a quote.
+   Hidden by default; revealed when browse mode is active via body class. */
 .browse-menu-toggle {
-  position: fixed;
-  top: 80px;
-  right: 24px;
-  display: flex;
+  display: none;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
-  background: rgba(12, 24, 44, 0.95);
+  padding: 9px 14px;
+  background: rgba(255, 255, 255, 0.06);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border-light);
-  border-radius: 12px;
+  border-radius: 999px;
   color: var(--white);
   font-family: var(--font-display);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   cursor: pointer;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-6px);
-  transition: all 0.3s var(--ease-smooth);
-  z-index: 430;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: all 0.25s var(--ease-smooth);
+  line-height: 1;
 }
-.browse-drawer-wrap.active .browse-menu-toggle {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
+body.browse-active .browse-menu-toggle {
+  display: inline-flex;
 }
 .browse-menu-toggle:hover {
-  background: rgba(20, 36, 64, 0.98);
+  background: rgba(255, 107, 44, 0.12);
   border-color: var(--orange-400);
-  box-shadow: 0 8px 24px rgba(255, 107, 44, 0.25);
+  box-shadow: 0 6px 18px rgba(255, 107, 44, 0.25);
 }
 .browse-menu-toggle-bars {
   position: relative;

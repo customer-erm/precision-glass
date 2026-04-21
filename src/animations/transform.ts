@@ -10,7 +10,7 @@ export function playTransformAnimation(): Promise<void> {
     const tl = gsap.timeline({ onComplete: resolve });
 
     // Fade out hero content elements
-    tl.to('.hero-badge', { opacity: 0, y: -20, duration: 0.3 })
+    tl.to('.hero-eyebrow', { opacity: 0, y: -20, duration: 0.3 })
       .to('.hero-title', { opacity: 0, y: -30, duration: 0.3 }, '-=0.2')
       .to('.hero-subtitle', { opacity: 0, y: -20, duration: 0.25 }, '-=0.15')
       .to('.services-grid', { opacity: 0, y: 20, duration: 0.3 }, '-=0.2')

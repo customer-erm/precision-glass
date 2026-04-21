@@ -62,8 +62,17 @@ export function buildHero(): HTMLElement {
   }, 7000);
   section.appendChild(heroBg);
 
-  // Badge
-  const badge = el('div', { className: 'hero-badge' }, ['Premium Glass Solutions']);
+  // Eyebrow — original brand treatment with decorative rules + location mark
+  const eyebrow = el('div', { className: 'hero-eyebrow' });
+  eyebrow.innerHTML = `
+    <span class="hero-eyebrow-line"></span>
+    <span class="hero-eyebrow-text">
+      <span class="hero-eyebrow-mark">\u25C6</span>
+      <span class="hero-eyebrow-words">South Florida \u00B7 Since 2004 \u00B7 Custom Glass</span>
+      <span class="hero-eyebrow-mark">\u25C6</span>
+    </span>
+    <span class="hero-eyebrow-line"></span>
+  `;
 
   // Title
   const title = el('h1', {
@@ -101,7 +110,15 @@ export function buildHero(): HTMLElement {
   // Mode picker (replaces the old single mic button)
   const modePicker = buildModePicker();
 
-  section.append(badge, title, subtitle, servicesGrid, modePicker);
+  // Two-zone layout: headline (eyebrow + title + subtitle) vertically
+  // centered in its space; interact zone (services + picker) docked below.
+  const headline = el('div', { className: 'hero-headline' });
+  headline.append(eyebrow, title, subtitle);
+
+  const interact = el('div', { className: 'hero-interact' });
+  interact.append(servicesGrid, modePicker);
+
+  section.append(headline, interact);
   return section;
 }
 
@@ -119,7 +136,7 @@ export function buildNav(): HTMLElement {
   const statusText = el('span', { id: 'nav-status-text', textContent: 'AI Assistant Active' });
   status.append(dot, statusText);
 
-  // Persistent top-right CTA: phone number + Get Quote button
+  // Persistent top-right CTA: phone number + Get Quote button + menu toggle
   const ctaWrap = el('div', { className: 'nav-cta-wrap' });
   const phone = el('a', {
     className: 'nav-phone',
@@ -132,7 +149,21 @@ export function buildNav(): HTMLElement {
     type: 'button',
     textContent: 'Get a quote',
   });
-  ctaWrap.append(phone, ctaBtn);
+  // Menu toggle lives here so it visually aligns with the other nav CTAs.
+  // Hidden by default; shown when browse mode is active.
+  const menuToggle = el('button', {
+    className: 'browse-menu-toggle',
+    id: 'browse-menu-toggle',
+    type: 'button',
+    ariaLabel: 'Toggle menu',
+    innerHTML: `
+      <span class="browse-menu-toggle-bars" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </span>
+      <span class="browse-menu-toggle-label">Menu</span>
+    `,
+  });
+  ctaWrap.append(phone, ctaBtn, menuToggle);
 
   inner.append(logo, status, ctaWrap);
   nav.appendChild(inner);
