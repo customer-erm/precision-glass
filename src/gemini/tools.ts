@@ -264,12 +264,15 @@ export async function handleToolCall(
     }
 
     case 'show_slide': {
-      // Anti-hallucination guard: only block if the agent is firing a second
-      // show_slide too quickly after the previous one (the auto-advance
-      // failure mode). Legitimate replies always take at least ~1.5s.
+      // Anti-hallucination guard: only applies to VOICE mode, because the
+      // voice agent can stream multiple tool calls in a single turn due to
+      // misfires. Chat and browse modes are user-driven (chip taps / button
+      // clicks) so the guard would only cause false positives there.
+      const mode = getState().currentMode;
+      const isUserDriven = mode === 'chat' || mode === 'browse';
       const now = Date.now();
       const sinceLastSlide = now - lastShowSlideAt;
-      if (lastShowSlideAt > 0 && sinceLastSlide < MIN_SLIDE_INTERVAL_MS) {
+      if (!isUserDriven && lastShowSlideAt > 0 && sinceLastSlide < MIN_SLIDE_INTERVAL_MS) {
         console.warn('[Tour] Blocking rapid show_slide:', {
           slide_id: args.slide_id,
           sinceLastSlide,

@@ -216,6 +216,35 @@ export function expandBrowseDrawer(): void {
 /* ------------------------------------------------------------------ */
 
 export function wireBrowseDrawer(): void {
+  // Scroll-spy: highlight the drawer item whose target section is currently
+  // in view. Cheap, throttled with rAF.
+  let spyPending = false;
+  function runSpy(): void {
+    spyPending = false;
+    const items = document.querySelectorAll<HTMLElement>('.browse-drawer-item[data-scroll-to]');
+    if (!items.length) return;
+    const viewportMid = window.innerHeight / 3;
+    let closest: { el: HTMLElement; dist: number } | null = null;
+    items.forEach((item) => {
+      const id = item.getAttribute('data-scroll-to');
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      // Only consider targets that are above the viewport bottom
+      if (rect.bottom < 0) return;
+      const dist = Math.abs(rect.top - viewportMid);
+      if (!closest || dist < closest.dist) closest = { el: item, dist };
+    });
+    items.forEach((i) => i.classList.remove('active'));
+    if (closest) closest.el.classList.add('active');
+  }
+  window.addEventListener('scroll', () => {
+    if (spyPending) return;
+    spyPending = true;
+    requestAnimationFrame(runSpy);
+  }, { passive: true });
+
   document.addEventListener('click', async (e) => {
     const target = e.target as HTMLElement;
 
@@ -245,11 +274,18 @@ export function wireBrowseDrawer(): void {
       return;
     }
 
-    // Section jump
+    // Section jump — collapse drawer (don't close) so user can re-expand
+    // to jump somewhere else without re-opening the whole thing.
     const scroll = target.closest('[data-scroll-to]') as HTMLElement | null;
     if (scroll) {
       const id = scroll.getAttribute('data-scroll-to');
-      if (id) document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (id) {
+        // Mark item active immediately for visual feedback
+        document.querySelectorAll('.browse-drawer-item.active').forEach((n) => n.classList.remove('active'));
+        scroll.classList.add('active');
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        collapseBrowseDrawer();
+      }
       return;
     }
 

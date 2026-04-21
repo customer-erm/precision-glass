@@ -73,6 +73,8 @@ export async function startBrowseTour(service: 'showers' | 'railings' | 'commerc
 
   injectManualNavBar();
   wireSlideInteraction();
+  setTimeout(wireSlideInteraction, 400);
+  setTimeout(wireSlideInteraction, 900);
 }
 
 /* ------------------------------------------------------------------ */
@@ -165,10 +167,13 @@ async function goNext(): Promise<void> {
 
   await showSlide(nextId);
   if (nextId === 'quote') onEnterQuoteSlide();
+  // Wire immediately + again after a short delay so late-appearing .slide-el
+  // cards (reveal animation) also get wired.
   wireSlideInteraction();
+  setTimeout(wireSlideInteraction, 400);
+  setTimeout(wireSlideInteraction, 900);
   updateNavCounter();
 
-  // Pre-populate quote fields on the quote slide
   if (nextId === 'quote') populateManualQuote();
 }
 
@@ -178,6 +183,8 @@ async function goPrev(): Promise<void> {
   if (idx <= 0) return;
   await showSlide(order[idx - 1]);
   wireSlideInteraction();
+  setTimeout(wireSlideInteraction, 400);
+  setTimeout(wireSlideInteraction, 900);
   updateNavCounter();
 }
 
@@ -207,27 +214,34 @@ function wireSlideInteraction(): void {
   const slideEl = document.getElementById(`slide-${cur}`);
   if (!slideEl) return;
 
-  // Look for all plausible option cards and mark them as browse-options
+  // Actual class names produced by slideshow.ts for each slide's option cards.
   const cardSelectors = [
-    '.ss-carousel-card',
     '.ss-enc-card',
     '.ss-glass-card',
     '.ss-hw-card',
     '.ss-acc-card',
     '.ss-extra-card',
-    '.ss-option-card',
+    '.ss-rail-card',
+    '.ss-com-card',
+    '.ss-info-item',
   ];
-  const cards = slideEl.querySelectorAll(cardSelectors.join(','));
-  cards.forEach((c) => {
-    const card = c as HTMLElement;
+  const cards = slideEl.querySelectorAll<HTMLElement>(cardSelectors.join(','));
+  console.log(`[Manual] wireSlideInteraction slide=${cur} cards=${cards.length}`);
+
+  cards.forEach((card) => {
     if (card.classList.contains('browse-wired')) return;
     card.classList.add('browse-wired', 'browse-option');
-    // Derive a label if the card has an h4 child
+    card.style.cursor = 'pointer';
+    // Derive a label from h4 if present
     const labelEl = card.querySelector('h4');
-    if (labelEl) card.setAttribute('data-label', labelEl.textContent || '');
+    if (labelEl) card.setAttribute('data-label', (labelEl.textContent || '').trim());
     card.addEventListener('click', () => {
       slideEl.querySelectorAll('.browse-option.selected').forEach((e) => e.classList.remove('selected'));
       card.classList.add('selected');
+      console.log('[Manual] Selected on', cur, '→', card.getAttribute('data-label'));
+      // Highlight the Next button to indicate user can advance
+      const next = document.getElementById('manual-nav-next');
+      if (next) next.classList.add('pulse-ready');
     });
   });
 }

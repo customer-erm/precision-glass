@@ -1,21 +1,20 @@
 /**
- * Chat panel — bottom-docked overlay that lets users run the same guided
- * tour via text instead of voice. Uses the same tools + slideshow as voice
- * mode. Quick-reply buttons appear under Alex's messages, derived from
- * the current slide id.
+ * Chat panel — bottom-right corner widget that drives the guided tour via
+ * the ChatDriver state machine. Shows agent messages, rich option chips,
+ * inline forms, typing indicators, and a progress pip bar.
+ *
+ * Users can tap a chip OR type free text — the driver handles both.
  */
 
 import { el } from '../utils/dom';
-import { GeminiChatClient } from '../gemini/chat-client';
-import { getCurrentSlideId } from '../animations/slideshow';
-import { getQuickReplies } from '../gemini/tools';
+import { ChatDriver, type Chip } from '../gemini/chat-client';
 
 const SEND_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 
-let client: GeminiChatClient | null = null;
+let driver: ChatDriver | null = null;
 
 /* ------------------------------------------------------------------ */
-/*  DOM builder                                                        */
+/*  DOM                                                                */
 /* ------------------------------------------------------------------ */
 
 export function buildChatPanel(): HTMLElement {
@@ -27,7 +26,7 @@ export function buildChatPanel(): HTMLElement {
   avatar.appendChild(el('img', { src: '/images/avatar.png', alt: 'Alex' }));
   const meta = el('div', { className: 'chat-panel-meta' });
   meta.appendChild(el('div', { className: 'chat-panel-name', textContent: 'Alex' }));
-  meta.appendChild(el('div', { className: 'chat-panel-role', textContent: 'Glass Specialist \u2014 Text Chat' }));
+  meta.appendChild(el('div', { className: 'chat-panel-role', textContent: 'Glass Specialist' }));
   const closeBtn = el('button', {
     className: 'chat-panel-close',
     id: 'chat-panel-close',
@@ -37,13 +36,21 @@ export function buildChatPanel(): HTMLElement {
   header.append(avatar, meta, closeBtn);
   panel.appendChild(header);
 
+  // Progress pips
+  const progress = el('div', { className: 'chat-progress', id: 'chat-progress' });
+  panel.appendChild(progress);
+
   // Messages
   const messages = el('div', { className: 'chat-messages', id: 'chat-messages' });
   panel.appendChild(messages);
 
-  // Quick replies
-  const quick = el('div', { className: 'chat-quick-replies', id: 'chat-quick-replies' });
-  panel.appendChild(quick);
+  // Extras (inline form / custom content)
+  const extras = el('div', { className: 'chat-extras', id: 'chat-extras' });
+  panel.appendChild(extras);
+
+  // Chips
+  const chips = el('div', { className: 'chat-chips', id: 'chat-chips' });
+  panel.appendChild(chips);
 
   // Input
   const inputRow = el('form', { className: 'chat-input-row', id: 'chat-input-form' });
@@ -51,7 +58,7 @@ export function buildChatPanel(): HTMLElement {
     className: 'chat-input',
     id: 'chat-input',
     type: 'text',
-    placeholder: 'Type your message\u2026',
+    placeholder: 'Tap an option or type\u2026',
     autocomplete: 'off',
   });
   const sendBtn = el('button', {
@@ -68,14 +75,13 @@ export function buildChatPanel(): HTMLElement {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Message rendering                                                  */
+/*  Rendering                                                          */
 /* ------------------------------------------------------------------ */
 
 function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLElement {
   const msgs = document.getElementById('chat-messages');
   if (!msgs) return document.createElement('div');
 
-  // Remove any existing typing indicator
   if (kind !== 'typing') {
     msgs.querySelectorAll('.chat-msg.typing').forEach((n) => n.remove());
   }
@@ -99,33 +105,50 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
   return row;
 }
 
-function renderQuickReplies(): void {
-  const wrap = document.getElementById('chat-quick-replies');
+function renderChips(chips: Chip[]): void {
+  const wrap = document.getElementById('chat-chips');
   if (!wrap) return;
   wrap.innerHTML = '';
-
-  const slideId = getCurrentSlideId();
-  const options = slideId ? getQuickReplies(slideId) : [];
-  if (!options.length) {
+  if (!chips.length) {
     wrap.style.display = 'none';
     return;
   }
   wrap.style.display = 'flex';
 
-  options.forEach((label) => {
+  chips.forEach((chip) => {
     const btn = el('button', {
-      className: 'chat-quick-btn',
+      className: 'chat-chip' + (chip.primary ? ' primary' : '') + (chip.hint ? ' has-hint' : ''),
       type: 'button',
-      textContent: label,
     });
+    const main = el('span', { className: 'chat-chip-label', textContent: chip.label });
+    btn.appendChild(main);
+    if (chip.hint) btn.appendChild(el('span', { className: 'chat-chip-hint', textContent: chip.hint }));
     btn.addEventListener('click', () => {
-      if (!client) return;
-      appendMessage('user', label);
-      wrap.innerHTML = '';
-      client.sendUserMessage(label);
+      if (driver) driver.onChipTapped(chip);
     });
     wrap.appendChild(btn);
   });
+}
+
+function renderProgress(step: number | null, total: number | null): void {
+  const wrap = document.getElementById('chat-progress');
+  if (!wrap) return;
+  if (step == null || total == null) {
+    wrap.innerHTML = '';
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = '';
+  for (let i = 1; i <= total; i++) {
+    const pip = el('span', { className: 'chat-pip' + (i < step ? ' done' : i === step ? ' active' : '') });
+    wrap.appendChild(pip);
+  }
+}
+
+function clearExtras(): void {
+  const extras = document.getElementById('chat-extras');
+  if (extras) extras.innerHTML = '';
 }
 
 /* ------------------------------------------------------------------ */
@@ -133,53 +156,53 @@ function renderQuickReplies(): void {
 /* ------------------------------------------------------------------ */
 
 export function showChatPanel(): void {
-  const panel = document.getElementById('chat-panel');
-  if (panel) panel.classList.add('visible');
+  document.getElementById('chat-panel')?.classList.add('visible');
 }
 
 export function hideChatPanel(): void {
-  const panel = document.getElementById('chat-panel');
-  if (panel) panel.classList.remove('visible');
+  document.getElementById('chat-panel')?.classList.remove('visible');
 }
 
 export async function startChat(): Promise<void> {
-  if (!client) client = new GeminiChatClient();
+  if (!driver) driver = new ChatDriver();
 
-  // Clear old messages
+  // Clear any previous UI
   const msgs = document.getElementById('chat-messages');
   if (msgs) msgs.innerHTML = '';
-  const quick = document.getElementById('chat-quick-replies');
-  if (quick) quick.innerHTML = '';
+  const chips = document.getElementById('chat-chips');
+  if (chips) chips.innerHTML = '';
+  clearExtras();
 
-  client.setCallbacks({
+  driver.setCallbacks({
     onAgentMessage: (text) => {
       appendMessage('agent', text);
-      // Refresh quick replies after each agent message (slide may have changed)
-      setTimeout(renderQuickReplies, 200);
     },
-    onTypingStart: () => {
-      appendMessage('typing', '');
+    onUserMessage: (text) => {
+      appendMessage('user', text);
+      clearExtras();
     },
-    onTypingEnd: () => {
-      document.querySelectorAll('.chat-msg.typing').forEach((n) => n.remove());
+    onChips: (chipsArr) => {
+      renderChips(chipsArr);
     },
-    onError: (err) => {
-      console.warn('[Chat] error:', err);
-      appendMessage('agent', 'Sorry, I hit a snag. Could you try again?');
+    onProgress: (step, total) => {
+      renderProgress(step, total);
     },
+    onTypingStart: () => appendMessage('typing', ''),
+    onTypingEnd: () => document.querySelectorAll('.chat-msg.typing').forEach((n) => n.remove()),
+    onClose: () => hideChatPanel(),
   });
 
   showChatPanel();
-  await client.start();
+  await driver.start();
 }
 
 export function stopChat(): void {
-  client?.stop();
+  driver?.stop();
   hideChatPanel();
 }
 
 /* ------------------------------------------------------------------ */
-/*  Event wiring (called once at app init)                             */
+/*  Wiring (called once at app init)                                   */
 /* ------------------------------------------------------------------ */
 
 export function wireChatPanelEvents(): void {
@@ -191,17 +214,12 @@ export function wireChatPanelEvents(): void {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = input.value.trim();
-      if (!text || !client) return;
-      appendMessage('user', text);
+      if (!text || !driver) return;
       input.value = '';
-      const quick = document.getElementById('chat-quick-replies');
-      if (quick) quick.innerHTML = '';
-      client.sendUserMessage(text);
+      driver.onUserText(text);
     });
   }
   if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      stopChat();
-    });
+    closeBtn.addEventListener('click', () => stopChat());
   }
 }
