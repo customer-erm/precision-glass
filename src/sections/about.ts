@@ -21,7 +21,6 @@ export function buildAboutSection(): HTMLElement {
 
   section.appendChild(buildAboutHero());
   section.appendChild(buildStatsStrip());
-  section.appendChild(buildPortfolioStrip());
   section.appendChild(buildWhyUs());
   section.appendChild(buildMidCTA('design'));
   section.appendChild(buildWorkshopBand());

@@ -1677,32 +1677,31 @@ body:has(.chat-panel.visible) .help-launcher {
 }
 .mode-picker-welcome strong { color: var(--white); font-weight: 600; }
 
-.mode-picker-incentive {
+/* Compact incentive line tucked under the mic caption */
+.mode-caption-incentive {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 18px 9px 14px;
-  background: linear-gradient(135deg, rgba(255, 107, 44, 0.14), rgba(255, 107, 44, 0.04));
-  border: 1px solid rgba(255, 107, 44, 0.35);
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 12px;
+  background: rgba(255, 107, 44, 0.08);
+  border: 1px solid rgba(255, 107, 44, 0.28);
   border-radius: 999px;
-  backdrop-filter: var(--glass-blur);
   font-family: var(--font-body);
-  font-size: 0.82rem;
-  color: var(--white);
-  max-width: 560px;
-  line-height: 1.35;
-  box-shadow: 0 0 28px rgba(255, 107, 44, 0.18);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #ffb085;
+  letter-spacing: 0.01em;
 }
-.mode-picker-incentive-icon {
-  font-size: 1.1rem;
-  filter: drop-shadow(0 0 6px rgba(255, 200, 120, 0.8));
+.mode-caption-spark {
+  font-size: 0.88rem;
+  filter: drop-shadow(0 0 4px rgba(255, 200, 120, 0.7));
   animation: sparkTwinkle 2.4s ease-in-out infinite;
 }
 @keyframes sparkTwinkle {
   0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
   50% { transform: scale(1.15) rotate(12deg); opacity: 1; }
 }
-.mode-picker-incentive-text strong { color: #ffb085; font-weight: 700; }
 .mode-picker-wave { margin-right: 6px; display: inline-block; animation: wave 1.6s ease-in-out infinite; transform-origin: 70% 70%; }
 @keyframes wave {
   0%, 60%, 100% { transform: rotate(0deg); }

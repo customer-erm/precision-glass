@@ -32,16 +32,6 @@ export function buildModePicker(): HTMLElement {
     wrap.appendChild(welcome);
   }
 
-  // Free AI Rendering incentive — the "cool gift" at the end of the journey
-  const incentive = el('div', { className: 'mode-picker-incentive' });
-  incentive.innerHTML = `
-    <span class="mode-picker-incentive-icon">\u2728</span>
-    <span class="mode-picker-incentive-text">
-      <strong>Free AI rendering</strong> of your shower in a photo of your bathroom \u2014 when you finish the walkthrough
-    </span>
-  `;
-  wrap.appendChild(incentive);
-
   // Hero cluster: [chat-pill]  [ MIC ]  [browse-pill]
   const cluster = el('div', { className: 'mode-cluster', id: 'mode-cluster' });
 
@@ -90,6 +80,7 @@ export function buildModePicker(): HTMLElement {
   caption.innerHTML = `
     <span class="mode-caption-main" id="mode-caption-main">${returning && user?.name ? `Welcome back, ${escapeHtml(user.name.split(' ')[0])} \u2014 Speak with a Glass Specialist Now` : 'Speak with a Glass Specialist Now'}</span>
     <span class="mode-caption-sub">prefer <button type="button" class="mode-inline-link" data-mode="chat">chat</button> \u00B7 <button type="button" class="mode-inline-link" data-mode="browse">browse on your own</button></span>
+    <span class="mode-caption-incentive"><span class="mode-caption-spark">\u2728</span> Free Custom Project Visualization</span>
   `;
   wrap.appendChild(caption);
 
