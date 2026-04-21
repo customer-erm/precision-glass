@@ -100,13 +100,13 @@ img { max-width: 100%; display: block; }
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
-  padding: 20px 0;
+  padding: 12px 0;
   transition: all 0.4s var(--ease-smooth);
 }
 .nav.scrolled {
   background: rgba(10, 22, 40, 0.85);
   backdrop-filter: var(--glass-blur);
-  padding: 12px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--glass-border);
 }
 .nav-inner {
@@ -118,12 +118,20 @@ img { max-width: 100%; display: block; }
   padding: 0 clamp(20px, 3vw, 40px);
 }
 .nav-logo {
-  font-family: var(--font-display);
-  font-size: 1.5rem; font-weight: 700; color: var(--white);
-  letter-spacing: -0.01em;
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  height: 56px;
+  text-decoration: none;
 }
-.nav-logo span { color: var(--blue-400); }
+.nav-logo img {
+  display: block;
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 8px rgba(133, 193, 233, 0.15));
+}
 
 /* Nav service links — centered in the middle of the header */
 .nav-services {
@@ -4506,13 +4514,16 @@ body.browse-active .browse-menu-toggle {
 .footer-col { display: flex; flex-direction: column; gap: 14px; }
 .footer-brand { gap: 20px; }
 .footer-logo {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--white);
-  letter-spacing: -0.01em;
+  display: block;
+  max-width: 260px;
+  margin-bottom: 4px;
 }
-.footer-logo span { color: var(--blue-400); }
+.footer-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: screen;
+}
 .footer-tagline {
   font-size: 0.88rem;
   line-height: 1.65;

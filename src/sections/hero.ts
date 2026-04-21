@@ -109,9 +109,11 @@ export function buildNav(): HTMLElement {
 
   const nav = el('nav', { className: 'nav', id: 'nav' });
   const inner = el('div', { className: 'nav-inner' });
-  const logo = el('div', {
+  const logo = el('a', {
     className: 'nav-logo',
-    innerHTML: 'Precision<span>Glass</span>',
+    href: '#',
+    ariaLabel: 'Precision Glass home',
+    innerHTML: '<img src="/images/logo/lockup-dark.jpg" alt="Precision Glass">',
   });
 
   // Service links in the middle of the nav
