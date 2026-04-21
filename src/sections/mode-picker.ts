@@ -78,8 +78,8 @@ export function buildModePicker(): HTMLElement {
   // Caption under the cluster
   const caption = el('div', { className: 'mode-caption' });
   caption.innerHTML = `
-    <span class="mode-caption-main" id="mode-caption-main">${returning && user?.name ? `Tap the mic to continue with ${escapeHtml(user.name.split(' ')[0])}` : 'Tap the mic to talk to Alex'}</span>
-    <span class="mode-caption-sub">or prefer <button type="button" class="mode-inline-link" data-mode="chat">chat</button> \u00B7 <button type="button" class="mode-inline-link" data-mode="browse">browse on your own</button></span>
+    <span class="mode-caption-main" id="mode-caption-main">${returning && user?.name ? `Welcome back, ${escapeHtml(user.name.split(' ')[0])} \u2014 Speak with a Glass Specialist Now` : 'Speak with a Glass Specialist Now'}</span>
+    <span class="mode-caption-sub">prefer <button type="button" class="mode-inline-link" data-mode="chat">chat</button> \u00B7 <button type="button" class="mode-inline-link" data-mode="browse">browse on your own</button></span>
   `;
   wrap.appendChild(caption);
 

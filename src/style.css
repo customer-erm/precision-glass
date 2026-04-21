@@ -113,27 +113,74 @@ img { max-width: 100%; display: block; }
   border-bottom: 1px solid var(--glass-border);
 }
 .nav-inner {
+  position: relative;
   display: flex; align-items: center; justify-content: space-between;
-  max-width: var(--container-width);
-  margin: 0 auto;
-  padding: var(--container-padding);
+  gap: 28px;
+  width: 100%;
+  margin: 0;
+  padding: 0 clamp(20px, 3vw, 40px);
 }
 .nav-logo {
   font-family: var(--font-display);
   font-size: 1.5rem; font-weight: 700; color: var(--white);
   letter-spacing: -0.01em;
+  flex: 0 0 auto;
 }
 .nav-logo span { color: var(--blue-400); }
+
+/* Nav service links — centered in the middle of the header */
+.nav-services {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+.nav-service-link {
+  background: transparent;
+  border: none;
+  color: var(--white-90);
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-radius: 8px;
+  position: relative;
+  transition: color 0.2s;
+  letter-spacing: 0.01em;
+}
+.nav-service-link::after {
+  content: '';
+  position: absolute;
+  left: 14px; right: 14px; bottom: 4px;
+  height: 2px;
+  background: var(--orange-400);
+  border-radius: 1px;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s var(--ease-smooth);
+}
+.nav-service-link:hover { color: var(--white); }
+.nav-service-link:hover::after { transform: scaleX(1); }
+
+/* Status floats as an overlay pill so it doesn't push layout around */
 .nav-status {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
   display: flex; align-items: center; gap: 8px;
-  font-size: 0.8rem; color: var(--white-90);
+  font-size: 0.78rem; color: var(--white-90);
   padding: 6px 16px; border-radius: 999px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-  opacity: 0; transition: all 0.4s var(--ease-smooth);
+  background: rgba(10, 22, 40, 0.85); border: 1px solid rgba(255,255,255,0.12);
+  opacity: 0; pointer-events: none;
+  transition: all 0.4s var(--ease-smooth);
   backdrop-filter: blur(8px);
   font-family: var(--font-body);
+  white-space: nowrap;
 }
-.nav-status.visible { opacity: 1; }
+.nav-status.visible { opacity: 1; pointer-events: auto; }
 .nav-status.connecting-pill {
   background: rgba(0, 255, 120, 0.12);
   border-color: rgba(0, 255, 120, 0.4);
@@ -381,7 +428,7 @@ img { max-width: 100%; display: block; }
 /* ---- Agent Bar (avatar + tips) ---- */
 .agent-bar {
   position: fixed; bottom: 0; left: 0; right: 0;
-  z-index: 200;
+  z-index: 460; /* above help-launcher (440) and chat-panel (450) */
   background: rgba(10, 22, 40, 0.94);
   backdrop-filter: var(--glass-blur);
   border-top: 1px solid var(--glass-border);
@@ -391,6 +438,15 @@ img { max-width: 100%; display: block; }
   transition: transform 0.4s var(--ease-smooth);
 }
 .agent-bar.visible { transform: translateY(0); }
+
+/* When a voice/chat session is active, hide the help orb so it doesn't
+   conflict visually with the active agent UI. */
+body:has(.agent-bar.visible) .help-launcher,
+body:has(.chat-panel.visible) .help-launcher {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+}
 
 .agent-avatar {
   width: 48px; height: 48px; border-radius: 50%; overflow: hidden;
@@ -1797,10 +1853,11 @@ img { max-width: 100%; display: block; }
   text-align: center;
 }
 .mode-caption-main {
-  font-size: 1rem;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 600;
   color: var(--white);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
 }
 .mode-caption-sub {
   font-size: 0.82rem;
@@ -3022,6 +3079,7 @@ body.browse-active .browse-menu-toggle {
   z-index: 440;
   display: flex;
   flex-direction: column;
+  transition: opacity 0.3s var(--ease-smooth), transform 0.3s var(--ease-smooth);
   align-items: flex-end;
   gap: 12px;
   pointer-events: none;
@@ -3351,6 +3409,162 @@ body.browse-active .browse-menu-toggle {
 .contact-modal-success p {
   color: var(--white-70);
   font-size: 0.88rem;
+}
+
+/* ============================================
+   SITE FOOTER
+   ============================================ */
+.site-footer {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(8, 16, 30, 0.98), #050b16);
+  border-top: 1px solid var(--glass-border);
+  padding: 72px 0 0;
+  color: var(--white-70);
+  font-family: var(--font-body);
+}
+.site-footer-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(24px, 4vw, 48px);
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.3fr;
+  gap: 40px;
+}
+.footer-col { display: flex; flex-direction: column; gap: 14px; }
+.footer-brand { gap: 20px; }
+.footer-logo {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.01em;
+}
+.footer-logo span { color: var(--blue-400); }
+.footer-tagline {
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--white-70);
+  font-weight: 300;
+  max-width: 360px;
+}
+.footer-socials {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.footer-social {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  color: var(--white-70);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s var(--ease-smooth);
+  text-decoration: none;
+}
+.footer-social:hover {
+  background: var(--cta-gradient);
+  border-color: transparent;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: var(--cta-shadow);
+}
+.footer-title {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--orange-400);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.footer-links,
+.footer-contact {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.footer-links li button,
+.footer-links li a {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--white-70);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.2s;
+}
+.footer-links li button:hover,
+.footer-links li a:hover { color: var(--orange-400); }
+
+.footer-contact li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--white-70);
+}
+.footer-contact li a {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--white-70);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-contact li a:hover { color: var(--orange-400); }
+.footer-contact li svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--orange-400);
+}
+.footer-contact li span span { line-height: 1.5; }
+
+.site-footer-bottom {
+  margin-top: 56px;
+  padding: 22px 0;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.site-footer-bottom-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(24px, 4vw, 48px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--white-50);
+}
+.footer-copyright { font-weight: 500; }
+.footer-license { color: var(--white-30); font-size: 0.74rem; }
+.footer-legal { display: flex; gap: 16px; }
+.footer-legal a {
+  color: var(--white-50);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-legal a:hover { color: var(--orange-400); }
+
+@media (max-width: 900px) {
+  .site-footer-inner { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .footer-brand { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) {
+  .site-footer-inner { grid-template-columns: 1fr; }
+  .site-footer-bottom-inner { flex-direction: column; text-align: center; }
 }
 
 /* ============================================

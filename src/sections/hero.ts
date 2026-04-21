@@ -119,6 +119,24 @@ export function buildNav(): HTMLElement {
     className: 'nav-logo',
     innerHTML: 'Precision<span>Glass</span>',
   });
+
+  // Service links in the middle of the nav
+  const services = el('div', { className: 'nav-services' });
+  const navServices = [
+    { label: 'Frameless Showers', service: 'showers' as const },
+    { label: 'Glass Railings', service: 'railings' as const },
+    { label: 'Commercial Glass', service: 'commercial' as const },
+  ];
+  navServices.forEach((s) => {
+    const link = el('button', {
+      className: 'nav-service-link',
+      type: 'button',
+      textContent: s.label,
+    });
+    link.setAttribute('data-nav-service', s.service);
+    services.appendChild(link);
+  });
+
   const status = el('div', { className: 'nav-status', id: 'nav-status' });
   const dot = el('div', { className: 'nav-status-dot' });
   const statusText = el('span', { id: 'nav-status-text', textContent: 'AI Assistant Active' });
@@ -153,7 +171,10 @@ export function buildNav(): HTMLElement {
   });
   ctaWrap.append(phone, ctaBtn, menuToggle);
 
-  inner.append(logo, status, ctaWrap);
+  // Layout: logo left, service links center, CTAs right. Status floats
+  // as an overlay pill when a session is active (positioned absolute so
+  // it doesn't push the layout around).
+  inner.append(logo, services, ctaWrap, status);
   nav.appendChild(inner);
   return nav;
 }

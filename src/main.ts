@@ -7,6 +7,7 @@ import { buildBrowseDrawer, openBrowseDrawer, wireBrowseDrawer, closeBrowseDrawe
 import { buildHelpLauncher } from './sections/help-launcher';
 import { buildContactModal, openContactModal, wireContactModal } from './sections/contact-modal';
 import { buildContentModal, closeContentModal } from './sections/content-modal';
+import { buildFooter } from './sections/footer';
 import { playLandingAnimation } from './animations/landing';
 import { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
@@ -31,6 +32,7 @@ const browseDrawer = buildBrowseDrawer();
 const helpLauncher = buildHelpLauncher();
 const contactModal = buildContactModal();
 const contentModal = buildContentModal();
+const footer = buildFooter();
 
 app.appendChild(bgEl);
 app.appendChild(nav);
@@ -38,6 +40,7 @@ app.appendChild(hero);
 app.appendChild(showerContent);
 app.appendChild(railingsContent);
 app.appendChild(commercialContent);
+app.appendChild(footer);
 app.appendChild(agentBar);
 app.appendChild(chatPanel);
 app.appendChild(browseDrawer);
@@ -160,6 +163,25 @@ document.addEventListener('click', async (e) => {
 
   // Top-right nav CTA
   if (target.closest('#nav-cta-btn')) {
+    openContactModal();
+    return;
+  }
+
+  // Nav/Footer service link → open browse drawer for that service
+  const navSvc = target.closest('[data-nav-service]') as HTMLElement | null;
+  if (navSvc) {
+    const service = navSvc.getAttribute('data-nav-service') as 'showers' | 'railings' | 'commercial' | null;
+    if (service) {
+      setState({ currentMode: 'browse' });
+      saveUser({ preferredMode: 'browse' });
+      const { openBrowseDrawer } = await import('./sections/browse-drawer');
+      openBrowseDrawer(service);
+    }
+    return;
+  }
+
+  // Footer "Request a Quote" link → open contact modal
+  if (target.closest('#footer-quote-link')) {
     openContactModal();
     return;
   }
