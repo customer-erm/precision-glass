@@ -1,7 +1,8 @@
 import { playTransformAnimation } from '../animations/transform';
 import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService } from '../animations/slideshow';
-import { setState } from '../utils/state';
+import { setState, getState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
+import { saveUser } from '../utils/user-storage';
 import type { ServiceType } from '../utils/state';
 
 /* ------------------------------------------------------------------ */
@@ -157,6 +158,48 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<ServiceType, Record<string, string>> = {
 function getSlideContext(slideId: string): string {
   const ctx = SLIDE_CONTEXT_BY_SERVICE[getActiveService()];
   return ctx?.[slideId] || 'Slide is showing.';
+}
+
+/* ------------------------------------------------------------------ */
+/*  Quick-reply options for chat mode                                  */
+/* ------------------------------------------------------------------ */
+
+const SLIDE_QUICK_REPLIES_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Record<string, string[]>> = {
+  showers: {
+    intro: ['Yes, show me', 'Tell me more first'],
+    gallery: ['Here\u2019s my email', 'Skip for now'],
+    enclosures: ['Single Door', 'Door + Panel', 'Neo-Angle', '90\u00B0 Corner', 'Frameless Slider', 'Curved', 'Arched', 'Splash Panel', 'Steam Shower', 'Custom'],
+    glass: ['Clear Glass', 'Frosted Glass', 'Rain Glass'],
+    hardware: ['Polished Chrome', 'Brushed Nickel', 'Matte Black', 'Polished Brass', 'Satin Brass'],
+    accessories: ['Pull Handle', 'U-Handle', 'Ladder Pull', 'Knob', 'Towel Bar', 'None, thanks'],
+    extras: ['Grid Patterns', 'Steam Upgrade', 'Both', 'Neither'],
+    process: ['No questions, let\u2019s see it', 'What\u2019s the timeline?', 'How does installation work?'],
+  },
+  railings: {
+    intro: ['Yes, show me', 'Tell me about Precision Glass'],
+    gallery: ['Show me the options', 'Skip ahead'],
+    'rail-types': ['Standoff Mount', 'Base Shoe', 'Posts & Clips', 'Pool Fence'],
+    'rail-glass': ['Clear Tempered', 'Laminated Safety', 'Tinted / Privacy'],
+    'rail-finish': ['Stainless', 'Matte Black', 'Bronze', 'Brushed Nickel'],
+    'rail-mounting': ['Surface Mount', 'Fascia Mount', 'Core-Drilled'],
+    process: ['No questions', 'Tell me about permits'],
+  },
+  commercial: {
+    intro: ['Yes, walk me through', 'Just a few questions first'],
+    gallery: ['Let\u2019s get specific', 'Who do you usually work with?'],
+    'com-types': ['Storefront System', 'Curtain Wall', 'Interior Partitions', 'Doors & Hardware'],
+    'com-glass': ['Clear Insulated', 'Low-E Coated', 'Hurricane Rated', 'Tinted / Spandrel'],
+    'com-framing': ['Standard Aluminum', 'Thermally Broken', 'Frameless / Minimal', 'Stainless Architectural'],
+    'com-scope': ['Small / Repair', 'Medium Build-Out', 'Full Storefront', 'Curtain Wall / Multi-Story'],
+    process: ['No questions', 'Do you handle permits?'],
+  },
+};
+
+export function getQuickReplies(slideId: string): string[] {
+  const svc = getActiveService();
+  if (!svc) return [];
+  const map = SLIDE_QUICK_REPLIES_BY_SERVICE[svc as 'showers' | 'railings' | 'commercial'];
+  return map?.[slideId] || [];
 }
 
 // Wrap any instructional tool result so the model treats it as a private
@@ -376,6 +419,32 @@ DO THE FOLLOWING IN ORDER:
       if (args.budget) quoteChoices['budget'] = args.budget;
 
       console.log('[Final Quote Data]', quoteChoices);
+
+      // Persist the customer to localStorage so next visit the agent
+      // greets them by name and skips re-asking the basics.
+      try {
+        const service = (getActiveService?.() as ServiceType) || getState().currentService || undefined;
+        saveUser({
+          name: quoteChoices['name'] || undefined,
+          email: quoteChoices['email'] || undefined,
+          phone: quoteChoices['phone'] || undefined,
+          location: quoteChoices['location'] || undefined,
+          timeline: quoteChoices['timeline'] || undefined,
+          budget: quoteChoices['budget'] || undefined,
+          preferredMode: getState().currentMode || undefined,
+          lastQuote: {
+            service: (service as 'showers' | 'railings' | 'commercial') || undefined,
+            enclosure: quoteChoices['enclosure'] || undefined,
+            glass: quoteChoices['glass'] || undefined,
+            hardware: quoteChoices['hardware'] || undefined,
+            handle: quoteChoices['handle'] || undefined,
+            accessories: quoteChoices['accessories'] || undefined,
+            extras: quoteChoices['extras'] || undefined,
+          },
+        });
+      } catch (err) {
+        console.warn('[UserStorage] Save failed in end_session:', err);
+      }
 
       // Re-populate so any newly provided contact details show on the quote screen
       populateQuoteSummary(quoteChoices);

@@ -30,7 +30,14 @@ export function buildShowerContent(): HTMLElement {
   const heroContent = el('div', { className: 'service-hero-content' });
   const heroTitle = el('h2', { className: 'service-hero-title', id: 'shower-hero-title' });
   const heroSub = el('p', { className: 'service-hero-subtitle', textContent: 'Custom frameless glass enclosures designed, fabricated, and installed by our expert team. No frames. No compromises. Just clean lines and stunning clarity.' });
-  heroContent.append(heroTitle, heroSub);
+  const heroCta = el('button', {
+    className: 'service-hero-cta configure-cta',
+    type: 'button',
+    id: 'configure-showers-hero',
+    textContent: 'Configure your shower \u2192',
+  });
+  heroCta.setAttribute('data-service', 'showers');
+  heroContent.append(heroTitle, heroSub, heroCta);
   hero.append(heroBg, heroContent);
 
   // 2. Our Work Gallery
@@ -121,7 +128,24 @@ export function buildShowerContent(): HTMLElement {
   procContainer.append(procHeader, procTimeline);
   procSection.appendChild(procContainer);
 
-  wrapper.append(hero, gallerySection, encSection, glassSection, hwSection, accSection, procSection);
+  // 7. Bottom CTA section
+  const ctaSection = el('section', { className: 'section browse-bottom-cta', id: 'showers-bottom-cta' });
+  const ctaContainer = el('div', { className: 'container' });
+  const ctaCard = el('div', { className: 'bottom-cta-card' });
+  ctaCard.appendChild(el('h3', { className: 'bottom-cta-title', textContent: 'Ready to design yours?' }));
+  ctaCard.appendChild(el('p', { className: 'bottom-cta-desc', textContent: 'Walk through the configurator at your own pace. Pick your style, glass, hardware, and extras \u2014 then we\u2019ll send you a custom quote within 24 hours.' }));
+  const ctaBtn = el('button', {
+    className: 'bottom-cta-btn configure-cta',
+    id: 'configure-showers-bottom',
+    type: 'button',
+    textContent: 'Start configuring \u2192',
+  });
+  ctaBtn.setAttribute('data-service', 'showers');
+  ctaCard.appendChild(ctaBtn);
+  ctaContainer.appendChild(ctaCard);
+  ctaSection.appendChild(ctaContainer);
+
+  wrapper.append(hero, gallerySection, encSection, glassSection, hwSection, accSection, procSection, ctaSection);
   return wrapper;
 }
 

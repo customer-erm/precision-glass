@@ -1,11 +1,17 @@
 import './style.css';
 import { buildHero, buildNav, buildBackground, buildAgentBar } from './sections/hero';
 import { buildShowerContent } from './sections/showers';
+import { buildRailingsContent, buildCommercialContent } from './sections/browse-extra';
+import { buildChatPanel, startChat, stopChat, wireChatPanelEvents } from './sections/chat-panel';
 import { playLandingAnimation } from './animations/landing';
 import { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
-import type { AgentState } from './utils/state';
-// (slideshow popup is now driven by an explicit agent tool call)
+import type { AgentState, InteractionMode } from './utils/state';
+import { loadUser, registerVisit, saveUser } from './utils/user-storage';
+import { startBrowseTour } from './animations/manual-nav';
+
+// --- Register visit count on page load ---
+registerVisit();
 
 // --- Build DOM ---
 const app = document.getElementById('app')!;
@@ -13,13 +19,19 @@ const bgEl = buildBackground();
 const nav = buildNav();
 const hero = buildHero();
 const showerContent = buildShowerContent();
+const railingsContent = buildRailingsContent();
+const commercialContent = buildCommercialContent();
 const agentBar = buildAgentBar();
+const chatPanel = buildChatPanel();
 
 app.appendChild(bgEl);
 app.appendChild(nav);
 app.appendChild(hero);
 app.appendChild(showerContent);
+app.appendChild(railingsContent);
+app.appendChild(commercialContent);
 app.appendChild(agentBar);
+app.appendChild(chatPanel);
 
 // --- Landing animation ---
 requestAnimationFrame(() => {
@@ -34,7 +46,7 @@ window.addEventListener('scroll', () => {
   }
 });
 
-// --- Gemini Client ---
+// --- Gemini Voice Client ---
 const gemini = new GeminiLiveClient();
 
 // Tip rotation for the agent bar
@@ -89,28 +101,75 @@ gemini.setCallbacks({
   },
 });
 
-// --- Mic button click ---
-const micBtn = document.getElementById('mic-btn');
-micBtn?.addEventListener('click', async () => {
-  if (gemini.isConnected) {
-    gemini.disconnect();
+/* ------------------------------------------------------------------ */
+/*  Mode picker: route clicks to voice / chat / browse                 */
+/* ------------------------------------------------------------------ */
+
+async function enterVoiceMode(): Promise<void> {
+  setState({ currentMode: 'voice' });
+  saveUser({ preferredMode: 'voice' });
+  showAgentBar();
+  startTipRotation();
+  try {
+    await gemini.connect();
+  } catch (err) {
+    console.error('Failed to connect:', err);
     hideAgentBar();
     stopTipRotation();
-  } else {
-    showAgentBar();
-    startTipRotation();
-    try {
-      await gemini.connect();
-    } catch (err) {
-      console.error('Failed to connect:', err);
-      hideAgentBar();
-      stopTipRotation();
-      showError('Could not connect. Please check your microphone permissions and try again.');
+    showError('Could not connect. Please check your microphone permissions and try again.');
+  }
+}
+
+async function enterChatMode(): Promise<void> {
+  setState({ currentMode: 'chat' });
+  saveUser({ preferredMode: 'chat' });
+  await startChat();
+}
+
+function enterBrowseMode(): void {
+  setState({ currentMode: 'browse' });
+  saveUser({ preferredMode: 'browse' });
+  // Scroll to the showers section by default (it's first in the page)
+  document.getElementById('service-showers')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Click handler on mode-picker-grid (event delegation)
+document.addEventListener('click', async (e) => {
+  const target = e.target as HTMLElement;
+
+  // Mode picker cards
+  const card = target.closest('[data-mode]') as HTMLElement | null;
+  if (card) {
+    const mode = card.getAttribute('data-mode') as InteractionMode;
+    if (mode === 'voice') await enterVoiceMode();
+    else if (mode === 'chat') await enterChatMode();
+    else if (mode === 'browse') enterBrowseMode();
+    return;
+  }
+
+  // "Configure Yours" CTAs inside browse content
+  const cta = target.closest('.configure-cta') as HTMLElement | null;
+  if (cta) {
+    const service = cta.getAttribute('data-service') as 'showers' | 'railings' | 'commercial' | null;
+    if (service) {
+      setState({ currentMode: 'browse' });
+      saveUser({ preferredMode: 'browse' });
+      await startBrowseTour(service);
     }
+    return;
+  }
+
+  // Service cards in hero (also launch browse mode for that service)
+  const svcCard = target.closest('.service-card') as HTMLElement | null;
+  if (svcCard) {
+    const service = svcCard.getAttribute('data-service') as 'showers' | 'railings' | 'commercial' | null;
+    const sectionId = service ? `service-${service}` : null;
+    if (sectionId) document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
   }
 });
 
-// Agent bar mic also toggles
+// Agent bar mic toggles voice session
 const agentMic = document.getElementById('agent-mic');
 agentMic?.addEventListener('click', () => {
   if (gemini.isConnected) {
@@ -128,11 +187,10 @@ endBtn?.addEventListener('click', () => {
   stopTipRotation();
 });
 
-// Listen for session kill from tools (e.g. after quote is presented)
-// Soft end: stop sending mic audio (no more API usage from us) but keep
-// the WebSocket open so the agent can finish streaming its goodbye sentence.
-// Also hide the agent bar immediately so the user does not see "listening"
-// after the goodbye — Alex's buffered voice keeps playing in the background.
+// Wire chat panel inputs (form submit, close button)
+wireChatPanelEvents();
+
+// Listen for voice-session custom events (fired by tools.ts)
 window.addEventListener('precision:end-session-soft', () => {
   console.log('[Main] Soft-ending: muting mic, hiding agent bar, audio keeps playing');
   gemini.muteMic();
@@ -142,40 +200,24 @@ window.addEventListener('precision:end-session-soft', () => {
 
 window.addEventListener('precision:end-session', () => {
   console.log('[Main] Ending session via custom event');
-  // Keep buffered goodbye audio playing locally; cut mic + WebSocket fully now.
   gemini.disconnect({ keepAudioQueue: true });
   hideAgentBar();
   stopTipRotation();
+  // Also close chat panel if it's open (tools.ts dispatches this for chat sessions too)
+  stopChat();
 });
 
-// --- UI State updates ---
+/* ------------------------------------------------------------------ */
+/*  UI State updates                                                   */
+/* ------------------------------------------------------------------ */
+
 function updateMicState(state: AgentState | 'connecting'): void {
-  const micContainer = document.getElementById('mic-container');
   const agentMicEl = document.getElementById('agent-mic');
   const agentAvatarEl = document.getElementById('agent-avatar');
   const navStatus = document.getElementById('nav-status');
 
-  if (micContainer) {
-    micContainer.className = `mic-container ${state}`;
-    const micLabel = document.getElementById('mic-label');
-    if (micLabel) {
-      const micLabels: Record<string, string> = {
-        connecting: 'Connecting to Alex...',
-        listening: 'Listening...',
-        speaking: 'Alex is speaking...',
-        error: 'Connection error — tap to retry',
-        idle: 'Tap to speak with our glass specialist',
-      };
-      micLabel.textContent = micLabels[state] || '';
-    }
-  }
-
-  if (agentMicEl) {
-    agentMicEl.className = `agent-mic ${state}`;
-  }
-  if (agentAvatarEl) {
-    agentAvatarEl.className = `agent-avatar ${state}`;
-  }
+  if (agentMicEl) agentMicEl.className = `agent-mic ${state}`;
+  if (agentAvatarEl) agentAvatarEl.className = `agent-avatar ${state}`;
 
   if (navStatus) {
     const statusText = document.getElementById('nav-status-text');
@@ -224,4 +266,10 @@ function showError(msg: string): void {
     toast.style.transition = 'opacity 0.3s';
     setTimeout(() => toast.remove(), 300);
   }, 4000);
+}
+
+// Log what we know about the user (helpful for dev)
+const existingUser = loadUser();
+if (existingUser) {
+  console.log('[Main] Returning user:', existingUser);
 }

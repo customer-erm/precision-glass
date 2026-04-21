@@ -1,6 +1,5 @@
 import { el } from '../utils/dom';
-
-const MIC_SVG = `<svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`;
+import { buildModePicker } from './mode-picker';
 
 export function buildHero(): HTMLElement {
   const section = el('section', { className: 'hero', id: 'hero' });
@@ -46,16 +45,10 @@ export function buildHero(): HTMLElement {
     servicesGrid.appendChild(card);
   });
 
-  // Mic button
-  const micContainer = el('div', { className: 'mic-container idle', id: 'mic-container' });
-  const micBtn = el('button', { className: 'mic-btn', id: 'mic-btn', innerHTML: MIC_SVG });
-  const ring1 = el('div', { className: 'mic-ring' });
-  const ring2 = el('div', { className: 'mic-ring' });
-  const ring3 = el('div', { className: 'mic-ring' });
-  const micLabel = el('span', { className: 'mic-label', id: 'mic-label', textContent: 'Tap to speak with our glass specialist' });
-  micContainer.append(ring1, ring2, ring3, micBtn, micLabel);
+  // Mode picker (replaces the old single mic button)
+  const modePicker = buildModePicker();
 
-  section.append(badge, title, subtitle, servicesGrid, micContainer);
+  section.append(badge, title, subtitle, servicesGrid, modePicker);
   return section;
 }
 

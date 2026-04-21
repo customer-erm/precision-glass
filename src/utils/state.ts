@@ -1,5 +1,6 @@
 export type ServiceType = 'showers' | 'railings' | 'commercial' | null;
 export type AgentState = 'idle' | 'connecting' | 'listening' | 'speaking' | 'error';
+export type InteractionMode = 'voice' | 'chat' | 'browse' | null;
 
 interface AppState {
   currentService: ServiceType;
@@ -8,6 +9,7 @@ interface AppState {
   customerEmail: string;
   isTransformed: boolean;
   currentHighlight: string | null;
+  currentMode: InteractionMode;
 }
 
 type Listener = (state: AppState) => void;
@@ -19,6 +21,7 @@ const state: AppState = {
   customerEmail: '',
   isTransformed: false,
   currentHighlight: null,
+  currentMode: null,
 };
 
 const listeners: Listener[] = [];
