@@ -175,16 +175,21 @@ img { max-width: 100%; display: block; }
   width: 100%; height: 100%; object-fit: cover;
   filter: brightness(0.45) saturate(0.9);
   opacity: 0;
-  transform: scale(1.05);
-  transition: opacity 1.6s ease;
+  /* Base transform matches the animation's starting keyframe so when a
+     fresh image is put in place (inline transform cleared) there's no
+     visible jump before the animation takes over. */
+  transform: scale(1.08) translate3d(0, 0, 0);
+  transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform;
+  backface-visibility: hidden;
 }
 .hero-bg-kb img.kb-active {
   opacity: 1;
-  animation: kenburnsHero 9s ease-in-out forwards;
+  animation: kenburnsHero 11s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
 @keyframes kenburnsHero {
-  0% { transform: scale(1.08) translate(0%, 0%); }
-  100% { transform: scale(1.18) translate(-2%, -1.5%); }
+  0% { transform: scale(1.08) translate3d(0, 0, 0); }
+  100% { transform: scale(1.2) translate3d(-2.5%, -1.5%, 0); }
 }
 .hero-bg-image::after {
   content: '';
@@ -2661,13 +2666,10 @@ img { max-width: 100%; display: block; }
   pointer-events: auto;
   transform: translateX(0) scale(1);
 }
+/* Collapsed state: panel slides fully off the right edge; only the
+   sibling hamburger toggle remains visible at top-right. */
 .browse-drawer.collapsed {
-  transform: translateX(calc(100% - 56px)) scale(1);
-}
-.browse-drawer.collapsed .browse-drawer-header,
-.browse-drawer.collapsed .browse-drawer-tabs,
-.browse-drawer.collapsed .browse-drawer-list,
-.browse-drawer.collapsed .browse-drawer-footer {
+  transform: translateX(calc(100% + 48px)) scale(0.98);
   opacity: 0;
   pointer-events: none;
 }
@@ -2851,35 +2853,78 @@ img { max-width: 100%; display: block; }
   line-height: 1.4;
 }
 
-/* Collapse handle (visible when drawer is collapsed) */
-.browse-drawer-handle {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
+/* Wrapper is a static container so the hamburger toggle can be fixed
+   to the viewport even when the drawer inside it is transformed. */
+.browse-drawer-wrap { position: static; }
+
+/* Hamburger toggle — appears once browse mode is activated. Always
+   visible until the user closes browse mode entirely. */
+.browse-menu-toggle {
+  position: fixed;
+  top: 80px;
+  right: 24px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
-  background: var(--cta-gradient);
-  border: none;
-  border-radius: 12px 0 0 12px;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(12, 24, 44, 0.95);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border-light);
+  border-radius: 12px;
   color: var(--white);
   font-family: var(--font-display);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s;
+  transform: translateY(-6px);
+  transition: all 0.3s var(--ease-smooth);
+  z-index: 430;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
-.browse-drawer-handle svg { transform: rotate(90deg); }
-.browse-drawer.collapsed .browse-drawer-handle {
+.browse-drawer-wrap.active .browse-menu-toggle {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(0);
 }
+.browse-menu-toggle:hover {
+  background: rgba(20, 36, 64, 0.98);
+  border-color: var(--orange-400);
+  box-shadow: 0 8px 24px rgba(255, 107, 44, 0.25);
+}
+.browse-menu-toggle-bars {
+  position: relative;
+  width: 18px;
+  height: 14px;
+  display: inline-block;
+}
+.browse-menu-toggle-bars span {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--orange-400);
+  transition: all 0.3s var(--ease-bounce);
+}
+.browse-menu-toggle-bars span:nth-child(1) { top: 0; }
+.browse-menu-toggle-bars span:nth-child(2) { top: 6px; }
+.browse-menu-toggle-bars span:nth-child(3) { top: 12px; }
+/* Morph to X when drawer is open */
+.browse-menu-toggle.open .browse-menu-toggle-bars span:nth-child(1) {
+  top: 6px;
+  transform: rotate(45deg);
+}
+.browse-menu-toggle.open .browse-menu-toggle-bars span:nth-child(2) {
+  opacity: 0;
+}
+.browse-menu-toggle.open .browse-menu-toggle-bars span:nth-child(3) {
+  top: 6px;
+  transform: rotate(-45deg);
+}
+.browse-menu-toggle-label { line-height: 1; }
 
 /* ============================================
    TOP-RIGHT PERSISTENT CTA (nav contact)

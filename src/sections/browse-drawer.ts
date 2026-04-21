@@ -90,6 +90,9 @@ let currentService: ServiceKey = 'showers';
 /* ------------------------------------------------------------------ */
 
 export function buildBrowseDrawer(): HTMLElement {
+  // Outer wrapper has no transform so the toggle can be a sibling of the
+  // drawer and remain fixed to the viewport when the drawer slides away.
+  const wrap = el('div', { className: 'browse-drawer-wrap', id: 'browse-drawer-wrap' });
   const drawer = el('div', { className: 'browse-drawer', id: 'browse-drawer' });
 
   // Header
@@ -142,19 +145,29 @@ export function buildBrowseDrawer(): HTMLElement {
 
   drawer.appendChild(footer);
 
-  // Re-open tab (when drawer is collapsed)
+  // Hamburger toggle — fixed at top-right, appears once browse mode is
+  // activated. Click toggles drawer open/closed.
   const handle = el('button', {
-    className: 'browse-drawer-handle',
-    id: 'browse-drawer-handle',
+    className: 'browse-menu-toggle',
+    id: 'browse-menu-toggle',
     type: 'button',
-    innerHTML: `<span>Menu</span>${CHEVRON_SVG}`,
+    ariaLabel: 'Toggle menu',
+    innerHTML: `
+      <span class="browse-menu-toggle-bars" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </span>
+      <span class="browse-menu-toggle-label">Menu</span>
+    `,
   });
-  drawer.appendChild(handle);
+  // Append to OUTER wrap (sibling of drawer) so the toggle is unaffected
+  // by the drawer's transform when it slides off screen.
+  wrap.appendChild(drawer);
+  wrap.appendChild(handle);
 
   // Initialize section list for default service
   renderSectionsList(currentService);
 
-  return drawer;
+  return wrap;
 }
 
 /* ------------------------------------------------------------------ */
@@ -198,9 +211,15 @@ function renderSectionsList(serviceKey: ServiceKey): void {
 export function openBrowseDrawer(service: ServiceKey = 'showers'): void {
   currentService = service;
   const drawer = document.getElementById('browse-drawer');
+  const wrap = document.getElementById('browse-drawer-wrap');
   if (!drawer) return;
   drawer.classList.remove('collapsed');
   drawer.classList.add('visible');
+  // Once browse mode is active, the hamburger toggle persists even when
+  // the drawer is collapsed
+  wrap?.classList.add('active');
+  // Sync hamburger: it's showing the "X" shape when drawer is open
+  document.getElementById('browse-menu-toggle')?.classList.add('open');
 
   // Activate correct tab and render sections
   drawer.querySelectorAll('[data-service-tab]').forEach((t) => {
@@ -215,17 +234,22 @@ export function openBrowseDrawer(service: ServiceKey = 'showers'): void {
 
 export function closeBrowseDrawer(): void {
   const drawer = document.getElementById('browse-drawer');
+  const wrap = document.getElementById('browse-drawer-wrap');
   if (drawer) drawer.classList.remove('visible');
+  wrap?.classList.remove('active');
 }
 
 export function collapseBrowseDrawer(): void {
   const drawer = document.getElementById('browse-drawer');
   if (drawer) drawer.classList.add('collapsed');
+  // Sync toggle button open state
+  document.getElementById('browse-menu-toggle')?.classList.remove('open');
 }
 
 export function expandBrowseDrawer(): void {
   const drawer = document.getElementById('browse-drawer');
   if (drawer) drawer.classList.remove('collapsed');
+  document.getElementById('browse-menu-toggle')?.classList.add('open');
 }
 
 /* ------------------------------------------------------------------ */
@@ -243,7 +267,8 @@ export function wireBrowseDrawer(): void {
     }
 
     // Collapse/expand handle
-    if (target.closest('#browse-drawer-handle')) {
+    // Hamburger toggle — opens or closes the drawer panel
+    if (target.closest('#browse-menu-toggle')) {
       const drawer = document.getElementById('browse-drawer');
       if (drawer?.classList.contains('collapsed')) expandBrowseDrawer();
       else collapseBrowseDrawer();

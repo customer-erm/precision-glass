@@ -22,13 +22,44 @@ export function buildHero(): HTMLElement {
     if (i === 0) img.classList.add('kb-active');
     heroBg.appendChild(img);
   });
+
+  /* Ken Burns crossfade:
+     Each image runs a zoom+pan animation while active. When we advance,
+     capture the CURRENT animated transform on the outgoing image as an
+     inline style — that holds its position during the 2s opacity fade
+     instead of snapping back to the base `transform: scale(...)` rule.
+     The incoming image clears any stale inline transform and lets its
+     CSS animation run from scratch. */
   let kbIdx = 0;
   setInterval(() => {
-    const imgs = heroBg.querySelectorAll('img');
-    imgs.forEach((img) => img.classList.remove('kb-active'));
+    const imgs = Array.from(heroBg.querySelectorAll('img')) as HTMLImageElement[];
+    if (!imgs.length) return;
+    const current = imgs[kbIdx];
+
+    // Freeze the outgoing image at its current animated position
+    const computed = getComputedStyle(current).transform;
+    if (computed && computed !== 'none') {
+      current.style.transform = computed;
+    }
+    current.classList.remove('kb-active');
+
+    // Advance index, prepare incoming image
     kbIdx = (kbIdx + 1) % imgs.length;
-    imgs[kbIdx].classList.add('kb-active');
-  }, 6000);
+    const next = imgs[kbIdx];
+    // Clear any leftover inline transform so the CSS animation runs clean
+    next.style.transform = '';
+    // Force animation restart by toggling class off/on across a frame
+    next.classList.remove('kb-active');
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    next.offsetWidth; // reflow
+    next.classList.add('kb-active');
+
+    // After the crossfade completes, wipe the inline transform on the
+    // old image so the next time it becomes active its animation runs fresh.
+    setTimeout(() => {
+      current.style.transform = '';
+    }, 2400);
+  }, 7000);
   section.appendChild(heroBg);
 
   // Badge
