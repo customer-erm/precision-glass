@@ -136,6 +136,14 @@ export function buildNav(): HTMLElement {
     link.setAttribute('data-nav-service', s.service);
     services.appendChild(link);
   });
+  // About link — scrolls to the about section
+  const aboutLink = el('button', {
+    className: 'nav-service-link',
+    type: 'button',
+    textContent: 'About Us',
+  });
+  aboutLink.setAttribute('data-scroll-about', 'true');
+  services.appendChild(aboutLink);
 
   const status = el('div', { className: 'nav-status', id: 'nav-status' });
   const dot = el('div', { className: 'nav-status-dot' });

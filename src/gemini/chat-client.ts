@@ -625,20 +625,24 @@ export class ChatDriver {
         break;
       }
       case 'submit-quote': {
-        // Validate required fields
+        // Read the form BEFORE any async work — fields could be cleared later
         const form = readContactForm();
+        console.log('[Chat] Form read on submit:', form);
+
+        // Validate required fields
         if (!form.name || !form.email) {
           const nameInput = document.querySelector('#chat-inline-form [name="name"]') as HTMLInputElement | null;
           const emailInput = document.querySelector('#chat-inline-form [name="email"]') as HTMLInputElement | null;
           if (nameInput && !form.name) nameInput.classList.add('invalid');
           if (emailInput && !form.email) emailInput.classList.add('invalid');
-          this.cbs.onAgentMessage?.('Could you add your name and email? Those help us reach you with the quote.');
+          this.cbs.onAgentMessage?.('I need at least your name and email to send the quote. Can you fill those in?');
           return;
         }
 
+        // Merge form values into choices
         Object.assign(this.ctx.choices, form);
 
-        // Persist user
+        // Persist for next visit
         saveUser({
           name: this.ctx.choices.name,
           email: this.ctx.choices.email,
@@ -658,25 +662,17 @@ export class ChatDriver {
           },
         });
 
-        console.log('[Chat] Quote submitted:', this.ctx.choices);
+        console.log('[Chat] Quote submitted with choices:', this.ctx.choices);
 
-        // Unlock the AI visualization now that we have the lead
+        // Re-populate the editorial card with the final choices (including
+        // newly-submitted contact fields like name/email/phone shown there)
+        populateEditorialFromChoices(this.ctx.choices);
+
+        // Unlock the AI visualization and trigger image generation.
+        // Single path — no duplicate present_quote call to race with.
         unlockAndGenerateViz(this.ctx.choices);
 
-        // Show the quote-sent success overlay
-        await handleToolCall('present_quote', {
-          enclosure: this.ctx.choices.enclosure || this.ctx.choices['rail-type'] || this.ctx.choices['com-type'] || '',
-          glass: this.ctx.choices.glass || this.ctx.choices['rail-glass'] || this.ctx.choices['com-glass'] || '',
-          hardware: this.ctx.choices.hardware || this.ctx.choices['rail-finish'] || this.ctx.choices['com-framing'] || 'Standard',
-          handle: this.ctx.choices.handle || '',
-          accessories: this.ctx.choices.accessories || '',
-          extras: this.ctx.choices.extras || '',
-          customer_name: this.ctx.choices.name || '',
-          email: this.ctx.choices.email || '',
-          skip_viz: 'true', // already handled by unlockAndGenerateViz
-        });
-
-        setTimeout(() => this.goToStep('done'), 500);
+        setTimeout(() => this.goToStep('done'), 600);
         break;
       }
       case 'close': {

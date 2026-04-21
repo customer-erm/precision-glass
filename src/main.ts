@@ -8,6 +8,7 @@ import { buildHelpLauncher } from './sections/help-launcher';
 import { buildContactModal, openContactModal, wireContactModal } from './sections/contact-modal';
 import { buildContentModal, closeContentModal } from './sections/content-modal';
 import { buildFooter } from './sections/footer';
+import { buildAboutSection } from './sections/about';
 import { playLandingAnimation } from './animations/landing';
 import { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
@@ -33,10 +34,12 @@ const helpLauncher = buildHelpLauncher();
 const contactModal = buildContactModal();
 const contentModal = buildContentModal();
 const footer = buildFooter();
+const aboutSection = buildAboutSection();
 
 app.appendChild(bgEl);
 app.appendChild(nav);
 app.appendChild(hero);
+app.appendChild(aboutSection);
 app.appendChild(showerContent);
 app.appendChild(railingsContent);
 app.appendChild(commercialContent);
@@ -182,6 +185,18 @@ document.addEventListener('click', async (e) => {
 
   // Footer "Request a Quote" link → open contact modal
   if (target.closest('#footer-quote-link')) {
+    openContactModal();
+    return;
+  }
+
+  // Nav "About Us" link → smooth scroll to about section
+  if (target.closest('[data-scroll-about]')) {
+    document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  // About section CTAs → open contact modal
+  if (target.closest('[data-about-cta="contact"]')) {
     openContactModal();
     return;
   }

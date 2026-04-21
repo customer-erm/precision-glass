@@ -27,13 +27,27 @@ export function buildChatPanel(): HTMLElement {
   const meta = el('div', { className: 'chat-panel-meta' });
   meta.appendChild(el('div', { className: 'chat-panel-name', textContent: 'Alex' }));
   meta.appendChild(el('div', { className: 'chat-panel-role', textContent: 'Glass Specialist' }));
+
+  // Action buttons: Start Over + Close
+  const actions = el('div', { className: 'chat-panel-actions' });
+  const restartBtn = el('button', {
+    className: 'chat-panel-restart',
+    id: 'chat-panel-restart',
+    type: 'button',
+    ariaLabel: 'Start over',
+    title: 'Start over',
+    innerHTML: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span>Start over</span>`,
+  });
   const closeBtn = el('button', {
     className: 'chat-panel-close',
     id: 'chat-panel-close',
     type: 'button',
+    ariaLabel: 'Close',
     innerHTML: '\u2715',
   });
-  header.append(avatar, meta, closeBtn);
+  actions.append(restartBtn, closeBtn);
+
+  header.append(avatar, meta, actions);
   panel.appendChild(header);
 
   // Progress pips
@@ -221,5 +235,13 @@ export function wireChatPanelEvents(): void {
   }
   if (closeBtn) {
     closeBtn.addEventListener('click', () => stopChat());
+  }
+  const restartBtn = document.getElementById('chat-panel-restart');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+      if (confirm('Start over? Your current conversation will be cleared.')) {
+        window.location.reload();
+      }
+    });
   }
 }

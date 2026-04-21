@@ -138,7 +138,21 @@ function injectManualNavBar(): void {
   });
   exit.addEventListener('click', exitManualTour);
 
-  bar.append(exit, prev, counter, next);
+  const restart = el('button', {
+    className: 'manual-nav-btn manual-nav-restart',
+    id: 'manual-nav-restart',
+    type: 'button',
+    innerHTML: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span>Start over</span>',
+    ariaLabel: 'Start over',
+    title: 'Start over',
+  });
+  restart.addEventListener('click', () => {
+    if (confirm('Start over? Your current selections will be cleared.')) {
+      window.location.reload();
+    }
+  });
+
+  bar.append(exit, prev, counter, next, restart);
   document.body.appendChild(bar);
   updateNavCounter();
 }
