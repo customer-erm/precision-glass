@@ -78,9 +78,14 @@ export function buildModePicker(): HTMLElement {
   // Caption under the cluster
   const caption = el('div', { className: 'mode-caption' });
   caption.innerHTML = `
-    <span class="mode-caption-main" id="mode-caption-main">${returning && user?.name ? `Welcome back, ${escapeHtml(user.name.split(' ')[0])} \u2014 Speak with a Glass Specialist Now` : 'Speak with a Glass Specialist Now'}</span>
+    <span class="mode-caption-main" id="mode-caption-main">Speak with a Glass Specialist Now</span>
     <span class="mode-caption-sub">prefer <button type="button" class="mode-inline-link" data-mode="chat">chat</button> \u00B7 <button type="button" class="mode-inline-link" data-mode="browse">browse on your own</button></span>
-    <span class="mode-caption-incentive"><span class="mode-caption-spark">\u2728</span> Free Custom Project Visualization</span>
+    <span class="mode-caption-incentive">
+      <svg class="mode-caption-spark" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+        <path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z" fill="currentColor"/>
+      </svg>
+      Free Custom Project Visualization
+    </span>
   `;
   wrap.appendChild(caption);
 

@@ -1677,30 +1677,37 @@ body:has(.chat-panel.visible) .help-launcher {
 }
 .mode-picker-welcome strong { color: var(--white); font-weight: 600; }
 
-/* Compact incentive line tucked under the mic caption */
+/* Compact incentive line tucked under the mic caption.
+   Uses solid background + strong contrast so it doesn't get lost
+   against the Ken Burns hero slideshow. */
 .mode-caption-incentive {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 5px 12px;
-  background: rgba(255, 107, 44, 0.08);
-  border: 1px solid rgba(255, 107, 44, 0.28);
+  gap: 8px;
+  margin-top: 12px;
+  padding: 7px 16px;
+  background: rgba(10, 22, 40, 0.82);
+  border: 1px solid rgba(255, 107, 44, 0.55);
   border-radius: 999px;
   font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: #ffb085;
-  letter-spacing: 0.01em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #ffb380;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 24px rgba(255, 107, 44, 0.18);
+  line-height: 1;
+  white-space: nowrap;
 }
 .mode-caption-spark {
-  font-size: 0.88rem;
-  filter: drop-shadow(0 0 4px rgba(255, 200, 120, 0.7));
+  color: var(--orange-glow-color, #ff8a4c);
+  flex: 0 0 auto;
+  filter: drop-shadow(0 0 4px rgba(255, 138, 76, 0.8));
   animation: sparkTwinkle 2.4s ease-in-out infinite;
 }
 @keyframes sparkTwinkle {
   0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
-  50% { transform: scale(1.15) rotate(12deg); opacity: 1; }
+  50% { transform: scale(1.15) rotate(22deg); opacity: 1; }
 }
 .mode-picker-wave { margin-right: 6px; display: inline-block; animation: wave 1.6s ease-in-out infinite; transform-origin: 70% 70%; }
 @keyframes wave {
@@ -1881,10 +1888,13 @@ body:has(.chat-panel.visible) .help-launcher {
   font-weight: 600;
   color: var(--white);
   letter-spacing: 0.005em;
+  /* Always-readable against the bright/dark Ken Burns hero slideshow */
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 0, 0, 0.45);
 }
 .mode-caption-sub {
   font-size: 0.82rem;
-  color: var(--white-50);
+  color: var(--white-70);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
 }
 .mode-inline-link {
   background: transparent;
