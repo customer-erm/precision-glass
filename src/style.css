@@ -160,29 +160,21 @@ img { max-width: 100%; display: block; }
 .hero {
   min-height: 100vh;
   display: flex; flex-direction: column;
-  justify-content: stretch;
+  justify-content: center; align-items: center;
   text-align: center;
   padding: 100px 20px 40px;
   position: relative; z-index: 1;
   overflow: hidden;
 }
-/* Headline block: vertically centered in its flex space */
+/* Single centered block: title + subtitle + action icons tightly grouped */
 .hero-headline {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  padding-bottom: 20px;
-}
-/* Interactive zone: services + mode picker */
-.hero-interact {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 30px;
-  padding-top: 10px;
+  gap: 0;
 }
+.hero-headline .mode-picker-wrap { margin-top: 28px; }
+.services-grid.hidden { display: none; }
 .hero-bg-image {
   position: absolute; inset: 0; z-index: 0;
   overflow: hidden;
@@ -1612,11 +1604,11 @@ img { max-width: 100%; display: block; }
    MODE PICKER — voice-first futuristic layout
    ============================================ */
 .mode-picker-wrap {
-  margin-top: 40px;
+  margin-top: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
   width: 100%;
 }
 .mode-picker-welcome {

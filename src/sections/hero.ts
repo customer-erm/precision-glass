@@ -62,18 +62,6 @@ export function buildHero(): HTMLElement {
   }, 7000);
   section.appendChild(heroBg);
 
-  // Eyebrow — original brand treatment with decorative rules + location mark
-  const eyebrow = el('div', { className: 'hero-eyebrow' });
-  eyebrow.innerHTML = `
-    <span class="hero-eyebrow-line"></span>
-    <span class="hero-eyebrow-text">
-      <span class="hero-eyebrow-mark">\u25C6</span>
-      <span class="hero-eyebrow-words">South Florida \u00B7 Since 2004 \u00B7 Custom Glass</span>
-      <span class="hero-eyebrow-mark">\u25C6</span>
-    </span>
-    <span class="hero-eyebrow-line"></span>
-  `;
-
   // Title
   const title = el('h1', {
     className: 'hero-title',
@@ -110,15 +98,15 @@ export function buildHero(): HTMLElement {
   // Mode picker (replaces the old single mic button)
   const modePicker = buildModePicker();
 
-  // Two-zone layout: headline (eyebrow + title + subtitle) vertically
-  // centered in its space; interact zone (services + picker) docked below.
+  // Single centered block: title + subtitle + action icons grouped tightly
   const headline = el('div', { className: 'hero-headline' });
-  headline.append(eyebrow, title, subtitle);
+  headline.append(title, subtitle, modePicker);
 
-  const interact = el('div', { className: 'hero-interact' });
-  interact.append(servicesGrid, modePicker);
+  // Services grid is retained but hidden (kept in DOM for any deep-links
+  // that still query .service-card — we rely on the mode picker now).
+  servicesGrid.classList.add('hidden');
 
-  section.append(headline, interact);
+  section.append(headline, servicesGrid);
   return section;
 }
 
