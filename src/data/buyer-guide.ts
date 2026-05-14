@@ -81,13 +81,13 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
   'curved': {
     title: 'Curved',
     subtitle: 'Bent glass for a spa aesthetic',
-    body: `A single sheet of glass heat-bent into a smooth radius curve. No seams, no straight edges in the curved section — just flowing glass. Makes a shower feel more like a resort spa.\n\nBecause the glass is custom-formed for your dimensions, lead time is a few weeks longer than straight glass.`,
+    body: `A single sheet of glass heat-bent into a smooth radius curve. No seams, no straight edges in the curved section — just flowing glass. Makes a shower feel more like a resort spa.\n\nBecause the glass is custom-formed for your dimensions, the team verifies feasibility before quoting or scheduling.`,
     specs: [
       { label: 'Glass', value: 'Heat-bent 3/8" tempered' },
-      { label: 'Lead time', value: '4\u20136 weeks' },
+      { label: 'Review', value: 'Staff verifies feasibility' },
     ],
     pros: ['Dramatic statement piece', 'Softens the bathroom aesthetic', 'No seams to clean'],
-    cons: ['Longer lead time', 'Higher cost than flat panels'],
+    cons: ['Requires feasibility review', 'More specialized fabrication'],
   },
   'arched': {
     title: 'Arched',
@@ -98,7 +98,7 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
       { label: 'Sides', value: 'Straight' },
     ],
     pros: ['Architectural character', 'Works with traditional interiors'],
-    cons: ['Custom shape = higher price'],
+    cons: ['Custom fabrication review required'],
   },
   'splash panel': {
     title: 'Splash Panel',
@@ -121,14 +121,14 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
       { label: 'Generator', value: 'Remote install' },
     ],
     pros: ['True spa experience', 'Adds resale value', 'Health benefits of steam'],
-    cons: ['Higher cost (~$3-5k glass premium)', 'Requires a steam generator', 'More maintenance'],
+    cons: ['Requires staff review', 'Requires a steam generator', 'More maintenance'],
   },
   'custom': {
     title: 'Custom',
     subtitle: 'Bespoke for unusual spaces',
     body: `Multi-panel configurations designed for irregular layouts — angled walls, unusual footprints, multiple doors, or design features like integrated niches. We site-measure, draft, and engineer the exact configuration.`,
     pros: ['Fits any space', 'One-of-a-kind', 'Full creative freedom'],
-    cons: ['Longest lead time', 'Highest price'],
+    cons: ['Requires the most design review', 'More complex fabrication'],
   },
 
   /* ---------------- Glass ---------------- */
@@ -141,7 +141,7 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
       { label: 'Light transmission', value: '~90%' },
       { label: 'Privacy', value: 'None' },
     ],
-    pros: ['Shows off tile', 'Brightens the bathroom', 'Easiest to price + source'],
+    pros: ['Shows off tile', 'Brightens the bathroom', 'Easy to source'],
     cons: ['Shows every water spot', 'No privacy'],
   },
   'frosted glass': {
@@ -201,7 +201,7 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
     subtitle: 'Soft golden, very on-trend',
     body: `Muted, brushed version of polished brass. Has the warmth of gold without the mirror shine. Currently rivaling matte black as the hottest finish in high-end design.`,
     pros: ['Timeless warmth + modern softness', 'Hides water marks better than polished', 'Versatile'],
-    cons: ['Premium pricing'],
+    cons: ['Premium finish review'],
   },
 
   /* ---------------- Handles ---------------- */
@@ -209,7 +209,7 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
     title: 'Pull Handle',
     subtitle: 'The most popular choice',
     body: `A vertical tubular handle mounted through-hole in the glass door. Simple, ergonomic, and pairs with any door style. 6"\u20138" long, matches your hardware finish.`,
-    pros: ['Classic, works everywhere', 'Ergonomic grip', 'Budget-friendly'],
+    pros: ['Classic, works everywhere', 'Ergonomic grip', 'Clean and efficient'],
     cons: ['Less distinctive than ladder pulls or statement handles'],
   },
   'u-handle': {

@@ -144,7 +144,7 @@ function buildMidCTA(variant: 'design' | 'quote'): HTMLElement {
         }
       : {
           title: 'Ready for an accurate quote?',
-          lead: 'Tell us a bit about your project and we\u2019ll have a specialist reach out within 24 hours with itemized pricing.',
+          lead: 'Tell us a bit about your project and we will package the details for a specialist to review before quoting.',
           cta: 'Request my quote',
           action: 'contact',
         };
@@ -370,7 +370,7 @@ function buildTestimonials(): HTMLElement {
       role: 'Homeowner \u00B7 Delray Beach',
     },
     {
-      quote: 'Replaced our entire restaurant storefront after a fender-bender took out the main entry. They had temporary glass up within 24 hours and the permanent install done in a week. Lifesavers.',
+      quote: 'Replaced our entire restaurant storefront after a fender-bender took out the main entry. They stabilized the opening fast and handled the permanent install like pros.',
       name: 'Anthony P.',
       role: 'Restaurant Owner \u00B7 Miami',
     },
@@ -436,8 +436,8 @@ function buildFAQ(): HTMLElement {
   const wrap = el('div', { className: 'about-faq' });
   const faqs = [
     {
-      q: 'How long does a typical install take?',
-      a: 'A standard frameless shower or glass railing install is completed in a single day. Custom curves, steam enclosures, or multi-story curtain walls take 1\u20133 days. We give you a firm schedule up front.',
+      q: 'How does scheduling get confirmed?',
+      a: 'A specialist reviews the project, verifies measurements and access, then confirms a schedule with the homeowner or contractor. The prototype does not generate firm timelines automatically.',
     },
     {
       q: 'Do you handle permits?',
@@ -453,7 +453,7 @@ function buildFAQ(): HTMLElement {
     },
     {
       q: 'What\u2019s your service area?',
-      a: 'We serve Miami-Dade, Broward, and Palm Beach counties in full. Martin, St. Lucie, and Monroe are available for projects over $15k. All installs are performed by our in-house team \u2014 we never subcontract.',
+      a: 'We serve Miami-Dade, Broward, and Palm Beach counties in full. Martin, St. Lucie, and Monroe may be reviewed by project scope. All installs are performed by our in-house team \u2014 we never subcontract.',
     },
     {
       q: 'How are you different from the big-box glass companies?',
@@ -491,10 +491,10 @@ function buildFinalCTA(): HTMLElement {
   const wrap = el('div', { className: 'about-final-cta' });
   wrap.innerHTML = `
     <div class="about-final-cta-inner">
-      <div class="about-final-cta-badge">Limited this month \u00B7 Free Diamon-Fusion coating ($395 value)</div>
+      <div class="about-final-cta-badge">Limited this month \u00B7 Complimentary Diamon-Fusion coating review</div>
       <h3 class="about-final-cta-title">Book this month \u2014 we\u2019ll coat your glass on us.</h3>
       <p class="about-final-cta-lead">
-        Schedule your project before the end of the month and we\u2019ll include a professional <strong>Diamon-Fusion</strong> glass coating at no charge. It\u2019s a $395 value that makes cleanup easier and keeps your glass looking new for years.
+        Share your project before the end of the month and we will review whether a professional <strong>Diamon-Fusion</strong> glass coating is a good fit. It makes cleanup easier and keeps your glass looking new for years.
       </p>
       <div class="about-final-cta-row">
         <button type="button" class="about-final-cta-btn" data-about-cta="contact">Claim my free coating \u2192</button>

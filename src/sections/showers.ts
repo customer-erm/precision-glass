@@ -133,7 +133,7 @@ export function buildShowerContent(): HTMLElement {
   const ctaContainer = el('div', { className: 'container' });
   const ctaCard = el('div', { className: 'bottom-cta-card' });
   ctaCard.appendChild(el('h3', { className: 'bottom-cta-title', textContent: 'Ready to design yours?' }));
-  ctaCard.appendChild(el('p', { className: 'bottom-cta-desc', textContent: 'Walk through the configurator at your own pace. Pick your style, glass, hardware, and extras \u2014 then we\u2019ll send you a custom quote within 24 hours.' }));
+  ctaCard.appendChild(el('p', { className: 'bottom-cta-desc', textContent: 'Walk through the configurator at your own pace. Pick your style, glass, hardware, and extras - then we will prepare a proposal brief for staff review.' }));
   const ctaBtn = el('button', {
     className: 'bottom-cta-btn configure-cta',
     id: 'configure-showers-bottom',

@@ -218,12 +218,15 @@ img { max-width: 100%; display: block; }
 }
 /* Single centered block: title + subtitle + action icons tightly grouped */
 .hero-headline {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0;
+  width: min(100%, 1040px);
 }
-.hero-headline .mode-picker-wrap { margin-top: 28px; }
+.hero-headline .mode-picker-wrap { margin-top: 20px; }
 .services-grid.hidden { display: none; }
 .hero-bg-image {
   position: absolute; inset: 0; z-index: 0;
@@ -309,8 +312,8 @@ img { max-width: 100%; display: block; }
   font-family: var(--font-display);
   font-size: 3.5rem;
   font-weight: 800; line-height: 1.12;
-  margin-bottom: 20px; color: var(--white);
-  letter-spacing: -0.02em;
+  margin-bottom: 12px; color: var(--white);
+  letter-spacing: 0;
   max-width: 1000px;
 }
 .hero-title .accent {
@@ -319,10 +322,10 @@ img { max-width: 100%; display: block; }
   background-clip: text;
 }
 .hero-subtitle {
-  font-size: clamp(1rem, 1.8vw, 1.2rem);
+  font-size: 1rem;
   color: var(--white-70);
   max-width: 560px;
-  margin: 0 auto 48px;
+  margin: 0 auto 8px;
   font-weight: 300; line-height: 1.75;
 }
 
@@ -446,7 +449,8 @@ img { max-width: 100%; display: block; }
 /* When a voice/chat session is active, hide the help orb so it doesn't
    conflict visually with the active agent UI. */
 body:has(.agent-bar.visible) .help-launcher,
-body:has(.chat-panel.visible) .help-launcher {
+body:has(.chat-panel.visible) .help-launcher,
+body.browse-active .help-launcher {
   opacity: 0;
   pointer-events: none;
   transform: translateY(10px);
@@ -741,6 +745,30 @@ body:has(.chat-panel.visible) .help-launcher {
 
 /* ---- Responsive ---- */
 @media (max-width: 900px) {
+  .nav { padding: 10px 0; }
+  .nav-inner {
+    justify-content: center;
+    padding: 0 18px;
+  }
+  .nav-logo { height: 46px; }
+  .nav-services,
+  .nav-cta-wrap {
+    display: none;
+  }
+  .hero {
+    min-height: 100svh;
+    padding: 96px 18px 34px;
+  }
+  .hero-title {
+    max-width: 620px;
+    font-size: 2.55rem;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+  .hero-subtitle {
+    font-size: 0.92rem;
+    line-height: 1.45;
+  }
   .services-grid { grid-template-columns: 1fr; max-width: 380px; }
   .service-card { aspect-ratio: 16/9; }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
@@ -751,6 +779,36 @@ body:has(.chat-panel.visible) .help-launcher {
   .process-timeline::before { display: none; }
 }
 @media (max-width: 600px) {
+  .nav-logo { height: 40px; }
+  .hero {
+    justify-content: flex-start;
+    padding: 94px 18px 24px;
+  }
+  .hero-headline {
+    min-height: calc(100svh - 118px);
+    justify-content: center;
+  }
+  .hero-title {
+    font-size: 2.15rem;
+    line-height: 1.08;
+    max-width: 354px;
+    margin-bottom: 10px;
+  }
+  .hero-subtitle {
+    max-width: 310px;
+    margin-bottom: 4px;
+  }
+  .mode-caption-main {
+    max-width: 310px;
+    font-size: 0.98rem;
+    line-height: 1.25;
+  }
+  .mode-caption-incentive {
+    max-width: calc(100vw - 48px);
+    white-space: normal;
+    justify-content: center;
+    line-height: 1.2;
+  }
   .gallery-grid { grid-template-columns: 1fr; }
   .enclosure-grid, .hardware-grid { grid-template-columns: 1fr; }
   .accessories-grid { grid-template-columns: repeat(2, 1fr); }
@@ -891,15 +949,15 @@ body:has(.chat-panel.visible) .help-launcher {
 .slide-header { margin-bottom: 32px; text-align: center; }
 .slide-title {
   font-family: var(--font-display);
-  font-size: clamp(2.5rem, 5.5vw, 4.2rem);
+  font-size: 4rem;
   font-weight: 800;
   color: var(--white);
   margin-bottom: 16px;
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .slide-subtitle {
-  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  font-size: 1.08rem;
   color: var(--white-70);
   max-width: 560px;
   line-height: 1.75;
@@ -915,11 +973,11 @@ body:has(.chat-panel.visible) .help-launcher {
 }
 .slide-heading {
   font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  font-size: 2.55rem;
   font-weight: 700;
   color: var(--white);
   line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .slide-sub {
   font-size: 0.9rem;
@@ -1417,6 +1475,9 @@ body:has(.chat-panel.visible) .help-launcher {
   font-weight: 600;
   color: var(--white-30);
   transition: color 0.5s ease;
+  max-width: 58%;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 .ss-quote-value.filled {
   color: var(--white);
@@ -1446,7 +1507,7 @@ body:has(.chat-panel.visible) .help-launcher {
   font-size: 0.76rem;
 }
 
-/* "Quote Sent!" success overlay */
+/* Proposal success overlay */
 .ss-quote-sent {
   position: absolute;
   inset: 0;
@@ -1477,9 +1538,9 @@ body:has(.chat-panel.visible) .help-launcher {
   transform: translateY(20px) scale(0.92);
   opacity: 0;
   transition: opacity 0.7s 0.15s ease, transform 0.8s 0.15s var(--ease-out-expo);
-  width: 480px;
+  width: 540px;
   max-width: 92vw;
-  height: 360px;
+  height: 390px;
   position: relative;
 }
 .ss-quote-sent.visible .ss-quote-sent-card {
@@ -1633,6 +1694,9 @@ body:has(.chat-panel.visible) .help-launcher {
 }
 @media (max-width: 900px) {
   .tour-slide { padding: 70px 24px 90px; }
+  .slide-title { font-size: 3rem; }
+  .slide-heading { font-size: 2.1rem; }
+  .slide-subtitle { font-size: 1rem; }
   .ss-enc-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .ss-enc-card img { height: 16vh; }
   .ss-glass-grid { grid-template-columns: 1fr; }
@@ -1647,7 +1711,36 @@ body:has(.chat-panel.visible) .help-launcher {
   .buyer-guide-popup { width: 150px; bottom: 24px; right: 24px; }
 }
 @media (max-width: 600px) {
-  .tour-slide { padding: 60px 16px 80px; }
+  .tour-slide {
+    padding: 72px 14px 96px;
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+  .slide-content { max-width: 100%; }
+  .slide-center {
+    min-height: calc(100svh - 180px);
+    justify-content: center;
+  }
+  .slide-header { margin-bottom: 16px; }
+  .slide-title {
+    font-size: 2.25rem;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+  .slide-heading {
+    font-size: 1.65rem;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+  .slide-subtitle {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    max-width: 320px;
+  }
+  .slide-label {
+    font-size: 0.62rem;
+    margin-bottom: 6px;
+  }
   .ss-gallery-fade { max-height: 40vh; }
   .ss-enc-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .ss-enc-card img { height: 14vh; }
@@ -1655,6 +1748,23 @@ body:has(.chat-panel.visible) .help-launcher {
   .ss-acc-grid { grid-template-columns: 1fr; }
   .ss-process-strip { grid-template-columns: repeat(2, 1fr); }
   .ss-quote-card { padding: 24px 20px; }
+  .ss-quote-row {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .ss-quote-value {
+    max-width: 62%;
+  }
+  .ss-quote-sent-card {
+    height: 430px;
+  }
+  .ss-quote-sent-stage {
+    padding: 34px 22px;
+  }
+  .ss-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
   .agent-tip { font-size: 0.72rem; }
   .buyer-guide-popup { width: 120px; bottom: 90px; right: 16px; padding: 10px; }
   .buyer-guide-popup .bg-popup-caption { font-size: 0.68rem; }
@@ -2193,6 +2303,72 @@ body:has(.chat-panel.visible) .help-launcher {
   margin-top: 6px;
   font-style: italic;
 }
+.chat-photo-email-row {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+}
+.chat-photo-email-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--white-50);
+  font-weight: 600;
+}
+.chat-photo-email-row input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--white);
+  padding: 9px 10px;
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  text-transform: none;
+  letter-spacing: 0;
+  outline: none;
+}
+.chat-photo-email-row input:focus { border-color: var(--blue-500); }
+.chat-photo-email-row input.invalid,
+.chat-form-row input.invalid {
+  border-color: #ff6b2c;
+  box-shadow: 0 0 0 1px rgba(255, 107, 44, 0.28);
+}
+.chat-photo-email-note {
+  margin: 6px 0 0;
+  color: var(--white-50);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+.chat-photo-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.chat-photo-action {
+  flex: 1 1 140px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--white-90);
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chat-photo-action.primary {
+  background: var(--cta-gradient);
+  border-color: transparent;
+  color: var(--white);
+  box-shadow: var(--cta-shadow);
+}
 
 .chat-inline-form {
   background: rgba(8, 16, 30, 0.6);
@@ -2225,7 +2401,8 @@ body:has(.chat-panel.visible) .help-launcher {
   font-weight: 600;
 }
 .chat-form-row input,
-.chat-form-row select {
+.chat-form-row select,
+.chat-form-row textarea {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -2244,6 +2421,11 @@ body:has(.chat-panel.visible) .help-launcher {
   appearance: none;
   -webkit-appearance: none;
 }
+.chat-form-row textarea {
+  min-height: 76px;
+  resize: vertical;
+  line-height: 1.35;
+}
 .chat-form-row select {
   /* Custom arrow + make dropdown options readable on dark bg */
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a8b5c7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
@@ -2257,7 +2439,8 @@ body:has(.chat-panel.visible) .help-launcher {
   color: #fff;
 }
 .chat-form-row input:focus,
-.chat-form-row select:focus { border-color: var(--blue-500); }
+.chat-form-row select:focus,
+.chat-form-row textarea:focus { border-color: var(--blue-500); }
 
 /* Option chips — compact pill style so many fit without overflowing the panel */
 .chat-chips {
@@ -4658,18 +4841,36 @@ body.browse-active .browse-menu-toggle {
   .mode-pill-icon { width: 24px; height: 24px; }
   .mode-pill-label { display: none; }
   .chat-panel {
-    bottom: 12px;
-    right: 12px;
-    width: calc(100vw - 24px);
-    height: 80vh;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    max-width: none;
+    height: min(78svh, 650px);
+    max-height: calc(100svh - 22px);
+    border-radius: 18px;
+    transform-origin: bottom center;
   }
+  .chat-panel-header { padding: 12px 14px; }
+  .chat-messages { min-height: 120px; padding: 12px 12px; }
+  .chat-msg { max-width: 94%; }
+  .chat-msg-bubble { font-size: 0.84rem; }
+  .chat-chips { max-height: 150px; padding: 8px 12px 10px; }
+  .chat-chip {
+    white-space: normal;
+    border-radius: 14px;
+  }
+  .chat-chip-hint { display: none; }
+  .chat-form-row.two-col { flex-direction: column; }
   .browse-drawer {
-    top: auto;
-    bottom: 12px;
+    top: 96px;
+    bottom: 14px;
     right: 12px;
     left: 12px;
     width: auto;
-    max-height: 65vh;
+    max-width: none;
+    max-height: none;
+    border-radius: 18px;
   }
   .browse-drawer.collapsed {
     transform: translateY(calc(100% - 44px));

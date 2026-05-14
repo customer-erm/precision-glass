@@ -8,7 +8,7 @@ export function buildBuyersGuide(): HTMLElement {
 
   const icon = el('div', { className: 'buyers-guide-icon', innerHTML: BOOK_SVG });
   const title = el('h3', { className: 'buyers-guide-title', id: 'buyers-guide-title', textContent: "Free Buyer's Guide" });
-  const desc = el('p', { className: 'buyers-guide-desc', id: 'buyers-guide-desc', textContent: "Get our comprehensive guide covering everything you need to know — pricing ranges, maintenance tips, and expert recommendations." });
+  const desc = el('p', { className: 'buyers-guide-desc', id: 'buyers-guide-desc', textContent: "Get our comprehensive guide covering style options, maintenance tips, and expert recommendations." });
 
   const emailRow = el('div', { className: 'buyers-guide-email' });
   const emailInput = el('input', {
@@ -32,7 +32,7 @@ export function showBuyersGuide(serviceName: string): void {
   const desc = document.getElementById('buyers-guide-desc');
   if (overlay) overlay.classList.add('active');
   if (title) title.textContent = `Free ${serviceName} Buyer's Guide`;
-  if (desc) desc.textContent = `Get our comprehensive ${serviceName.toLowerCase()} guide covering everything we just discussed — plus pricing ranges, maintenance tips, and expert recommendations.`;
+  if (desc) desc.textContent = `Get our comprehensive ${serviceName.toLowerCase()} guide covering everything we just discussed - plus style notes, maintenance tips, and expert recommendations.`;
 }
 
 export function fillBuyersGuideEmail(email: string): void {

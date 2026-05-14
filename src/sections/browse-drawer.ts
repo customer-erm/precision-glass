@@ -136,11 +136,11 @@ export function buildBrowseDrawer(): HTMLElement {
     id: 'browse-drawer-cta',
     type: 'button',
   });
-  cta.innerHTML = `<span>Configure a quote</span>${ARROW_SVG}`;
+  cta.innerHTML = `<span>Build a proposal</span>${ARROW_SVG}`;
   cta.setAttribute('data-service', currentService);
   footer.appendChild(cta);
 
-  const hint = el('p', { className: 'browse-drawer-hint', textContent: 'Answer a few quick questions and get your custom quote in 24h.' });
+  const hint = el('p', { className: 'browse-drawer-hint', textContent: 'Answer a few quick questions and prepare a staff-ready design brief.' });
   footer.appendChild(hint);
 
   drawer.appendChild(footer);

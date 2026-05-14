@@ -341,10 +341,10 @@ function buildProcessSlide(): HTMLElement {
   const content = h('div', { className: 'slide-content' });
   content.appendChild(makeHeader('THE PROCESS', 'From Approval to Enjoyment'));
   const steps = [
-    { num: '1', title: 'Quote Approved', desc: 'We finalize your design and confirm all selections.', src: images.process[0].src },
+    { num: '1', title: 'Proposal Review', desc: 'We package your design notes for a specialist to review.', src: images.process[0].src },
     { num: '2', title: 'Precision Measuring', desc: 'Laser-accurate templates. Every fraction of an inch.', src: images.process[1].src },
-    { num: '3', title: 'Glass Ordering', desc: 'Custom cut, polished, and tempered. 2\u20133 weeks.', src: images.process[2].src },
-    { num: '4', title: 'Installation Day', desc: 'Professional install. Most projects done in one day.', src: images.process[3].src },
+    { num: '3', title: 'Glass Ordering', desc: 'Custom cut, polished, and tempered after field measure.', src: images.process[2].src },
+    { num: '4', title: 'Installation Day', desc: 'Professional installation once scope and schedule are confirmed.', src: images.process[3].src },
     { num: '5', title: 'Enjoy', desc: 'Step into your new frameless shower.', src: images.showers.hero },
   ];
   const grid = h('div', { className: 'ss-process-strip' });
@@ -375,12 +375,14 @@ function buildQuoteSummarySlide(): HTMLElement {
 
   const header = h('div', { className: 'ss-quote-header' });
   header.appendChild(h('div', { className: 'ss-quote-logo', textContent: 'PrecisionGlass' }));
-  header.appendChild(h('h3', { textContent: 'Your Custom Configuration' }));
+  header.appendChild(h('h3', { textContent: 'Your Proposal Brief' }));
+  header.appendChild(h('p', { textContent: 'Selections and site notes for staff review. Pricing and schedule are confirmed after the team reviews the project.' }));
   card.appendChild(header);
 
   const selections = h('div', { className: 'ss-quote-selections' });
   [
     { key: 'enclosure', label: 'Enclosure' },
+    { key: 'doorPlacement', label: 'Door Guidance' },
     { key: 'glass', label: 'Glass' },
     { key: 'hardware', label: 'Hardware' },
     { key: 'handle', label: 'Handle' },
@@ -403,8 +405,8 @@ function buildQuoteSummarySlide(): HTMLElement {
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Phone' },
     { key: 'location', label: 'Location' },
-    { key: 'timeline', label: 'Timeline' },
-    { key: 'budget', label: 'Budget' },
+    { key: 'timeline', label: 'Project Stage' },
+    { key: 'notes', label: 'Notes' },
   ].forEach((f) => {
     const row = h('div', { className: 'ss-quote-row ss-quote-contact-row', id: `qs-contact-${f.key}` });
     row.appendChild(h('span', { className: 'ss-quote-label', textContent: f.label }));
@@ -433,21 +435,21 @@ function buildQuoteSummarySlide(): HTMLElement {
           <circle cx="12" cy="12" r="11" class="ss-check-circle"/>
           <path d="M7 12.5l3.5 3.5L17 9" class="ss-check-mark"/>
         </svg>
-        <h3>Quote Sent!</h3>
-        <p>Our specialists will reach out within 24 hours for next steps.</p>
+        <h3>Proposal Prepared</h3>
+        <p>Your design brief is ready for staff review. Pricing and timing stay with the human team.</p>
       </div>
       <div class="ss-quote-sent-stage ss-quote-sent-stage-actions" id="qs-sent-stage-actions">
-        <h3>What's next?</h3>
-        <p>Save your visualization, explore more, or build another.</p>
+        <h3>Save Your Brief</h3>
+        <p>Keep the proposal summary and visualization for the staff follow-up.</p>
         <div class="ss-sent-actions">
+          <button class="ss-action-btn ss-action-primary" id="qs-proposal-btn" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+            <span>Save PDF Proposal</span>
+          </button>
           <button class="ss-action-btn ss-action-secondary" id="qs-download-btn" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Download Visualization</span>
+            <span>Download Rendering</span>
           </button>
-          <a class="ss-action-btn ss-action-secondary" href="https://eliteresultsmarketing.com" target="_blank" rel="noopener">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            <span>Visit Website</span>
-          </a>
           <button class="ss-action-btn ss-action-primary" id="quote-restart-btn" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
             <span>Start Over</span>
@@ -660,7 +662,7 @@ function buildComFramingSlide(): HTMLElement {
     id: 'com-framing',
     label: 'FRAMING',
     heading: 'Framing System',
-    sub: 'From minimal to fully thermally broken — pick the right system for the budget and look',
+    sub: 'From minimal to fully thermally broken - pick the right system for the look, code needs, and performance',
     imageSrc: images.commercial.gallery[2],
     bullets: [
       { title: 'Standard Aluminum', desc: 'Clear anodized or painted aluminum framing in 1-3/4" or 2" depths. Workhorse storefront system.' },
@@ -674,15 +676,15 @@ function buildComFramingSlide(): HTMLElement {
 function buildComScopeSlide(): HTMLElement {
   return buildInfoSlide({
     id: 'com-scope',
-    label: 'SCOPE & TIMELINE',
+    label: 'SCOPE',
     heading: 'Project Scale',
-    sub: 'Tell us the size of the job and your timeline — we handle everything from a single door to multi-story facades',
+    sub: 'Tell us the size of the job - we handle everything from a single door to multi-story facades',
     imageSrc: images.commercial.gallery[3],
     bullets: [
-      { title: 'Small / Repair', desc: 'Single door, a few panels, replacement glass, hardware swap. Usually one-day or one-week turnaround.' },
-      { title: 'Medium Build-Out', desc: 'Office suite, restaurant front, retail tenant improvement. Typical 2-6 week timeline including measure and fabrication.' },
-      { title: 'Full Storefront', desc: 'New construction or major remodel storefront, doors, and signage glass. 4-10 weeks depending on engineering.' },
-      { title: 'Curtain Wall / Multi-Story', desc: 'Engineered structural glazing, code stamping, and crane installation. 8 weeks to several months depending on scope.' },
+      { title: 'Small / Repair', desc: 'Single door, a few panels, replacement glass, or hardware swap. Staff confirms urgency and site access before scheduling.' },
+      { title: 'Medium Build-Out', desc: 'Office suite, restaurant front, retail tenant improvement. Staff reviews site conditions before quoting or scheduling.' },
+      { title: 'Full Storefront', desc: 'New construction or major remodel storefront, doors, and signage glass. Engineering review comes before quoting or scheduling.' },
+      { title: 'Curtain Wall / Multi-Story', desc: 'Engineered structural glazing, code stamping, and crane installation. Scope review determines the next step.' },
     ],
   });
 }
@@ -703,20 +705,125 @@ export function showQuoteSent(): void {
   if (restartBtn) {
     restartBtn.addEventListener('click', () => window.location.reload(), { once: true });
   }
+  const proposalBtn = document.getElementById('qs-proposal-btn');
+  if (proposalBtn) {
+    proposalBtn.addEventListener('click', openPrintableProposal);
+  }
   const downloadBtn = document.getElementById('qs-download-btn');
   if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => {
-      const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
-      if (!img || !img.src || !img.classList.contains('loaded')) {
-        console.warn('[Download] Visualization not ready yet');
-        return;
-      }
-      const a = document.createElement('a');
-      a.href = img.src;
-      a.download = 'precision-glass-shower-visualization.png';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    });
+    downloadBtn.addEventListener('click', downloadVisualization);
   }
+}
+
+function downloadVisualization(): void {
+  const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+  if (!img || !img.src || !img.classList.contains('loaded')) {
+    console.warn('[Download] Visualization not ready yet');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = img.src;
+  a.download = 'precision-glass-shower-rendering.png';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function quoteValue(id: string): string {
+  const value = document.getElementById(id)?.textContent?.trim() || '';
+  return value === '—' ? '' : value;
+}
+
+function escapeReportText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function proposalRows(fields: Array<[string, string]>): string {
+  return fields
+    .map(([label, id]) => [label, quoteValue(id)] as const)
+    .filter(([, value]) => value)
+    .map(([label, value]) => `<tr><th>${escapeReportText(label)}</th><td>${escapeReportText(value)}</td></tr>`)
+    .join('');
+}
+
+function openPrintableProposal(): void {
+  const win = window.open('', '_blank', 'width=920,height=1100');
+  if (!win) {
+    console.warn('[Proposal] Popup blocked');
+    return;
+  }
+
+  const image = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+  const imageMarkup = image?.src && image.classList.contains('loaded')
+    ? `<img class="rendering" src="${escapeReportText(image.src)}" alt="AI shower rendering">`
+    : '<div class="rendering-placeholder">Rendering pending staff review</div>';
+
+  const selectionRows = proposalRows([
+    ['Enclosure', 'qs-enclosure'],
+    ['Door guidance', 'qs-doorPlacement'],
+    ['Glass', 'qs-glass'],
+    ['Hardware', 'qs-hardware'],
+    ['Handle', 'qs-handle'],
+    ['Add-ons', 'qs-accessories'],
+    ['Upgrades', 'qs-extras'],
+  ]);
+  const contactRows = proposalRows([
+    ['Name', 'qs-name'],
+    ['Email', 'qs-email'],
+    ['Phone', 'qs-phone'],
+    ['Location', 'qs-location'],
+    ['Project stage', 'qs-timeline'],
+    ['Notes', 'qs-notes'],
+  ]);
+  const service = activeService.charAt(0).toUpperCase() + activeService.slice(1);
+  const today = new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+
+  win.document.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Precision Glass Proposal Brief</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 40px; font-family: Inter, Arial, sans-serif; color: #172033; background: #f6f8fb; }
+    .page { max-width: 860px; margin: 0 auto; background: white; padding: 36px; border: 1px solid #d9e1ec; }
+    .brand { font-size: 13px; text-transform: uppercase; letter-spacing: 0.16em; color: #3b82c4; font-weight: 800; }
+    h1 { margin: 10px 0 8px; font-size: 34px; line-height: 1.08; color: #0c1930; }
+    .sub { color: #5d6b82; line-height: 1.55; margin: 0 0 26px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .rendering { width: 100%; border-radius: 12px; border: 1px solid #d9e1ec; display: block; }
+    .rendering-placeholder { min-height: 280px; border: 1px dashed #b9c7d9; border-radius: 12px; display: grid; place-items: center; color: #789; }
+    h2 { margin: 0 0 12px; font-size: 16px; color: #0c1930; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 22px; }
+    th, td { border-top: 1px solid #e5ebf3; padding: 10px 0; text-align: left; vertical-align: top; font-size: 13px; }
+    th { width: 38%; color: #637187; text-transform: uppercase; letter-spacing: 0.08em; font-size: 10px; }
+    td { color: #172033; font-weight: 650; }
+    .note { margin-top: 24px; padding: 14px 16px; background: #edf6ff; border: 1px solid #c7e3ff; border-radius: 10px; color: #36506f; font-size: 12px; line-height: 1.5; }
+    @media print { body { background: white; padding: 0; } .page { border: 0; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="brand">Precision Glass</div>
+    <h1>${escapeReportText(service)} Proposal Brief</h1>
+    <p class="sub">Prepared ${escapeReportText(today)} from the interactive design session. This is a design-intake brief for staff review, not a final quote, price, or installation schedule.</p>
+    <div class="grid">
+      <section>
+        <h2>Configuration</h2>
+        <table>${selectionRows || '<tr><td>No selections captured yet.</td></tr>'}</table>
+        <h2>Customer Details</h2>
+        <table>${contactRows || '<tr><td>No contact details captured yet.</td></tr>'}</table>
+      </section>
+      <section>${imageMarkup}</section>
+    </div>
+    <div class="note">Staff should verify measurements, door swing, hinge side, fixed-panel support, clearance, curb/threshold conditions, hardware placement, and code requirements before quoting or scheduling.</div>
+  </main>
+  <script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));</script>
+</body>
+</html>`);
+  win.document.close();
 }

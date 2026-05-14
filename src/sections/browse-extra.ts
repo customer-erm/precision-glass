@@ -191,7 +191,7 @@ export function buildCommercialContent(): HTMLElement {
   const ctaCont = el('div', { className: 'container' });
   const ctaCard = el('div', { className: 'bottom-cta-card' });
   ctaCard.appendChild(el('h3', { className: 'bottom-cta-title', textContent: 'Have a project in mind?' }));
-  ctaCard.appendChild(el('p', { className: 'bottom-cta-desc', textContent: 'Answer a few questions about your project type, glass spec, framing, and scope \u2014 we\u2019ll respond with a detailed quote and timeline.' }));
+  ctaCard.appendChild(el('p', { className: 'bottom-cta-desc', textContent: 'Answer a few questions about your project type, glass spec, framing, and scope - then we will prepare the context for staff review.' }));
   const ctaBtn = el('button', {
     className: 'bottom-cta-btn configure-cta',
     type: 'button',

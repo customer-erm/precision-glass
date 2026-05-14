@@ -110,6 +110,8 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
   if (kind === 'typing') {
     bubble.innerHTML = '<span class="chat-typing-dot"></span><span class="chat-typing-dot"></span><span class="chat-typing-dot"></span>';
     row.classList.add('typing');
+  } else if (kind === 'agent') {
+    bubble.innerHTML = formatChatText(text);
   } else {
     bubble.textContent = text;
   }
@@ -117,6 +119,15 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
   return row;
+}
+
+function formatChatText(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
 }
 
 function renderChips(chips: Chip[]): void {

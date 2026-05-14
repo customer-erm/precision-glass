@@ -12,6 +12,8 @@ export interface GenerationMeta {
   handle?: string;
   accessories?: string;
   extras?: string;
+  doorPlacement?: string;
+  photoSource?: string;
   customerName?: string;
   customerEmail?: string;
   mode?: 'voice' | 'chat' | 'browse';

@@ -178,7 +178,7 @@ function updateNavCounter(): void {
   const prev = document.getElementById('manual-nav-prev') as HTMLButtonElement | null;
   if (prev) prev.disabled = idx <= 0;
   const next = document.getElementById('manual-nav-next') as HTMLButtonElement | null;
-  if (next) next.textContent = idx >= order.length - 1 ? 'Submit quote' : 'Next \u2192';
+  if (next) next.textContent = idx >= order.length - 1 ? 'Prepare proposal' : 'Next \u2192';
 }
 
 /* ------------------------------------------------------------------ */
@@ -428,8 +428,8 @@ function onEnterQuoteSlide(): void {
     lock.className = 'ss-quote-lock';
     lock.innerHTML = `
       <div class="ss-quote-lock-sparkle">\u2728</div>
-      <div class="ss-quote-lock-title">Your free AI rendering is ready</div>
-      <div class="ss-quote-lock-desc">One last step \u2014 share your contact details and we\u2019ll unlock a photorealistic AI preview of <strong>your exact configuration</strong>. Yours to keep, no strings. A specialist will follow up within 24 hours.</div>
+      <div class="ss-quote-lock-title">Your AI rendering is ready</div>
+      <div class="ss-quote-lock-desc">One last step - share your contact details and we will unlock a photorealistic preview plus a proposal brief for staff review. Pricing and scheduling stay with the human team.</div>
     `;
     wrap.appendChild(lock);
   }
@@ -446,25 +446,18 @@ function onEnterQuoteSlide(): void {
   form.className = 'browse-quote-form';
   form.innerHTML = `
     <h4 class="browse-form-title">Your contact info</h4>
-    <p class="browse-form-hint">We'll use this to prepare and send your custom quote. Optional fields help us be more accurate.</p>
+    <p class="browse-form-hint">We'll use this to prepare your proposal brief. Optional context helps staff review the design.</p>
     <div class="browse-form-grid">
       <label><span>Name *</span><input type="text" id="bqf-name" placeholder="Your name" required></label>
       <label><span>Email *</span><input type="email" id="bqf-email" placeholder="you@example.com" required></label>
       <label><span>Phone</span><input type="tel" id="bqf-phone" placeholder="(555) 123-4567"></label>
       <label><span>City / Area</span><input type="text" id="bqf-location" placeholder="e.g. Fort Lauderdale"></label>
-      <label><span>Timeline</span><select id="bqf-timeline">
-        <option value="">Select timeline</option>
-        <option>ASAP</option>
-        <option>1-3 months</option>
-        <option>3-6 months</option>
+      <label><span>Project stage</span><select id="bqf-timeline">
+        <option value="">Select stage</option>
+        <option>Ready for field measure</option>
+        <option>Remodel in progress</option>
+        <option>Planning layout</option>
         <option>Just exploring</option>
-      </select></label>
-      <label><span>Budget</span><select id="bqf-budget">
-        <option value="">Select budget</option>
-        <option>Under $2k</option>
-        <option>$2-5k</option>
-        <option>$5-10k</option>
-        <option>$10k+</option>
       </select></label>
     </div>
     <label class="browse-form-notes"><span>Anything else?</span><textarea id="bqf-notes" placeholder="Notes, measurements, questions\u2026" rows="3"></textarea></label>
@@ -491,6 +484,15 @@ function populateManualQuote(): void {
   });
 }
 
+function updateQuoteCell(id: string, value: string): void {
+  if (!value) return;
+  const cell = document.getElementById(id);
+  if (cell) {
+    cell.textContent = value;
+    cell.classList.add('filled');
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Submit                                                             */
 /* ------------------------------------------------------------------ */
@@ -515,7 +517,7 @@ async function submitManualQuote(): Promise<void> {
   const phone = get('bqf-phone');
   const location = get('bqf-location');
   const timeline = get('bqf-timeline');
-  const budget = get('bqf-budget');
+  const notes = get('bqf-notes');
 
   // Persist
   saveUser({
@@ -524,7 +526,7 @@ async function submitManualQuote(): Promise<void> {
     phone,
     location,
     timeline,
-    budget,
+    notes,
     preferredMode: 'browse',
     lastQuote: {
       service: getState().currentService || undefined,
@@ -537,7 +539,14 @@ async function submitManualQuote(): Promise<void> {
     },
   });
 
-  console.log('[Browse] Quote submitted', { name, email, phone, location, timeline, budget, choices: browseChoices });
+  updateQuoteCell('qs-name', name);
+  updateQuoteCell('qs-email', email);
+  updateQuoteCell('qs-phone', phone);
+  updateQuoteCell('qs-location', location);
+  updateQuoteCell('qs-timeline', timeline);
+  updateQuoteCell('qs-notes', notes);
+
+  console.log('[Browse] Proposal submitted', { name, email, phone, location, timeline, notes, choices: browseChoices });
 
   // NOW unlock the AI visualization. Swap the lock for a loader, kick off gen.
   const lock = document.querySelector('.ss-quote-lock') as HTMLElement | null;

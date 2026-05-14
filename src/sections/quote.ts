@@ -7,7 +7,7 @@ const QUOTE_FIELDS = [
   { key: 'enclosure_type', label: 'Enclosure Type' },
   { key: 'glass_type', label: 'Glass Preference' },
   { key: 'hardware_finish', label: 'Hardware Finish' },
-  { key: 'timeline', label: 'Project Timeline' },
+  { key: 'timeline', label: 'Project Stage' },
   { key: 'notes', label: 'Additional Notes' },
 ];
 
@@ -28,8 +28,8 @@ export function buildQuoteOverlay(): HTMLElement {
   const submitted = el('div', { className: 'quote-submitted', id: 'quote-submitted' });
   submitted.innerHTML = `
     <div class="quote-submitted-icon">✓</div>
-    <h3 class="quote-submitted-title">Quote Request Submitted!</h3>
-    <p class="quote-submitted-desc">We'll prepare your custom quote and reach out within 24 hours.</p>
+    <h3 class="quote-submitted-title">Proposal Request Saved</h3>
+    <p class="quote-submitted-desc">We'll package the design details for staff review.</p>
   `;
 
   card.append(title, fieldsContainer, submitted);

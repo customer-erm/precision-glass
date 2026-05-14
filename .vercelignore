@@ -1,0 +1,9 @@
+.git
+.vercel
+.env
+.env.*
+.codex-*
+*.log
+node_modules
+dist
+dist-ssr

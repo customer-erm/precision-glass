@@ -127,8 +127,8 @@ export const TOOL_DECLARATIONS = [
         email: { type: 'string' as const, description: 'Customer email if known' },
         phone: { type: 'string' as const, description: 'Customer phone number if provided' },
         location: { type: 'string' as const, description: 'Customer city/area if provided' },
-        timeline: { type: 'string' as const, description: 'Project timeline if provided' },
-        budget: { type: 'string' as const, description: 'Budget range if provided' },
+        timeline: { type: 'string' as const, description: 'Project stage if provided' },
+        notes: { type: 'string' as const, description: 'Optional project notes, constraints, or staff-review context if provided' },
       },
       required: [],
     },
@@ -155,7 +155,7 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<ServiceType, Record<string, string>> = {
 
   extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. Ask if they're interested in either upgrade or want to move on. WAIT. Call show_slide("process") with their choice (use "none" if they decline).`,
 
-  process: `Five process steps shown. Walk through each with enthusiasm: 1) Quote Approved — lock in the design. 2) Precision Measuring — laser templates, every fraction of an inch matters. 3) Glass Ordering — custom cut, polished, tempered at 1100+ degrees, 2-3 weeks. 4) Installation Day — certified installers, usually done in one day. 5) Enjoy — step into your new shower. Then mention your AI is generating a visualization of their selections. Ask if they have any questions before reviewing their configuration. WAIT. Call present_quote() with all their selections: enclosure, glass, hardware, handle, extras.`,
+  process: `Five process steps shown. Walk through each with enthusiasm: 1) Proposal Review — package the design and site notes for staff. 2) Precision Measuring — laser templates, every fraction of an inch matters. 3) Glass Ordering — custom cut, polished, and tempered after field measure. 4) Installation Planning — the team confirms scope before scheduling. 5) Enjoy — step into your new shower. Then mention your AI is generating a visualization of their selections. Ask if they have any questions before reviewing their configuration. WAIT. Call present_quote() with all their selections: enclosure, glass, hardware, handle, extras.`,
   },
 
   railings: {
@@ -165,7 +165,7 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<ServiceType, Record<string, string>> = {
     'rail-glass': `Glass type and thickness options shown: Clear Tempered, Low-Iron Ultra-Clear, Tinted, Frosted. Describe each briefly, mention low-iron is the upgrade for waterfront and pools because it removes the green tint. Ask which they'd like. WAIT. Call show_slide("rail-finish") with their choice.`,
     'rail-finish': `Hardware finishes: Polished Stainless 316, Brushed Satin Stainless, Matte Black Aluminum, Bronze/Champagne. Mention everything is marine grade for salt air. Ask which finish suits their home. WAIT. Call show_slide("rail-mounting") with their choice.`,
     'rail-mounting': `Mounting options: Top Mount, Side/Fascia Mount, Core-Drilled, Embedded Shoe. Briefly explain each — top mount is most common, fascia frees up walking space, embedded shoe is the cleanest premium look. Ask which works best for their substrate (concrete, wood, steel). WAIT. Call show_slide("process") with their choice.`,
-    process: `Five process steps. Walk through with enthusiasm: 1) Quote Approved — design and engineering locked in. 2) Site Measure — laser-accurate measurements of every post location. 3) Fabrication — custom-cut tempered glass and marine-grade hardware ordered, 2-4 weeks. 4) Installation — licensed crew installs, anchors, and seals everything in 1-3 days. 5) Enjoy — your new view, code-compliant and built to last. Ask if they have questions before reviewing their configuration. WAIT. Call present_quote() with their selections (enclosure parameter = railing system, glass = glass type, hardware = finish, handle = mounting style).`,
+    process: `Five process steps. Walk through with enthusiasm: 1) Proposal Review — design and engineering notes captured. 2) Site Measure — laser-accurate measurements of every post location. 3) Fabrication — custom-cut tempered glass and marine-grade hardware after verification. 4) Installation Planning — licensed crew confirms anchors, seals, and access needs. 5) Enjoy — your new view, code-compliant and built to last. Ask if they have questions before reviewing their configuration. WAIT. Call present_quote() with their selections (enclosure parameter = railing system, glass = glass type, hardware = finish, handle = mounting style).`,
   },
 
   commercial: {
@@ -173,9 +173,9 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<ServiceType, Record<string, string>> = {
     gallery: `Commercial portfolio cycling on screen. Take 3-4 sentences describing the range — retail storefronts, restaurant entries, office buildouts, multi-story curtain walls. Mention the team handles permits and code compliance. Ask what kind of project they're looking at. WAIT. Call show_slide("com-types").`,
     'com-types': `Four project type categories: Storefront System, Curtain Wall, Interior Partitions, Doors & Hardware. Walk through each, mention storefront is the most common for retail and small commercial. Ask which best matches their project. WAIT. Call show_slide("com-glass") with their choice.`,
     'com-glass': `Glass spec options: Clear Insulated (IGU), Low-E Coated, Hurricane/Impact Rated, Tinted/Spandrel/Frosted. CRITICAL — anywhere in South Florida HVHZ requires impact rated, mention this. Ask what their performance and code needs are. WAIT. Call show_slide("com-framing") with their choice.`,
-    'com-framing': `Framing system options: Standard Aluminum, Thermally Broken, Frameless/Minimal, Stainless/Architectural. Briefly explain each, mention thermally broken for energy code on new builds. Ask which suits the look and budget. WAIT. Call show_slide("com-scope") with their choice.`,
-    'com-scope': `Project scope tiers: Small/Repair, Medium Build-Out, Full Storefront, Curtain Wall/Multi-Story. Ask the customer to describe their job size and timeline. WAIT. Call show_slide("process") with their choice.`,
-    process: `Five process steps. Walk through with enthusiasm tailored to commercial: 1) Quote & Engineering — drawings, specs, and code review. 2) Permit & Submittals — we handle the city, NOA submittals, and shop drawings. 3) Fabrication — custom aluminum extrusions and tempered/laminated glass ordered, 4-8 weeks typical. 4) Installation — licensed crew installs with all sealants and hardware. 5) Final Walkthrough & Punchlist — every detail signed off. Ask if they have questions. WAIT. Call present_quote() with their selections (enclosure = project type, glass = glass spec, hardware = framing system, handle = scope/timeline).`,
+    'com-framing': `Framing system options: Standard Aluminum, Thermally Broken, Frameless/Minimal, Stainless/Architectural. Briefly explain each, mention thermally broken for energy code on new builds. Ask which suits the look, code needs, and performance goals. WAIT. Call show_slide("com-scope") with their choice.`,
+    'com-scope': `Project scope tiers: Small/Repair, Medium Build-Out, Full Storefront, Curtain Wall/Multi-Story. Ask the customer to describe their job size and project stage. WAIT. Call show_slide("process") with their choice.`,
+    process: `Five process steps. Walk through with enthusiasm tailored to commercial: 1) Proposal & Engineering Review — drawings, specs, and code needs captured. 2) Permit & Submittals — the team reviews city, NOA, and shop drawing needs. 3) Fabrication Planning — custom aluminum extrusions and tempered/laminated glass after verification. 4) Installation Planning — licensed crew confirms access, sealants, and hardware. 5) Final Walkthrough & Punchlist — every detail signed off. Ask if they have questions. WAIT. Call present_quote() with their selections (enclosure = project type, glass = glass spec, hardware = framing system, handle = scope/project stage).`,
   },
 };
 
@@ -421,8 +421,8 @@ export async function handleToolCall(
 
 DO THE FOLLOWING IN ORDER:
 1. Read back their selections enthusiastically — tell them their choices look amazing together.
-2. Let them know you're preparing a detailed quote and a specialist from your team will reach out within 24 hours with pricing.
-3. Casually ask if they'd like to share any additional details to help with the quote — phone number, what city/area they're in, project timeline, or budget range. Say something like "No pressure at all, but if you'd like to share your phone number, general area, timeline, or budget range, it helps us put together an even more accurate quote." ${hasName ? 'You already have their name.' : 'Ask for their name if you don\'t have it.'} ${hasEmail ? 'You already have their email.' : 'Ask for their email if you don\'t have it.'}
+2. Let them know you're preparing a proposal brief for staff review. Do not give pricing or a firm timeline.
+3. Casually ask if they'd like to share any additional details for the staff review - phone number, city/area, project stage, or notes about measurements, layout, tile, plumbing wall, or door clearance. Say something like "No pressure at all, but if you'd like to share your phone number, general area, project stage, or any notes about the bathroom, it helps our team review the design." ${hasName ? 'You already have their name.' : 'Ask for their name if you don\'t have it.'} ${hasEmail ? 'You already have their email.' : 'Ask for their email if you don\'t have it.'}
 4. WAIT for their response.
 5. As soon as they respond (whether they share details or politely decline), deliver your full warm goodbye in ONE SINGLE TURN — use their name, thank them, tell them it was great chatting, wish them a great day. Speak the entire goodbye out loud as one continuous turn — do NOT pause for another reply, do NOT ask any more questions, do NOT leave silence at the end.
 6. IMMEDIATELY in the same turn (right after the last word of your goodbye) call end_session() with any details they shared. The session will close automatically after your goodbye finishes playing — there is no further response expected from the customer, so do not wait for one.`),
@@ -476,7 +476,7 @@ DO THE FOLLOWING IN ORDER:
         console.warn('[Tour] Blocking premature end_session, sincePresent=', sincePresent);
         return {
           success: false,
-          message: instr(`BLOCKED — only ${Math.round(sincePresent / 1000)}s have passed since present_quote. You skipped the closing flow. Go back and: (1) read back their selections enthusiastically, (2) ask if they want to share phone/location/timeline/budget, (3) WAIT IN SILENCE for them to actually answer with their voice, (4) deliver a complete goodbye in one continuous turn, (5) THEN call end_session in that same goodbye turn. Do not call end_session again until you have done all of these.`),
+          message: instr(`BLOCKED — only ${Math.round(sincePresent / 1000)}s have passed since present_quote. You skipped the closing flow. Go back and: (1) read back their selections enthusiastically, (2) ask if they want to share phone/location/project stage/notes, (3) WAIT IN SILENCE for them to actually answer with their voice, (4) deliver a complete goodbye in one continuous turn, (5) THEN call end_session in that same goodbye turn. Do not call end_session again until you have done all of these.`),
         };
       }
 
@@ -486,7 +486,7 @@ DO THE FOLLOWING IN ORDER:
       if (args.phone) quoteChoices['phone'] = args.phone;
       if (args.location) quoteChoices['location'] = args.location;
       if (args.timeline) quoteChoices['timeline'] = args.timeline;
-      if (args.budget) quoteChoices['budget'] = args.budget;
+      if (args.notes) quoteChoices['notes'] = args.notes;
 
       console.log('[Final Quote Data]', quoteChoices);
 
@@ -500,7 +500,7 @@ DO THE FOLLOWING IN ORDER:
           phone: quoteChoices['phone'] || undefined,
           location: quoteChoices['location'] || undefined,
           timeline: quoteChoices['timeline'] || undefined,
-          budget: quoteChoices['budget'] || undefined,
+          notes: quoteChoices['notes'] || undefined,
           preferredMode: getState().currentMode || undefined,
           lastQuote: {
             service: (service as 'showers' | 'railings' | 'commercial') || undefined,
@@ -519,7 +519,7 @@ DO THE FOLLOWING IN ORDER:
       // Re-populate so any newly provided contact details show on the quote screen
       populateQuoteSummary(quoteChoices);
 
-      // Trigger the "Quote Sent!" success animation immediately so the
+      // Trigger the proposal-ready success animation immediately so the
       // user sees it even if the agent gets disconnected mid-goodbye.
       showQuoteSent();
 
@@ -544,7 +544,7 @@ DO THE FOLLOWING IN ORDER:
 /* ------------------------------------------------------------------ */
 
 function populateQuoteSummary(choices: Record<string, string>): void {
-  const fields = ['enclosure', 'glass', 'hardware', 'handle', 'accessories', 'extras', 'name', 'email', 'phone', 'location', 'timeline', 'budget'];
+  const fields = ['enclosure', 'doorPlacement', 'glass', 'hardware', 'handle', 'accessories', 'extras', 'name', 'email', 'phone', 'location', 'timeline', 'notes'];
   for (const field of fields) {
     const el = document.getElementById(`qs-${field}`);
     if (el && choices[field]) {

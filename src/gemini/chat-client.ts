@@ -18,7 +18,7 @@ import { handleToolCall } from './tools';
 import { loadUser, saveUser } from '../utils/user-storage';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
-import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto } from '../utils/bathroom-photo';
+import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPhoto } from '../utils/bathroom-photo';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
@@ -74,8 +74,8 @@ interface ChatContext {
 
 const GREETING = (name?: string): string =>
   name
-    ? `Welcome back, ${name}! \u{1F44B} I\u2019m Alex — great to see you again. What would you like to explore today?`
-    : `Hey there! \u{1F44B} I\u2019m Alex, your glass specialist at Precision Glass. I\u2019m here to walk you through anything you\u2019re curious about. Before we dive in — what should I call you?`;
+    ? `Welcome back, ${name}! I'm Alex - ready to keep working on your shower concept?`
+    : `Hey there, I'm Alex, your glass specialist at Precision Glass. I can help you shape a custom shower concept and prepare a visual proposal for our team to review. What should I call you?`;
 
 function buildSteps(): Record<string, ChatStep> {
   return {
@@ -102,12 +102,12 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'service',
       agent: (ctx) =>
         ctx.choices.name
-          ? `${ctx.choices.name.split(' ')[0]}, which area are you thinking about?`
-          : `Which area are you thinking about?`,
+          ? `${ctx.choices.name.split(' ')[0]}, let's start with the shower experience. What are you working on?`
+          : `Let's start with the shower experience. What are you working on?`,
       chips: [
-        { label: 'Frameless Showers', hint: 'Custom enclosures', primary: true, action: { kind: 'select-service', service: 'showers' } },
-        { label: 'Glass Railings', hint: 'Balconies, stairs, pool decks', action: { kind: 'select-service', service: 'railings' } },
-        { label: 'Commercial Glass', hint: 'Storefronts & more', action: { kind: 'select-service', service: 'commercial' } },
+        { label: 'Design my shower', hint: 'AI preview + proposal', primary: true, action: { kind: 'select-service', service: 'showers' } },
+        { label: 'Glass railings', hint: 'Roadmap demo', action: { kind: 'select-service', service: 'railings' } },
+        { label: 'Commercial glass', hint: 'Roadmap demo', action: { kind: 'select-service', service: 'commercial' } },
       ],
     },
 
@@ -115,66 +115,80 @@ function buildSteps(): Record<string, ChatStep> {
     'showers-intro': {
       id: 'showers-intro',
       progressStep: 1,
-      progressTotal: 9,
-      agent: 'Frameless showers transform a bathroom — no bulky frames, no collecting grime, just clean precision glass that makes the space feel bigger and adds real home value. Want me to walk you through the options?',
+      progressTotal: 10,
+      agent: 'Great. I will walk you through this like a glass pro would: layout first, then glass, hardware, handles, and a visual proposal at the end. Want to use a photo of your actual bathroom so the guidance and rendering can be more personal?',
       chips: [
-        { label: 'Yes, let\u2019s go', primary: true, action: { kind: 'advance', next: 'showers-upload' } },
-        { label: 'Tell me more first', action: { kind: 'advance', next: 'showers-intro-more' } },
+        { label: 'Yes, use my bathroom', primary: true, action: { kind: 'advance', next: 'showers-upload' } },
+        { label: 'Browse first', action: { kind: 'advance', next: 'showers-gallery' } },
       ],
     },
     'showers-upload': {
       id: 'showers-upload',
       progressStep: 2,
-      progressTotal: 9,
-      agent: 'Quick bonus: if you upload a photo of your current bathroom, I can tailor my suggestions to your actual layout \u2014 and at the end your free AI rendering will show the new shower *installed in your real space*. Totally optional, your call.',
-      onEnter: () => injectPhotoUploadUI(),
-      chips: () =>
-        getBathroomPhoto()
-          ? [
-              { label: 'Continue with this photo', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
-              { label: 'Skip and use a stock bathroom', action: { kind: 'advance', next: 'showers-gallery' } },
-            ]
-          : [
-              { label: 'Skip \u2014 use a stock bathroom', action: { kind: 'advance', next: 'showers-gallery' } },
-            ],
+      progressTotal: 10,
+      agent: 'Upload a photo if you have one handy. If you use a real photo, add your email here too so we can attach the personalized rendering and proposal preview to your project record. You can skip the photo and keep browsing.',
+      onEnter: (ctx) => injectPhotoUploadUI(ctx),
+      chips: [],
     },
     'showers-intro-more': {
       id: 'showers-intro-more',
       progressStep: 1,
-      progressTotal: 9,
+      progressTotal: 10,
       agent: 'Sure — frameless means the glass panels stand on their own with only small discrete hardware. It\u2019s custom-cut to your exact space, uses 3/8" or 1/2" tempered safety glass, and comes with a lifetime workmanship warranty. Most installs are done in a single day. Ready?',
       chips: [
         { label: 'Ready, walk me through', primary: true, action: { kind: 'advance', next: 'showers-upload' } },
       ],
     },
+    'showers-photo-guidance': {
+      id: 'showers-photo-guidance',
+      progressStep: 3,
+      progressTotal: 10,
+      agent: 'Perfect. For the rendering to pass a real installer review, I need one placement cue: where should the active door land, or is this a no-swing layout?',
+      chips: [
+        { label: 'Hinge on left', hint: 'Door handle right', action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'Hinge on left' } },
+        { label: 'Hinge on right', hint: 'Door handle left', action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'Hinge on right' } },
+        { label: 'No swing / slider', hint: 'Tight clearance', primary: true, action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'No swing / slider preferred' } },
+        { label: 'Not sure', hint: 'Keep it conservative', action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'Not sure - recommend safest placement' } },
+      ],
+    },
     'showers-gallery': {
       id: 'showers-gallery',
-      progressStep: 3,
-      progressTotal: 9,
-      agent:
-        'Here are some of our recent installs on the main screen — modern, spa-like, every one custom. Heads up: at the end of this walkthrough I\u2019ll generate a **free AI photorealistic rendering** of your custom shower — a unique preview you get to keep. \u2728\n\nBefore we continue, I\u2019d love to send you our Frameless Shower Buyer\u2019s Guide — what\u2019s your email?',
+      progressStep: 4,
+      progressTotal: 10,
+      agent: (ctx) =>
+        ctx.choices.email
+          ? 'Good - I have your email. Here are recent installs for reference. Next we will choose the enclosure style, and I will keep your photo and door-placement cue in mind for the final rendering.'
+          : 'Here are recent installs for reference. Before we choose the layout, where should I send the buyer guide and proposal preview? You can also skip and keep browsing.',
       requiresTextInput: true,
       chips: (ctx) =>
         ctx.choices.email
-          ? [{ label: 'Use ' + ctx.choices.email, primary: true, action: { kind: 'save-email-and-advance', next: 'showers-enclosure' } }, { label: 'Skip for now', action: { kind: 'advance', next: 'showers-enclosure' } }]
+          ? [{ label: 'Continue to layout options', primary: true, action: { kind: 'advance', next: 'showers-enclosure' } }]
           : [{ label: 'Skip for now', action: { kind: 'advance', next: 'showers-enclosure' } }],
       onText: async (text, ctx) => {
         const email = text.trim();
         if (/\S+@\S+\.\S+/.test(email)) {
           ctx.choices.email = email;
           saveUser({ email });
-          ctx.addAgent('Got it — I\u2019ll send that over! Now let\u2019s pick an enclosure type.');
+          ctx.addAgent('Got it - I will keep that with your project preview. Now let us pick an enclosure type.');
           setTimeout(() => ctx.goToStep('showers-enclosure'), 400);
         } else {
-          ctx.addAgent('That didn\u2019t look like an email — want to skip for now?');
+          ctx.addAgent('That did not look like an email. You can type it again or skip for now.');
         }
       },
     },
     'showers-enclosure': {
       id: 'showers-enclosure',
-      progressStep: 4,
-      progressTotal: 9,
-      agent: 'Great. There are 9 enclosure types on screen. Which style fits your space best?',
+      progressStep: 5,
+      progressTotal: 10,
+      agent: (ctx) => {
+        if (ctx.choices.doorPlacement?.toLowerCase().includes('slider')) {
+          return 'For a tight or no-swing space, a frameless slider or splash panel is usually the cleanest direction. If the photo gives us enough opening width, the final render will keep the track and rollers accurate. Which style should we explore?';
+        }
+        if (ctx.choices.doorPlacement?.toLowerCase().includes('hinge')) {
+          return `Great. I will keep "${ctx.choices.doorPlacement}" in mind so the hinge side and handle side do not get flipped in the rendering. Which enclosure style fits the opening best?`;
+        }
+        return 'Great. There are 10 enclosure styles on screen. If you are not sure, Single Door and Door + Panel are the safest starting points for most remodels. Which style fits your space best?';
+      },
       chips: [
         { label: 'Single Door', hint: 'Clean, minimal', primary: true, action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Single Door' } },
         { label: 'Door + Panel', hint: 'Wider openings', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Door + Panel' } },
@@ -190,9 +204,9 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-glass': {
       id: 'showers-glass',
-      progressStep: 5,
-      progressTotal: 9,
-      agent: (ctx) => `Perfect — ${ctx.choices.enclosure}. Now the glass: clear shows off your tile, frosted is acid-etched for privacy, rain has a water-droplet texture. Which draws you in?`,
+      progressStep: 6,
+      progressTotal: 10,
+      agent: (ctx) => `Perfect - ${ctx.choices.enclosure}. Now the glass: clear shows off tile and stone, frosted adds privacy, and rain glass softens the view with texture. Which draws you in?`,
       chips: [
         { label: 'Clear', hint: 'Bestseller', primary: true, action: { kind: 'advance', next: 'showers-hardware', choiceCategory: 'glass', choice: 'Clear Glass' } },
         { label: 'Frosted', hint: 'Privacy', action: { kind: 'advance', next: 'showers-hardware', choiceCategory: 'glass', choice: 'Frosted Glass' } },
@@ -201,9 +215,9 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-hardware': {
       id: 'showers-hardware',
-      progressStep: 6,
-      progressTotal: 9,
-      agent: 'Five hardware finishes to pick from. What would complement your bathroom?',
+      progressStep: 7,
+      progressTotal: 10,
+      agent: 'Five hardware finishes to pick from. Think of this as hinges, clips, brackets, and handle finish all matching the rest of the bathroom. What would complement your space?',
       chips: [
         { label: 'Polished Chrome', hint: 'Most popular', primary: true, action: { kind: 'advance', next: 'showers-handle', choiceCategory: 'hardware', choice: 'Polished Chrome' } },
         { label: 'Brushed Nickel', hint: 'Hides spots', action: { kind: 'advance', next: 'showers-handle', choiceCategory: 'hardware', choice: 'Brushed Nickel' } },
@@ -214,12 +228,12 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-handle': {
       id: 'showers-handle',
-      progressStep: 7,
-      progressTotal: 9,
+      progressStep: 8,
+      progressTotal: 10,
       agent: (ctx) =>
         ctx.choices.enclosure?.toLowerCase().includes('splash')
-          ? 'Your splash panel is a walk-in, so no handle needed! Any extras?'
-          : 'Nice. Hinges come standard — which handle style do you like?',
+          ? 'Your splash panel is a walk-in, so no handle is needed. I will keep the render clean and avoid adding door hardware.'
+          : 'Nice. Hinges come standard. Which handle style do you like? The rendering will place it opposite the hinge side.',
       chips: (ctx) =>
         ctx.choices.enclosure?.toLowerCase().includes('splash')
           ? [{ label: 'Continue', primary: true, action: { kind: 'advance', next: 'showers-extras' } }]
@@ -232,9 +246,9 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-extras': {
       id: 'showers-extras',
-      progressStep: 8,
-      progressTotal: 9,
-      agent: 'Last visual pick — any upgrades? Grid patterns add architectural character, steam upgrade seals the whole thing for a spa experience.',
+      progressStep: 9,
+      progressTotal: 10,
+      agent: 'Last visual pick - any upgrades? Grid patterns add architectural character. Steam upgrade means a more sealed design, so the proposal will flag that for staff review.',
       chips: [
         { label: 'Skip upgrades', primary: true, action: { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: 'none' } },
         { label: 'Add Grid Patterns', action: { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: 'Grid Patterns' } },
@@ -244,18 +258,18 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'showers-quote': {
       id: 'showers-quote',
-      progressStep: 9,
-      progressTotal: 9,
-      agent: 'Here\u2019s your configuration on the main screen. Our AI is rendering a preview of your shower. Want to wrap up with a few quick contact details so we can send you a precise quote?',
+      progressStep: 10,
+      progressTotal: 10,
+      agent: 'Here is your configuration on the main screen. One last detail pass lets staff review the project properly - no automated pricing, just the design, photo context, and notes.',
       chips: [
-        { label: 'Yes, collect my info', primary: true, action: { kind: 'advance', next: 'showers-contact' } },
+        { label: 'Prepare my proposal', primary: true, action: { kind: 'advance', next: 'showers-contact' } },
       ],
     },
     'showers-contact': {
       id: 'showers-contact',
-      progressStep: 9,
-      progressTotal: 9,
-      agent: 'Just fill in what you\u2019re comfortable sharing — anything blank is fine.',
+      progressStep: 10,
+      progressTotal: 10,
+      agent: 'Add anything that helps the team understand the project. Name and email are enough to prepare the prototype proposal; phone, city, project stage, and notes are optional.',
       onEnter: (ctx) => {
         injectContactForm({
           name: ctx.choices.name || '',
@@ -358,7 +372,7 @@ function buildSteps(): Record<string, ChatStep> {
     done: {
       id: 'done',
       agent: (ctx) =>
-        `All set${ctx.choices.name ? ', ' + ctx.choices.name.split(' ')[0] : ''}! I\u2019ve sent your details over. A specialist will be in touch within 24 hours. Thanks for chatting!`,
+        `All set${ctx.choices.name ? ', ' + ctx.choices.name.split(' ')[0] : ''}. Your shower concept, rendering brief, and project notes are ready for staff review. You can save the proposal from the main screen.`,
       onEnter: (ctx) => injectSubmittedCard(ctx.choices),
       chips: [{ label: 'Close', action: { kind: 'close' } }],
     },
@@ -382,8 +396,8 @@ function injectSubmittedCard(choices: Record<string, string>): void {
   push('Email', 'email');
   push('Phone', 'phone');
   push('City', 'location');
-  push('Timeline', 'timeline');
-  push('Budget', 'budget');
+  push('Project stage', 'timeline');
+  push('Notes', 'notes');
 
   const selectionRows: Array<[string, string]> = [];
   const pushSel = (label: string, key: string) => {
@@ -393,6 +407,7 @@ function injectSubmittedCard(choices: Record<string, string>): void {
   pushSel('Glass', 'glass');
   pushSel('Hardware', 'hardware');
   pushSel('Handle', 'handle');
+  pushSel('Door guidance', 'doorPlacement');
   pushSel('Upgrades', 'extras');
   pushSel('Rail type', 'rail-type');
   pushSel('Rail glass', 'rail-glass');
@@ -439,63 +454,104 @@ function escapeHtml(s: string): string {
 /*  Bathroom photo upload UI                                           */
 /* ------------------------------------------------------------------ */
 
-let photoUploadHandlerAttached = false;
-
-function injectPhotoUploadUI(): void {
+function injectPhotoUploadUI(ctx: ChatContext): void {
   const container = document.getElementById('chat-extras');
   if (!container) return;
   container.innerHTML = '';
 
   const existing = getBathroomPhoto();
+  const email = ctx.choices.email || loadUser()?.email || '';
 
   const wrap = document.createElement('div');
   wrap.className = 'chat-photo-upload';
-  wrap.innerHTML = existing
-    ? `
+  wrap.innerHTML = `
+    ${
+      existing
+        ? `
         <div class="chat-photo-preview">
           <img src="${existing.dataUrl}" alt="Your bathroom">
           <button type="button" class="chat-photo-clear" aria-label="Remove photo">\u2715</button>
         </div>
-        <p class="chat-photo-note">Got it \u2014 I\u2019ll use this bathroom as the canvas for your final AI rendering.</p>
+        <p class="chat-photo-note">Got it - this bathroom photo will become the base image for your rendering.</p>
       `
-    : `
+        : `
         <label class="chat-photo-dropzone" for="chat-photo-input">
-          <span class="chat-photo-icon">\u{1F4F7}</span>
+          <span class="chat-photo-icon" aria-hidden="true">\u{1F4F7}</span>
           <span class="chat-photo-label-main">Upload a photo of your bathroom</span>
-          <span class="chat-photo-label-sub">JPG, PNG, or HEIC \u00B7 max 10MB</span>
+          <span class="chat-photo-label-sub">JPG, PNG, or HEIC - max 10MB</span>
         </label>
         <input type="file" id="chat-photo-input" accept="image/*" capture="environment" hidden>
-      `;
+      `
+    }
+    <div class="chat-photo-email-row">
+      <label>Email for the rendering/proposal
+        <input type="email" id="chat-photo-email" value="${escape(email)}" placeholder="you@example.com">
+      </label>
+      <p class="chat-photo-email-note">Required if you use your photo. Optional if you are just browsing.</p>
+    </div>
+    <div class="chat-photo-actions">
+      <button type="button" class="chat-photo-action primary" id="chat-photo-continue">${existing ? 'Use photo + continue' : 'Continue without photo'}</button>
+      <button type="button" class="chat-photo-action" id="chat-photo-skip">Skip photo for now</button>
+    </div>
+  `;
   container.appendChild(wrap);
 
-  // Wire handlers (delegated to avoid duplicate listeners on re-enter)
-  if (photoUploadHandlerAttached) return;
-  photoUploadHandlerAttached = true;
+  const emailInput = document.getElementById('chat-photo-email') as HTMLInputElement | null;
+  const saveEmail = (required: boolean): boolean => {
+    const value = emailInput?.value.trim() || '';
+    if (!value) {
+      if (required && emailInput) emailInput.classList.add('invalid');
+      return !required;
+    }
+    if (!/\S+@\S+\.\S+/.test(value)) {
+      emailInput?.classList.add('invalid');
+      ctx.addAgent('That email looks off. Add a valid email, or skip the photo and keep browsing.');
+      return false;
+    }
+    ctx.choices.email = value;
+    saveUser({ email: value });
+    emailInput?.classList.remove('invalid');
+    return true;
+  };
 
-  document.addEventListener('change', async (e) => {
+  document.getElementById('chat-photo-input')?.addEventListener('change', async (e) => {
     const target = e.target as HTMLInputElement;
-    if (target?.id !== 'chat-photo-input') return;
     const file = target.files?.[0];
     if (!file) return;
     try {
       const dataUrl = await readFileAsDataUrl(file);
       setBathroomPhoto(dataUrl);
-      // Refresh the UI to show the preview
-      injectPhotoUploadUI();
+      ctx.choices.photoSource = 'customer_upload';
+      injectPhotoUploadUI(ctx);
     } catch (err) {
       console.warn('[Chat] Photo upload failed:', err);
     }
   });
 
-  document.addEventListener('click', (e) => {
-    const target = e.target as HTMLElement;
-    if (target?.closest('.chat-photo-clear')) {
-      const mod = target.closest('.chat-photo-upload');
-      mod?.remove();
-      // @ts-expect-error — dynamic import side-effect-free clear
-      import('../utils/bathroom-photo').then((m) => m.clearBathroomPhoto());
-      injectPhotoUploadUI();
+  wrap.querySelector('.chat-photo-clear')?.addEventListener('click', () => {
+    clearBathroomPhoto();
+    delete ctx.choices.photoSource;
+    injectPhotoUploadUI(ctx);
+  });
+
+  document.getElementById('chat-photo-continue')?.addEventListener('click', () => {
+    const hasPhoto = !!getBathroomPhoto();
+    if (!saveEmail(hasPhoto)) return;
+    ctx.addUser(hasPhoto ? 'Use my bathroom photo' : 'Continue without photo');
+    if (hasPhoto) {
+      ctx.addAgent('Great - I will use your bathroom photo as the base image. One quick placement cue will help keep the hinges, door, and handle realistic.');
+      setTimeout(() => ctx.goToStep('showers-photo-guidance'), 350);
+    } else {
+      setTimeout(() => ctx.goToStep('showers-gallery'), 250);
     }
+  });
+
+  document.getElementById('chat-photo-skip')?.addEventListener('click', () => {
+    clearBathroomPhoto();
+    delete ctx.choices.photoSource;
+    saveEmail(false);
+    ctx.addUser('Skip photo for now');
+    setTimeout(() => ctx.goToStep('showers-gallery'), 250);
   });
 }
 
@@ -518,21 +574,17 @@ function injectContactForm(prefill: { name: string; email: string; phone: string
       <label>Phone<input type="tel" name="phone" value="${escape(prefill.phone)}" placeholder="(555) 123-4567"></label>
       <label>City<input type="text" name="location" placeholder="e.g. Fort Lauderdale"></label>
     </div>
-    <div class="chat-form-row two-col">
-      <label>Timeline<select name="timeline">
+    <div class="chat-form-row">
+      <label>Project stage<select name="timeline">
         <option value="">Select</option>
-        <option>ASAP</option>
-        <option>1-3 months</option>
-        <option>3-6 months</option>
+        <option>Ready for field measure</option>
+        <option>Remodel in progress</option>
+        <option>Planning layout</option>
         <option>Just exploring</option>
       </select></label>
-      <label>Budget<select name="budget">
-        <option value="">Select</option>
-        <option>Under $2k</option>
-        <option>$2-5k</option>
-        <option>$5-10k</option>
-        <option>$10k+</option>
-      </select></label>
+    </div>
+    <div class="chat-form-row">
+      <label>Notes<textarea name="notes" rows="3" placeholder="Measurements, swing concerns, tile plans, or anything staff should know"></textarea></label>
     </div>
   `;
   container.appendChild(form);
@@ -731,7 +783,7 @@ export class ChatDriver {
           phone: this.ctx.choices.phone,
           location: this.ctx.choices.location,
           timeline: this.ctx.choices.timeline,
-          budget: this.ctx.choices.budget,
+          notes: this.ctx.choices.notes,
           preferredMode: 'chat',
           lastQuote: {
             service: (document.querySelector('.tour-slideshow')?.getAttribute('data-service') as any) || undefined,
@@ -741,6 +793,8 @@ export class ChatDriver {
             handle: this.ctx.choices.handle,
             accessories: this.ctx.choices.accessories,
             extras: this.ctx.choices.extras,
+            doorPlacement: this.ctx.choices.doorPlacement,
+            photoSource: this.ctx.choices.photoSource,
           },
         });
 
@@ -768,10 +822,22 @@ export class ChatDriver {
     this.cbs.onTypingStart?.();
     try {
       const currentStepId = this.currentStep?.id || '';
-      const contextNote = `You are Alex, a glass specialist at Precision Glass. The customer is on step "${currentStepId}" of a guided tour. They just asked: "${text}". Give a brief 1-2 sentence helpful reply. Then gently redirect them back to the step's options (tap a choice or say something like "clear glass" to continue). Do NOT claim to have performed an action. Do NOT call any tools.`;
+      const userBathroom = getBathroomPhoto();
+      const contextNote = `You are Alex, a glass specialist at Precision Glass. The customer is on step "${currentStepId}" of a guided shower tour. They just asked: "${text}".
+
+Known selections so far: ${JSON.stringify(this.ctx.choices)}.
+${userBathroom ? 'A customer bathroom photo is attached. You may use visible clues from the photo to give practical guidance, but be honest when something requires a field measure.' : 'No customer bathroom photo is attached yet.'}
+
+Give a brief 1-2 sentence helpful reply. If giving layout advice, think like a seasoned shower installer: door swing clearance, hinge side, fixed panel support, curb/threshold, plumbing wall, and avoiding conflicts with vanities/toilets/towel bars. Do not give pricing or a firm timeline. Redirect them back to the current options so the flow can continue. Do NOT claim to have submitted anything. Do NOT call any tools.`;
+
+      const parts: any[] = [{ text: contextNote }];
+      if (userBathroom) {
+        const [mime, b64] = userBathroom.dataUrl.replace(/^data:/, '').split(';base64,');
+        parts.push({ inlineData: { mimeType: mime, data: b64 } });
+      }
 
       const body = {
-        contents: [{ role: 'user', parts: [{ text: contextNote }] }],
+        contents: [{ role: 'user', parts }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 200 },
       };
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${OFFFLOW_MODEL}:generateContent?key=${API_KEY}`;
@@ -858,10 +924,12 @@ function populateEditorialFromChoices(choices: Record<string, string>): void {
     ['qs-glass', choices.glass || choices['rail-glass'] || choices['com-glass'] || ''],
     ['qs-hardware', choices.hardware || choices['rail-finish'] || choices['com-framing'] || ''],
     ['qs-handle', choices.handle || choices['rail-mounting'] || choices['com-scope'] || ''],
+    ['qs-doorPlacement', choices.doorPlacement || ''],
     ['qs-extras', choices.extras || ''],
     ['qs-name', choices.name || ''],
     ['qs-email', choices.email || ''],
     ['qs-phone', choices.phone || ''],
+    ['qs-notes', choices.notes || ''],
   ];
   fields.forEach(([id, val]) => {
     if (!val) return;
@@ -915,7 +983,7 @@ function unlockAndGenerateViz(choices: Record<string, string>): void {
     const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
     if (sp) sp.style.display = 'none';
     // Persist to the customer-generations gallery (fire and forget)
-    saveCustomerGeneration(url, {
+        saveCustomerGeneration(url, {
       service: (document.querySelector('.tour-slideshow')?.getAttribute('data-service') as any) || 'showers',
       enclosure: choices.enclosure,
       glass: choices.glass,
@@ -923,6 +991,8 @@ function unlockAndGenerateViz(choices: Record<string, string>): void {
       handle: choices.handle,
       accessories: choices.accessories,
       extras: choices.extras,
+      doorPlacement: choices.doorPlacement,
+      photoSource: choices.photoSource,
       customerName: choices.name,
       customerEmail: choices.email,
       mode: 'chat',

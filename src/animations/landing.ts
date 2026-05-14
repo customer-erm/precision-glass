@@ -4,7 +4,7 @@ export function playLandingAnimation(): void {
   const tl = gsap.timeline({ defaults: { ease: EASE.gentle } });
 
   // First, clear the CSS-set hidden state on all landing elements
-  gsap.set('.hero-eyebrow, .hero-title, .hero-subtitle, .service-card, #mic-container, .mic-label', {
+  gsap.set('.hero-eyebrow, .hero-title, .hero-subtitle, .service-card, #mic-container, .mic-label, .mode-picker-wrap', {
     clearProps: 'opacity,transform',
   });
 
@@ -21,6 +21,11 @@ export function playLandingAnimation(): void {
       { opacity: 0, y: 20 },
       { opacity: 1, y: 0, duration: DURATION.medium },
       '-=0.4'
+    )
+    .fromTo('.mode-picker-wrap',
+      { opacity: 0, y: 18 },
+      { opacity: 1, y: 0, duration: DURATION.medium },
+      '-=0.2'
     )
     .fromTo('.service-card',
       { opacity: 0, y: 60 },

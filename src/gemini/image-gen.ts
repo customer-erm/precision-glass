@@ -100,6 +100,7 @@ function buildPrompt(choices: Record<string, string>): string {
   const handle = (choices.handle || '').trim();
   const accessories = (choices.accessories || '').trim();
   const extras = (choices.extras || '').trim();
+  const doorPlacement = (choices.doorPlacement || '').trim();
   const enclosureLower = (choices.enclosure || '').toLowerCase();
   const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
   const isSlider = enclosureLower.includes('slider') || enclosureLower.includes('slide') || enclosureLower.includes('bypass');
@@ -114,6 +115,10 @@ function buildPrompt(choices: Record<string, string>): string {
   );
   parts.push(`Glass type: ${glass}.`);
   parts.push(`All hardware (hinges, clips, brackets) finished in ${hardware}.`);
+  if (doorPlacement) {
+    parts.push(`CUSTOMER DOOR PLACEMENT CUE: ${doorPlacement}. Follow this unless it contradicts the uploaded bathroom geometry. "Hinge on left" means hinges on the viewer/customer's left side of the active door and handle on the opposite side. "Hinge on right" means hinges on the right side of the active door and handle on the opposite side. "No swing / slider" means avoid a swinging hinged door and use a sliding or fixed-panel solution.`);
+  }
+  parts.push('PRO INSTALLER ACCURACY RULES: place glass only at the existing shower/tub threshold or wet-area opening; preserve the original room perspective; keep vertical glass edges plumb; align bottom glass edges with the curb/tub deck/floor threshold; do not block plumbing fixtures, toilet, vanity drawers, towel bars, windows, or entry paths; do not move walls, tile, vanity, toilet, window, mirror, lighting, or shower fixtures unless directly hidden by glass.');
 
   if (isSlider) {
     parts.push('CRITICAL — ENCLOSURE TYPE: This is a FRAMELESS SLIDING shower door (bypass slider). It has TWO large rectangular glass panels: one fixed and one that slides horizontally. The sliding panel hangs from a continuous top-mounted metal RAIL/TRACK that spans the full width of the opening, suspended by two clearly visible ROLLER WHEELS / trolley assemblies that ride along the rail. Small floor guides keep the bottom of the sliding panel in place. The door SLIDES — it does NOT swing. There are absolutely NO hinges, NO pivots, NO swinging door panels anywhere in this enclosure. Show the top rail and the roller hardware clearly in the image.');
@@ -148,6 +153,7 @@ function buildPrompt(choices: Record<string, string>): string {
       handleDetail = `a ${handle} door handle`;
     }
     parts.push(`CRITICAL — DOOR HANDLE (this MUST match the second reference image exactly): ${handleDetail} The handle finish is ${hardware}. Do not substitute a different style. The handle is mounted ONLY on the door panel — no other glass panels have handles.`);
+    parts.push('HINGE AND HANDLE PLACEMENT: Hinges must mount on the actual hinge side of the active door, vertically aligned, with two or three realistic wall-to-glass or glass-to-glass hinge plates. The handle must be on the latch side opposite the hinges at normal hand height. Never put hinges in the middle of a fixed panel. Never put a handle on a fixed panel.');
   }
 
   if (accessories) {
@@ -175,6 +181,9 @@ function buildPrompt(choices: Record<string, string>): string {
   if (!accessories || !/towel/i.test(accessories)) negatives.push('NO towel bars');
   if (!accessories || !/robe|hook/i.test(accessories)) negatives.push('NO robe hooks');
   if (!accessories || !/support/i.test(accessories)) negatives.push('NO support bars of any kind');
+  negatives.push('NO duplicated handles');
+  negatives.push('NO floating hinges unattached to a wall, jamb, or glass edge');
+  negatives.push('NO extra doors or panels beyond the selected enclosure type');
   parts.push(`STRICT NEGATIVE CONSTRAINTS — do NOT include any of the following in the image: ${negatives.join('; ')}. Only show hardware that was explicitly listed above.`);
 
   return parts.join(' ');

@@ -14,8 +14,8 @@ export function buildContactModal(): HTMLElement {
   const card = el('div', { className: 'contact-modal-card' });
 
   card.innerHTML = `
-    <h3 class="contact-modal-title">Let's get your quote started</h3>
-    <p class="contact-modal-desc">Drop your details and our team will reach out with a custom quote within 24 hours. Prefer to talk now? Call us at <strong>(800) 555-1234</strong>.</p>
+    <h3 class="contact-modal-title">Let's get your proposal started</h3>
+    <p class="contact-modal-desc">Drop your details and our team will review the project context before quoting. Prefer to talk now? Call us at <strong>(800) 555-1234</strong>.</p>
     <form class="contact-modal-form" id="contact-modal-form">
       <label>Name<input type="text" name="name" required value="${escapeAttr(user?.name || '')}" placeholder="Your name"></label>
       <label>Email<input type="email" name="email" required value="${escapeAttr(user?.email || '')}" placeholder="you@example.com"></label>
@@ -27,7 +27,7 @@ export function buildContactModal(): HTMLElement {
         <option>Commercial Glass</option>
         <option>Not sure yet</option>
       </select></label>
-      <label>Tell us about your project<textarea name="notes" rows="3" placeholder="Size, timeline, design inspiration\u2026"></textarea></label>
+      <label>Tell us about your project<textarea name="notes" rows="3" placeholder="Size, project stage, design inspiration\u2026"></textarea></label>
       <div class="contact-modal-actions">
         <button type="button" class="contact-modal-cancel">Cancel</button>
         <button type="submit" class="primary">Send it</button>
@@ -35,7 +35,7 @@ export function buildContactModal(): HTMLElement {
     </form>
     <div class="contact-modal-success" id="contact-modal-success">
       <h4>\u2705 Got it, thanks!</h4>
-      <p>A specialist will be in touch within 24 hours.</p>
+      <p>Thanks - your project details are ready for staff review.</p>
     </div>
   `;
 
@@ -81,6 +81,7 @@ export function wireContactModal(): void {
         name: get('name') || undefined,
         email: get('email') || undefined,
         phone: get('phone') || undefined,
+        notes: get('notes') || undefined,
       };
       saveUser(payload);
       console.log('[Contact] Submitted', { ...payload, service: get('service'), notes: get('notes') });

@@ -16,6 +16,8 @@ export interface LastQuote {
   handle?: string;
   accessories?: string;
   extras?: string;
+  doorPlacement?: string;
+  photoSource?: string;
 }
 
 export interface StoredUser {
@@ -25,6 +27,7 @@ export interface StoredUser {
   location?: string;
   timeline?: string;
   budget?: string;
+  notes?: string;
   lastQuote?: LastQuote;
   preferredMode?: InteractionMode;
   visitCount: number;
@@ -105,8 +108,8 @@ export function summarizeUser(user: StoredUser): string {
   if (user.email) lines.push(`Email: ${user.email}`);
   if (user.phone) lines.push(`Phone: ${user.phone}`);
   if (user.location) lines.push(`Location: ${user.location}`);
-  if (user.timeline) lines.push(`Timeline: ${user.timeline}`);
-  if (user.budget) lines.push(`Budget: ${user.budget}`);
+  if (user.timeline) lines.push(`Project stage: ${user.timeline}`);
+  if (user.notes) lines.push(`Notes: ${user.notes}`);
   if (user.lastQuote) {
     const q = user.lastQuote;
     const parts: string[] = [];
@@ -115,6 +118,7 @@ export function summarizeUser(user: StoredUser): string {
     if (q.glass) parts.push(q.glass);
     if (q.hardware) parts.push(q.hardware);
     if (q.handle) parts.push(q.handle);
+    if (q.doorPlacement) parts.push(q.doorPlacement);
     if (q.accessories) parts.push(q.accessories);
     if (q.extras && q.extras !== 'none') parts.push(`extras: ${q.extras}`);
     if (parts.length) lines.push(`Previous configuration: ${parts.join(', ')}`);
