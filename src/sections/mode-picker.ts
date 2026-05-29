@@ -1,22 +1,35 @@
 /**
- * Voice-first mode picker.
+ * Mode picker — the three ways into the experience.
  *
- * Layout:
- *             (Chat)     [ MIC ]     (Browse)
- *              pill       HERO         pill
+ *        [Chat]       (( MIC ))        [Browse]
+ *      with Alex      Talk to Alex     yourself
  *
- * The mic is the primary action — large, glowing, with animated pulse
- * rings. Chat and Browse are secondary pill buttons flanking it.
+ * The mic stays the visual hero (voice is the fastest, most magical path),
+ * but all three options are now equal in structure: a control, an
+ * always-visible label, and a one-line value prop — so a first-time
+ * visitor instantly understands they're three routes to the same outcome.
+ * A shared caption promises the payoff (a free AI render) for every path.
  */
 
 import { el } from '../utils/dom';
 import { loadUser } from '../utils/user-storage';
+import type { InteractionMode } from '../utils/state';
 
 const MIC_SVG = `<svg viewBox="0 0 24 24" width="44" height="44" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`;
 
-const CHAT_SVG = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const CHAT_SVG = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
-const BROWSE_SVG = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
+const BROWSE_SVG = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
+
+interface ModeOptionSpec {
+  mode: Exclude<InteractionMode, null>;
+  variant: 'voice' | 'sm';
+  icon: string;
+  label: string;
+  sub: string;
+  preferred: boolean;
+  recommended?: boolean;
+}
 
 export function buildModePicker(): HTMLElement {
   const user = loadUser();
@@ -32,63 +45,74 @@ export function buildModePicker(): HTMLElement {
     wrap.appendChild(welcome);
   }
 
-  // Hero cluster: [chat-pill]  [ MIC ]  [browse-pill]
+  // Framing prompt — tells the user these are three ways into the same thing
+  const prompt = el('div', {
+    className: 'mode-prompt',
+    textContent: returning ? 'Pick up where you left off — how do you want to design?' : 'How would you like to design your shower?',
+  });
+  wrap.appendChild(prompt);
+
+  // Cluster: [chat]  (( MIC ))  [browse]
   const cluster = el('div', { className: 'mode-cluster', id: 'mode-cluster' });
-
-  // Chat pill (left satellite)
-  const chatPill = el('button', {
-    className: 'mode-pill mode-pill-chat',
-    type: 'button',
-    id: 'mode-pill-chat',
-    innerHTML: `<span class="mode-pill-icon">${CHAT_SVG}</span><span class="mode-pill-label">Chat</span>`,
-  });
-  chatPill.setAttribute('data-mode', 'chat');
-  if (preferredMode === 'chat') chatPill.classList.add('preferred');
-
-  // Voice hero (center, big mic with pulse rings)
-  const voiceHero = el('button', {
-    className: 'mode-voice-hero',
-    type: 'button',
-    id: 'mode-voice-hero',
-    ariaLabel: 'Talk to Alex',
-  });
-  voiceHero.setAttribute('data-mode', 'voice');
-  voiceHero.innerHTML = `
-    <span class="mode-voice-ring ring1"></span>
-    <span class="mode-voice-ring ring2"></span>
-    <span class="mode-voice-ring ring3"></span>
-    <span class="mode-voice-core">${MIC_SVG}</span>
-    <span class="mode-voice-glow"></span>
-  `;
-  if (preferredMode === 'voice') voiceHero.classList.add('preferred');
-
-  // Browse pill (right satellite)
-  const browsePill = el('button', {
-    className: 'mode-pill mode-pill-browse',
-    type: 'button',
-    id: 'mode-pill-browse',
-    innerHTML: `<span class="mode-pill-label">Browse</span><span class="mode-pill-icon">${BROWSE_SVG}</span>`,
-  });
-  browsePill.setAttribute('data-mode', 'browse');
-  if (preferredMode === 'browse') browsePill.classList.add('preferred');
-
-  cluster.append(chatPill, voiceHero, browsePill);
+  cluster.append(
+    buildOption({ mode: 'chat', variant: 'sm', icon: CHAT_SVG, label: 'Chat with Alex', sub: 'Tap-through, no talking', preferred: preferredMode === 'chat' }),
+    buildOption({ mode: 'voice', variant: 'voice', icon: MIC_SVG, label: 'Talk to Alex', sub: 'Voice · hands-free', preferred: preferredMode === 'voice', recommended: true }),
+    buildOption({ mode: 'browse', variant: 'sm', icon: BROWSE_SVG, label: 'Browse yourself', sub: 'Explore at your pace', preferred: preferredMode === 'browse' }),
+  );
   wrap.appendChild(cluster);
 
-  // Caption under the cluster
+  // Shared payoff caption
   const caption = el('div', { className: 'mode-caption' });
   caption.innerHTML = `
-    <span class="mode-caption-main" id="mode-caption-main">Speak with a Glass Specialist Now</span>
     <span class="mode-caption-incentive">
       <svg class="mode-caption-spark" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
         <path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z" fill="currentColor"/>
       </svg>
-      Free Custom Project Visualization
+      Every path ends with a free AI render of your bathroom
     </span>
   `;
   wrap.appendChild(caption);
 
   return wrap;
+}
+
+function buildOption(spec: ModeOptionSpec): HTMLElement {
+  const btn = el('button', {
+    className: `mode-option mode-option-${spec.mode}${spec.preferred ? ' preferred' : ''}${spec.variant === 'voice' ? ' mode-option-hero' : ''}`,
+    type: 'button',
+    ariaLabel: `${spec.label} — ${spec.sub}`,
+  });
+  btn.setAttribute('data-mode', spec.mode);
+
+  // Badge (floats above the control)
+  if (spec.recommended) {
+    btn.appendChild(el('span', { className: 'mode-option-badge', textContent: 'Recommended' }));
+  } else if (spec.preferred) {
+    btn.appendChild(el('span', { className: 'mode-option-badge mode-option-badge-muted', textContent: 'Last used' }));
+  }
+
+  // Control
+  if (spec.variant === 'voice') {
+    const hero = el('div', { className: 'mode-voice-hero' });
+    hero.innerHTML = `
+      <span class="mode-voice-ring ring1"></span>
+      <span class="mode-voice-ring ring2"></span>
+      <span class="mode-voice-ring ring3"></span>
+      <span class="mode-voice-core">${spec.icon}</span>
+      <span class="mode-voice-glow"></span>
+    `;
+    btn.appendChild(hero);
+  } else {
+    btn.appendChild(el('div', { className: 'mode-control', innerHTML: spec.icon }));
+  }
+
+  // Label + value prop (always visible, incl. mobile)
+  btn.append(
+    el('span', { className: 'mode-option-label', textContent: spec.label }),
+    el('span', { className: 'mode-option-sub', textContent: spec.sub }),
+  );
+
+  return btn;
 }
 
 function escapeHtml(s: string): string {

@@ -43,7 +43,7 @@ export class AudioCapture {
 
       const float32 = event.inputBuffer.getChannelData(0);
       const int16 = float32ToInt16(float32);
-      const base64 = arrayBufferToBase64(int16.buffer);
+      const base64 = arrayBufferToBase64(int16.buffer as ArrayBuffer);
       this.onChunk(base64);
     };
 

@@ -10,7 +10,7 @@ import { buildContentModal, closeContentModal } from './sections/content-modal';
 import { buildFooter } from './sections/footer';
 import { buildAboutSection } from './sections/about';
 import { playLandingAnimation } from './animations/landing';
-import { GeminiLiveClient } from './gemini/client';
+import type { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
 import type { AgentState, InteractionMode } from './utils/state';
 import { loadUser, registerVisit, saveUser } from './utils/user-storage';
@@ -64,8 +64,23 @@ window.addEventListener('scroll', () => {
   }
 });
 
-// --- Gemini Voice Client ---
-const gemini = new GeminiLiveClient();
+// --- Gemini Voice Client (lazy) ---
+// The @google/genai SDK is only needed for the live voice session, so we
+// dynamic-import it on first use. Chat and browse visitors never pay for it.
+let gemini: GeminiLiveClient | null = null;
+async function getGemini(): Promise<GeminiLiveClient> {
+  if (!gemini) {
+    const { GeminiLiveClient } = await import('./gemini/client');
+    gemini = new GeminiLiveClient();
+    gemini.setCallbacks({
+      onTranscript: () => {
+        // Tips are shown instead of raw transcript
+      },
+      onStateChange: (state) => updateMicState(state),
+    });
+  }
+  return gemini;
+}
 
 // Tip rotation for the agent bar
 const TIPS = [
@@ -110,15 +125,6 @@ function stopTipRotation(): void {
   }
 }
 
-gemini.setCallbacks({
-  onTranscript: (_type, _text) => {
-    // No longer showing raw transcript — tips are shown instead
-  },
-  onStateChange: (state) => {
-    updateMicState(state);
-  },
-});
-
 /* ------------------------------------------------------------------ */
 /*  Mode picker: route clicks to voice / chat / browse                 */
 /* ------------------------------------------------------------------ */
@@ -129,7 +135,8 @@ async function enterVoiceMode(): Promise<void> {
   showAgentBar();
   startTipRotation();
   try {
-    await gemini.connect();
+    const g = await getGemini();
+    await g.connect();
   } catch (err) {
     console.error('Failed to connect:', err);
     hideAgentBar();
@@ -252,7 +259,7 @@ wireContactModal();
 // Agent bar mic toggles voice session
 const agentMic = document.getElementById('agent-mic');
 agentMic?.addEventListener('click', () => {
-  if (gemini.isConnected) {
+  if (gemini && gemini.isConnected) {
     gemini.disconnect();
     hideAgentBar();
     stopTipRotation();
@@ -262,7 +269,7 @@ agentMic?.addEventListener('click', () => {
 // End session button
 const endBtn = document.getElementById('end-session-btn');
 endBtn?.addEventListener('click', () => {
-  gemini.disconnect();
+  gemini?.disconnect();
   hideAgentBar();
   stopTipRotation();
 });
@@ -273,14 +280,14 @@ wireChatPanelEvents();
 // Listen for voice-session custom events (fired by tools.ts)
 window.addEventListener('precision:end-session-soft', () => {
   console.log('[Main] Soft-ending: muting mic, hiding agent bar, audio keeps playing');
-  gemini.muteMic();
+  gemini?.muteMic();
   hideAgentBar();
   stopTipRotation();
 });
 
 window.addEventListener('precision:end-session', () => {
   console.log('[Main] Ending session via custom event');
-  gemini.disconnect({ keepAudioQueue: true });
+  gemini?.disconnect({ keepAudioQueue: true });
   hideAgentBar();
   stopTipRotation();
   // Also close chat panel if it's open (tools.ts dispatches this for chat sessions too)

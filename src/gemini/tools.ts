@@ -139,7 +139,7 @@ export const TOOL_DECLARATIONS = [
 /*  Slide context                                                      */
 /* ------------------------------------------------------------------ */
 
-const SLIDE_CONTEXT_BY_SERVICE: Record<ServiceType, Record<string, string>> = {
+const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Record<string, string>> = {
   showers: {
   intro: `A dramatic frameless shower fills the screen. Give an exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass. They add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
 
@@ -255,7 +255,7 @@ export async function handleToolCall(
 
   switch (name) {
     case 'select_service': {
-      const service = args.service as ServiceType;
+      const service = args.service as 'showers' | 'railings' | 'commercial';
       setState({ currentService: service, isTransformed: true });
       await playTransformAnimation();
       createSlideshow(service);
