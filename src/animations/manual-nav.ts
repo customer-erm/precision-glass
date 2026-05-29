@@ -93,6 +93,13 @@ export async function startBrowseTour(
   const startSlide = startAtSlideId || 'intro';
   await showSlide(startSlide);
 
+  // Showers: offer the bathroom-photo upload at the start of the design tour
+  // (used for tailored guidance + rendering into their real space).
+  if (service === 'showers' && startSlide === 'intro') {
+    const { openPhotoPrompt } = await import('../sections/photo-prompt');
+    await openPhotoPrompt();
+  }
+
   injectManualNavBar();
   wireSlideInteraction();
   setTimeout(wireSlideInteraction, 400);

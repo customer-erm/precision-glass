@@ -141,7 +141,7 @@ export const TOOL_DECLARATIONS = [
 
 const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Record<string, string>> = {
   showers: {
-  intro: `A dramatic frameless shower fills the screen. Give an exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass. They add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
+  intro: `A dramatic frameless shower fills the screen, and a photo-upload card has just appeared on screen. FIRST, in one friendly sentence, invite the customer to upload a photo of their bathroom using the card on screen — it's optional, but it lets you tailor the design to their space and render the new shower right into their real bathroom (they can skip and you'll use a showcase bathroom). THEN give a short exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass, and add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
 
   gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN ask for the email in a single clear sentence: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" Then STOP completely and wait silently. The buyer's guide popup will appear on screen automatically while you're talking — you do not need to call any tool for it. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
 
@@ -261,6 +261,11 @@ export async function handleToolCall(
       createSlideshow(service);
       await showSlide('intro');
       lastShowSlideAt = 0; // reset guard for the new flow
+      // Showers: surface the photo-upload card on screen right at the start so the
+      // customer can drop in their bathroom (used for guidance + the final render).
+      if (service === 'showers') {
+        import('../sections/photo-prompt').then(({ openPhotoPrompt }) => openPhotoPrompt());
+      }
       return { success: true, message: instr(getSlideContext('intro')) };
     }
 

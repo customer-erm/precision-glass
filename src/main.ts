@@ -6,6 +6,7 @@ import { buildChatPanel, startChat, stopChat, wireChatPanelEvents } from './sect
 import { buildBrowseDrawer, openBrowseDrawer, wireBrowseDrawer, closeBrowseDrawer } from './sections/browse-drawer';
 import { buildHelpLauncher } from './sections/help-launcher';
 import { buildContactModal, openContactModal, wireContactModal } from './sections/contact-modal';
+import { buildPhotoPrompt, wirePhotoPrompt } from './sections/photo-prompt';
 import { buildContentModal, closeContentModal } from './sections/content-modal';
 import { buildFooter } from './sections/footer';
 import { buildAboutSection } from './sections/about';
@@ -32,6 +33,7 @@ const chatPanel = buildChatPanel();
 const browseDrawer = buildBrowseDrawer();
 const helpLauncher = buildHelpLauncher();
 const contactModal = buildContactModal();
+const photoPrompt = buildPhotoPrompt();
 const contentModal = buildContentModal();
 const footer = buildFooter();
 const aboutSection = buildAboutSection();
@@ -49,6 +51,7 @@ app.appendChild(chatPanel);
 app.appendChild(browseDrawer);
 app.appendChild(helpLauncher);
 app.appendChild(contactModal);
+app.appendChild(photoPrompt);
 app.appendChild(contentModal);
 
 // --- Landing animation ---
@@ -255,6 +258,7 @@ document.addEventListener('click', async (e) => {
 // Wire browse drawer + contact modal event handlers
 wireBrowseDrawer();
 wireContactModal();
+wirePhotoPrompt();
 
 // Agent bar mic toggles voice session
 const agentMic = document.getElementById('agent-mic');

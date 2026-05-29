@@ -117,10 +117,10 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'showers-intro',
       progressStep: 1,
       progressTotal: 10,
-      agent: 'Great. I will walk you through this like a glass pro would: layout first, then glass, hardware, handles, and a visual proposal at the end. Want to use a photo of your actual bathroom so the guidance and rendering can be more personal?',
+      agent: 'Great — I’ll walk you through it like a glass pro would: layout first, then glass, hardware, the handle, and a visual proposal at the end. Ready?',
       chips: [
-        { label: 'Yes, use my bathroom', primary: true, action: { kind: 'advance', next: 'showers-upload' } },
-        { label: 'Browse first', action: { kind: 'advance', next: 'showers-gallery' } },
+        { label: 'Let’s go', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
+        { label: 'Tell me more first', action: { kind: 'advance', next: 'showers-intro-more' } },
       ],
     },
     'showers-upload': {
@@ -137,7 +137,7 @@ function buildSteps(): Record<string, ChatStep> {
       progressTotal: 10,
       agent: 'Sure — frameless means the glass panels stand on their own with only small discrete hardware. It\u2019s custom-cut to your exact space, uses 3/8" or 1/2" tempered safety glass, and comes with a lifetime workmanship warranty. Most installs are done in a single day. Ready?',
       chips: [
-        { label: 'Ready, walk me through', primary: true, action: { kind: 'advance', next: 'showers-upload' } },
+        { label: 'Ready, walk me through', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
       ],
     },
     'showers-photo-guidance': {
@@ -722,8 +722,17 @@ export class ChatDriver {
       }
       case 'select-service': {
         await handleToolCall('select_service', { service: action.service });
-        const nextId = action.service === 'showers' ? 'showers-intro' : action.service === 'railings' ? 'railings-intro' : 'commercial-intro';
-        setTimeout(() => this.goToStep(nextId), 400);
+        if (action.service === 'showers') {
+          // Photo upload is the FIRST thing after choosing showers, in every mode.
+          const { openPhotoPrompt } = await import('../sections/photo-prompt');
+          const hasPhoto = await openPhotoPrompt();
+          if (hasPhoto) this.ctx.choices.photoSource = 'customer_upload';
+          const next = hasPhoto ? 'showers-photo-guidance' : 'showers-intro';
+          setTimeout(() => this.goToStep(next), 250);
+        } else {
+          const nextId = action.service === 'railings' ? 'railings-intro' : 'commercial-intro';
+          setTimeout(() => this.goToStep(nextId), 400);
+        }
         break;
       }
       case 'advance': {
