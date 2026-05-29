@@ -1,5 +1,5 @@
 import { playTransformAnimation } from '../animations/transform';
-import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService } from '../animations/slideshow';
+import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService, renderQuoteVisuals, markQuoteRenderReady } from '../animations/slideshow';
 import { setState, getState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
@@ -367,13 +367,7 @@ export async function handleToolCall(
       // AI image visualization is shower-flow only.
       if (getActiveService() === 'showers') {
         const applyImage = (url: string) => {
-          const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
-          if (imgEl) {
-            imgEl.src = url;
-            imgEl.classList.add('loaded');
-          }
-          const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement;
-          if (spinner) spinner.style.display = 'none';
+          markQuoteRenderReady(url);
           // Persist to the customer-generations gallery (fire and forget)
           saveCustomerGeneration(url, {
             service: 'showers',
@@ -396,15 +390,9 @@ export async function handleToolCall(
           }).catch((err) => console.warn('[ImageGen] Failed:', err));
         }
       } else {
-        // Hide the spinner / use a static fallback image so the column isn't empty.
-        const imgEl = document.getElementById('qs-generated-img') as HTMLImageElement;
-        const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement;
+        // Non-shower flow: no AI render — show a static hero so the column isn't empty.
         const heroSrc = getActiveService() === 'railings' ? '/images/railings/railings-1.webp' : '/images/commercial/commercial-1.webp';
-        if (imgEl) {
-          imgEl.src = heroSrc;
-          imgEl.classList.add('loaded');
-        }
-        if (spinner) spinner.style.display = 'none';
+        markQuoteRenderReady(heroSrc);
       }
 
       const summary = Object.entries(quoteChoices)
@@ -544,12 +532,5 @@ DO THE FOLLOWING IN ORDER:
 /* ------------------------------------------------------------------ */
 
 function populateQuoteSummary(choices: Record<string, string>): void {
-  const fields = ['enclosure', 'doorPlacement', 'glass', 'hardware', 'handle', 'accessories', 'extras', 'name', 'email', 'phone', 'location', 'timeline', 'notes'];
-  for (const field of fields) {
-    const el = document.getElementById(`qs-${field}`);
-    if (el && choices[field]) {
-      el.textContent = choices[field];
-      el.classList.add('filled');
-    }
-  }
+  renderQuoteVisuals(choices);
 }

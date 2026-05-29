@@ -4,6 +4,7 @@
  * railings (info-style walkthrough), commercial (info-style walkthrough).
  */
 import { images } from '../data/image-map';
+import { getBathroomPhoto } from '../utils/bathroom-photo';
 
 export type ServiceType = 'showers' | 'railings' | 'commercial';
 
@@ -363,43 +364,223 @@ function buildProcessSlide(): HTMLElement {
   return slide;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Quote build-sheet: steps, thumbnails, progress, anticipation viz   */
+/* ------------------------------------------------------------------ */
+
+const QUOTE_STEPS: Array<{ key: string; label: string }> = [
+  { key: 'enclosure', label: 'Enclosure' },
+  { key: 'glass', label: 'Glass' },
+  { key: 'hardware', label: 'Hardware finish' },
+  { key: 'handle', label: 'Handle' },
+  { key: 'extras', label: 'Upgrades' },
+];
+
+const STEP_CHECK_SVG = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
+
+const QUOTE_STATUS_LINES = [
+  'Measuring your space…',
+  'Cutting your glass to size…',
+  'Tempering for safety…',
+  'Matching your hardware finish…',
+  'Polishing the edges…',
+  'Setting the hinges…',
+  'Adding the final details…',
+];
+
+// Resolve a chosen value (e.g. "Matte Black") to a thumbnail from the library.
+function thumbForStep(key: string, value: string): string | null {
+  const v = (value || '').toLowerCase();
+  if (!v || v === 'none' || v === 'n/a' || v === 'pending') return null;
+  const find = (list: Array<{ label: string; src: string }>, keywords: Array<[string, string]>): string | null => {
+    for (const [kw, label] of keywords) {
+      if (v.includes(kw)) { const m = list.find((x) => x.label === label); if (m) return m.src; }
+    }
+    return null;
+  };
+  if (key === 'enclosure') {
+    return find(images.showers.enclosures, [
+      ['splash', 'Splash Panel'], ['walk', 'Splash Panel'], ['90', '90° Corner'], ['corner', '90° Corner'],
+      ['neo', 'Neo-Angle'], ['slider', 'Frameless Slider'], ['slide', 'Frameless Slider'], ['curved', 'Curved'],
+      ['arch', 'Arched'], ['steam', 'Steam Shower'], ['custom', 'Custom'], ['panel', 'Door + Panel'],
+      ['single', 'Single Door'], ['door', 'Single Door'],
+    ]);
+  }
+  if (key === 'glass') {
+    return find(images.showers.glass, [['clear', 'Clear Glass'], ['frost', 'Frosted Glass'], ['rain', 'Rain Glass']]);
+  }
+  if (key === 'hardware') {
+    return find(images.showers.hardware, [
+      ['chrome', 'Polished Chrome'], ['nickel', 'Brushed Nickel'], ['matte', 'Matte Black'], ['black', 'Matte Black'],
+      ['polished brass', 'Polished Brass'], ['satin', 'Satin Brass'], ['brass', 'Polished Brass'],
+    ]);
+  }
+  if (key === 'handle') {
+    return find(images.showers.accessories, [['ladder', 'Ladder Pulls'], ['u-handle', 'U-Handles'], ['u handle', 'U-Handles'], ['knob', 'Knobs'], ['pull', 'Pull Handles']]);
+  }
+  if (key === 'accessories') {
+    return find(images.showers.accessories, [['towel', 'Towel Bars'], ['hook', 'Robe Hooks'], ['robe', 'Robe Hooks'], ['support', 'Support Bars'], ['bar', 'Support Bars'], ['grid', 'Grid Patterns']]);
+  }
+  if (key === 'extras') {
+    return find(images.showers.accessories, [['grid', 'Grid Patterns']]) || find(images.showers.enclosures, [['steam', 'Steam Shower']]);
+  }
+  return null;
+}
+
+// Map a step key to its value across all three service flows (chat/voice share keys).
+function valueForStep(choices: Record<string, string>, key: string): string {
+  const pick = (...keys: string[]): string => {
+    for (const k of keys) { const val = (choices[k] || '').trim(); if (val) return val; }
+    return '';
+  };
+  switch (key) {
+    case 'enclosure': return pick('enclosure', 'rail-type', 'com-type');
+    case 'glass': return pick('glass', 'rail-glass', 'com-glass');
+    case 'hardware': return pick('hardware', 'rail-finish', 'com-framing');
+    case 'handle': return pick('handle', 'rail-mounting', 'com-scope');
+    default: return pick(key);
+  }
+}
+
+let quoteStatusTimer: ReturnType<typeof setInterval> | null = null;
+let quoteRevealed = false;
+
+function setQuoteVizImage(): void {
+  const vizImg = document.getElementById('qs-viz-img') as HTMLImageElement | null;
+  if (!vizImg || vizImg.src) return; // only set once
+  const photo = getBathroomPhoto();
+  vizImg.src = photo?.dataUrl || images.showers.hero;
+}
+
+function startQuoteStatusCycle(): void {
+  if (quoteStatusTimer || quoteRevealed) return;
+  const statusEl = document.getElementById('qs-spinner-status');
+  if (!statusEl) return;
+  let i = 0;
+  statusEl.textContent = QUOTE_STATUS_LINES[0];
+  quoteStatusTimer = setInterval(() => {
+    i = (i + 1) % QUOTE_STATUS_LINES.length;
+    statusEl.style.opacity = '0';
+    setTimeout(() => { statusEl.textContent = QUOTE_STATUS_LINES[i]; statusEl.style.opacity = '1'; }, 220);
+  }, 2000);
+}
+
+function stopQuoteStatusCycle(): void {
+  if (quoteStatusTimer) { clearInterval(quoteStatusTimer); quoteStatusTimer = null; }
+}
+
+/**
+ * Paint the build sheet from the current choices: fill each step's value +
+ * thumbnail, tick off completed rows, advance the progress bar, and prime the
+ * bottom anticipation visualization. Safe to call repeatedly.
+ */
+export function renderQuoteVisuals(choices: Record<string, string>): void {
+  setQuoteVizImage();
+  if (!quoteRevealed) startQuoteStatusCycle();
+
+  let done = 0;
+  for (const step of QUOTE_STEPS) {
+    const value = valueForStep(choices, step.key);
+    if (!value) continue;
+    done++;
+    const valEl = document.getElementById(`qs-${step.key}`);
+    const lower = value.toLowerCase();
+    if (valEl) valEl.textContent = lower === 'n/a' || lower === 'none' ? 'Not needed' : value;
+    const row = document.getElementById(`qs-step-${step.key}`);
+    if (row) row.classList.add('done');
+    const thumbSrc = thumbForStep(step.key, value);
+    const thumbImg = document.getElementById(`qst-${step.key}`) as HTMLImageElement | null;
+    if (thumbImg && thumbSrc && !thumbImg.src) thumbImg.src = thumbSrc;
+    if (row) row.classList.toggle('no-thumb', !thumbSrc);
+  }
+
+  // Door-guidance sub-line under the enclosure step
+  const dp = (choices.doorPlacement || '').trim();
+  const dpEl = document.getElementById('qs-doorPlacement');
+  if (dpEl) dpEl.textContent = dp ? `Door: ${dp}` : '';
+
+  // Contact rows (kept for the printable proposal)
+  for (const k of ['name', 'email', 'phone', 'location', 'timeline', 'notes']) {
+    const v = (choices[k] || '').trim();
+    if (!v) continue;
+    const el = document.getElementById(`qs-${k}`);
+    if (el) { el.textContent = v; el.classList.add('filled'); }
+    document.getElementById(`qs-contact-${k}`)?.classList.add('filled');
+  }
+
+  // Progress bar + count
+  const countEl = document.getElementById('qs-progress-count');
+  const fillEl = document.getElementById('qs-progress-fill');
+  if (countEl) countEl.textContent = String(done);
+  if (fillEl) fillEl.style.width = `${Math.round((done / QUOTE_STEPS.length) * 100)}%`;
+}
+
+/**
+ * The render is ready: reveal it over the blurred anticipation viz, stop the
+ * status cycle, and finish the progress bar.
+ */
+export function markQuoteRenderReady(url: string): void {
+  const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+  if (img && url) { img.src = url; img.classList.add('loaded'); }
+  quoteRevealed = true;
+  stopQuoteStatusCycle();
+  document.querySelector('.ss-quote-img-wrap')?.classList.add('revealed');
+  const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  if (spinner) spinner.style.display = 'none';
+  const fillEl = document.getElementById('qs-progress-fill');
+  if (fillEl) fillEl.style.width = '100%';
+}
+
 function buildQuoteSummarySlide(): HTMLElement {
   const slide = makeSlide('quote');
   const content = h('div', { className: 'slide-content slide-center' });
 
-  // Side-by-side layout: editorial LEFT, AI image RIGHT
+  // Side-by-side layout: build-sheet LEFT, anticipation/reveal RIGHT (stacks on mobile)
   const layout = h('div', { className: 'ss-quote-layout slide-el' });
 
-  // LEFT — editorial quote card
+  // LEFT — build sheet
   const card = h('div', { className: 'ss-quote-card' });
 
   const header = h('div', { className: 'ss-quote-header' });
-  header.appendChild(h('div', { className: 'ss-quote-logo', textContent: 'PrecisionGlass' }));
-  header.appendChild(h('h3', { textContent: 'Your Proposal Brief' }));
-  header.appendChild(h('p', { textContent: 'Selections and site notes for staff review. Pricing and schedule are confirmed after the team reviews the project.' }));
+  header.appendChild(h('div', { className: 'ss-quote-logo', textContent: 'PRECISION GLASS' }));
+  header.appendChild(h('h3', { textContent: 'Your custom shower' }));
+  const progress = h('div', { className: 'ss-quote-progress' });
+  progress.innerHTML = `
+    <div class="ss-quote-progress-head">
+      <span class="ss-quote-progress-label">Design progress</span>
+      <span class="ss-quote-progress-count"><strong id="qs-progress-count">0</strong> / ${QUOTE_STEPS.length} steps</span>
+    </div>
+    <div class="ss-quote-progress-track"><div class="ss-quote-progress-fill" id="qs-progress-fill"></div></div>
+  `;
+  header.appendChild(progress);
   card.appendChild(header);
 
-  const selections = h('div', { className: 'ss-quote-selections' });
-  [
-    { key: 'enclosure', label: 'Enclosure' },
-    { key: 'doorPlacement', label: 'Door Guidance' },
-    { key: 'glass', label: 'Glass' },
-    { key: 'hardware', label: 'Hardware' },
-    { key: 'handle', label: 'Handle' },
-    { key: 'accessories', label: 'Add-Ons' },
-    { key: 'extras', label: 'Upgrades' },
-  ].forEach((f) => {
-    const row = h('div', { className: 'ss-quote-row' });
-    row.appendChild(h('span', { className: 'ss-quote-label', textContent: f.label }));
-    row.appendChild(h('span', { className: 'ss-quote-value', id: `qs-${f.key}`, textContent: '\u2014' }));
-    selections.appendChild(row);
+  // Step checklist \u2014 each row checks off + reveals a thumbnail as it's chosen
+  const steps = h('div', { className: 'ss-quote-steps', id: 'qs-steps' });
+  QUOTE_STEPS.forEach((f, i) => {
+    const row = h('div', { className: 'ss-quote-step', id: `qs-step-${f.key}` });
+    row.setAttribute('style', `--step-i:${i}`);
+    const thumb = h('div', { className: 'ss-quote-step-thumb' });
+    thumb.appendChild(h('span', { className: 'ss-quote-step-num', textContent: String(i + 1) }));
+    thumb.appendChild(h('img', { id: `qst-${f.key}`, alt: '', loading: 'lazy' }));
+    row.appendChild(thumb);
+    const body = h('div', { className: 'ss-quote-step-body' });
+    body.appendChild(h('span', { className: 'ss-quote-step-label', textContent: f.label }));
+    body.appendChild(h('span', { className: 'ss-quote-step-value', id: `qs-${f.key}`, textContent: 'Pending' }));
+    if (f.key === 'enclosure') {
+      // Door-guidance sub-line lives under the enclosure (keeps #qs-doorPlacement for the report)
+      body.appendChild(h('span', { className: 'ss-quote-step-sub', id: 'qs-doorPlacement' }));
+    }
+    row.appendChild(body);
+    row.appendChild(h('span', { className: 'ss-quote-step-check', innerHTML: STEP_CHECK_SVG }));
+    steps.appendChild(row);
   });
-  card.appendChild(selections);
+  card.appendChild(steps);
 
-  // Customer contact details (filled progressively as the agent collects them)
+  // Compact contact block (kept for the printable proposal \u2014 fills as collected)
   const contact = h('div', { className: 'ss-quote-contact', id: 'qs-contact' });
-  const contactHeader = h('div', { className: 'ss-quote-contact-header', textContent: 'Contact' });
-  contact.appendChild(contactHeader);
+  contact.appendChild(h('div', { className: 'ss-quote-contact-header', textContent: 'Your details' }));
+  const contactRows = h('div', { className: 'ss-quote-contact-rows' });
   [
     { key: 'name', label: 'Name' },
     { key: 'email', label: 'Email' },
@@ -411,16 +592,21 @@ function buildQuoteSummarySlide(): HTMLElement {
     const row = h('div', { className: 'ss-quote-row ss-quote-contact-row', id: `qs-contact-${f.key}` });
     row.appendChild(h('span', { className: 'ss-quote-label', textContent: f.label }));
     row.appendChild(h('span', { className: 'ss-quote-value', id: `qs-${f.key}`, textContent: '\u2014' }));
-    contact.appendChild(row);
+    contactRows.appendChild(row);
   });
+  contact.appendChild(contactRows);
   card.appendChild(contact);
   layout.appendChild(card);
 
-  // RIGHT — AI-generated image
+  // RIGHT — anticipation visualization → render reveal
   const imgWrap = h('div', { className: 'ss-quote-img-wrap' });
+  // Blurred bathroom underlay (their uploaded photo, or a tasteful generic) that
+  // builds anticipation while the render generates, then the render reveals on top.
+  imgWrap.appendChild(h('img', { id: 'qs-viz-img', className: 'ss-quote-viz-bg', alt: '' }));
+  imgWrap.appendChild(h('div', { className: 'ss-quote-scan', 'aria-hidden': 'true' }));
   const img = h('img', { id: 'qs-generated-img', className: 'ss-quote-gen-img', alt: 'Your custom shower visualization' });
   const spinner = h('div', { className: 'ss-quote-spinner' });
-  spinner.innerHTML = '<div class="ss-spinner"></div><span>Generating your shower visualization...</span>';
+  spinner.innerHTML = '<div class="ss-spinner"></div><span id="qs-spinner-status">Preparing your render…</span>';
   imgWrap.appendChild(img);
   imgWrap.appendChild(spinner);
   layout.appendChild(imgWrap);

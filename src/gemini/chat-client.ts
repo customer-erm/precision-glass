@@ -19,6 +19,7 @@ import { loadUser, saveUser } from '../utils/user-storage';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
 import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPhoto } from '../utils/bathroom-photo';
+import { renderQuoteVisuals, markQuoteRenderReady } from '../animations/slideshow';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
@@ -919,26 +920,7 @@ function sleep(ms: number): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 function populateEditorialFromChoices(choices: Record<string, string>): void {
-  const fields: Array<[string, string]> = [
-    ['qs-enclosure', choices.enclosure || choices['rail-type'] || choices['com-type'] || ''],
-    ['qs-glass', choices.glass || choices['rail-glass'] || choices['com-glass'] || ''],
-    ['qs-hardware', choices.hardware || choices['rail-finish'] || choices['com-framing'] || ''],
-    ['qs-handle', choices.handle || choices['rail-mounting'] || choices['com-scope'] || ''],
-    ['qs-doorPlacement', choices.doorPlacement || ''],
-    ['qs-extras', choices.extras || ''],
-    ['qs-name', choices.name || ''],
-    ['qs-email', choices.email || ''],
-    ['qs-phone', choices.phone || ''],
-    ['qs-notes', choices.notes || ''],
-  ];
-  fields.forEach(([id, val]) => {
-    if (!val) return;
-    const el = document.getElementById(id);
-    if (el) {
-      el.textContent = val;
-      el.classList.add('filled');
-    }
-  });
+  renderQuoteVisuals(choices);
 }
 
 function injectLockOverlay(): void {
@@ -975,13 +957,7 @@ function unlockAndGenerateViz(choices: Record<string, string>): void {
   }
   generateShowerImage(choices).then((url) => {
     if (!url) return;
-    const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
-    if (img) {
-      img.src = url;
-      img.classList.add('loaded');
-    }
-    const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
-    if (sp) sp.style.display = 'none';
+    markQuoteRenderReady(url);
     // Persist to the customer-generations gallery (fire and forget)
         saveCustomerGeneration(url, {
       service: (document.querySelector('.tour-slideshow')?.getAttribute('data-service') as any) || 'showers',

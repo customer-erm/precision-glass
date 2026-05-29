@@ -29,11 +29,6 @@ export function playLandingAnimation(): void {
       { opacity: 1, y: 0, duration: DURATION.medium },
       '-=0.45',
     )
-    .fromTo('.mode-picker-welcome',
-      { opacity: 0, y: 12 },
-      { opacity: 1, y: 0, duration: 0.4 },
-      '-=0.3',
-    )
     .fromTo('.mode-prompt',
       { opacity: 0, y: 14 },
       { opacity: 1, y: 0, duration: 0.45 },
