@@ -21,3 +21,19 @@ export function onChoice(fn: (detail: ChoiceDetail) => void): () => void {
   window.addEventListener('pg:choice', handler);
   return () => window.removeEventListener('pg:choice', handler);
 }
+
+/**
+ * Previews are agent-conducted "show, don't tell" moments: the 3D model
+ * morphs while Alex talks, WITHOUT recording a selection or advancing the
+ * tour. category 'camera' moves the stage camera instead.
+ */
+export function emitPreview(category: string, value: string): void {
+  if (!category || !value) return;
+  window.dispatchEvent(new CustomEvent<ChoiceDetail>('pg:preview', { detail: { category, value } }));
+}
+
+export function onPreview(fn: (detail: ChoiceDetail) => void): () => void {
+  const handler = (e: Event) => fn((e as CustomEvent<ChoiceDetail>).detail);
+  window.addEventListener('pg:preview', handler);
+  return () => window.removeEventListener('pg:preview', handler);
+}

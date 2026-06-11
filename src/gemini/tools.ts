@@ -1,6 +1,7 @@
 import { playTransformAnimation } from '../animations/transform';
 import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService, renderQuoteVisuals, markQuoteRenderReady } from '../experience/facade';
-import { emitChoice } from '../experience/events';
+import { emitChoice, emitPreview } from '../experience/events';
+import { isCinematic } from '../experience/flag';
 import { setState, getState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
@@ -119,6 +120,38 @@ export const TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'preview_option',
+    description: 'Live-preview an option on the on-screen 3D shower model while you talk — the glass morphs, the hardware re-plates, the enclosure reassembles, or the handle swaps in real time. Use this whenever the customer asks what something looks like or is torn between options (preview one, then the other). It does NOT record a selection and does NOT advance the tour — still ask for their final pick and advance with show_slide. Showers tour only.',
+    parameters: {
+      type: 'object' as const,
+      properties: {
+        category: {
+          type: 'string' as const,
+          enum: ['enclosure', 'glass', 'hardware', 'handle'],
+        },
+        value: {
+          type: 'string' as const,
+          description: 'The option to preview, e.g. "Frosted Glass", "Matte Black", "Frameless Slider", "Ladder Pull"',
+        },
+      },
+      required: ['category', 'value'],
+    },
+  },
+  {
+    name: 'set_camera_view',
+    description: 'Move the 3D camera around the shower model for emphasis — e.g. "let me get you a closer look at that hardware". Use sparingly. Showers tour only.',
+    parameters: {
+      type: 'object' as const,
+      properties: {
+        view: {
+          type: 'string' as const,
+          enum: ['front', 'side', 'closeup', 'overview'],
+        },
+      },
+      required: ['view'],
+    },
+  },
+  {
     name: 'end_session',
     description: 'Cleanly end the voice session after saying goodbye. Call this ONLY after your final goodbye message.',
     parameters: {
@@ -146,13 +179,13 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Re
 
   gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN ask for the email in a single clear sentence: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" Then STOP completely and wait silently. The buyer's guide popup will appear on screen automatically while you're talking — you do not need to call any tool for it. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
 
-  enclosures: `A grid shows all enclosure types. Touch on the key options: Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle for corner showers), Frameless Slider (no swing room needed), Curved (spa feel), Arched (statement piece), Splash Panel (open walk-in, just a fixed panel), Steam Shower (sealed floor-to-ceiling), and Custom for unique spaces. Mention the most popular are Single Door and Door + Panel. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
+  enclosures: `A grid shows all enclosure types. Touch on the key options: Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle for corner showers), Frameless Slider (no swing room needed), Curved (spa feel), Arched (statement piece), Splash Panel (open walk-in, just a fixed panel), Steam Shower (sealed floor-to-ceiling), and Custom for unique spaces. Mention the most popular are Single Door and Door + Panel. A 3D concept model is assembling on screen — if they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
-  glass: `Three glass types shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
+  glass: `Three glass types shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. If they ask what one looks like, call preview_option(category "glass") — the 3D model's glass morphs live, which is a great "watch this" moment. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
 
-  hardware: `Five hardware finishes displayed. FIRST, take 2-3 sentences to explain what "hardware" means on a frameless shower — it's all the metal that holds the glass: the hinges that let the door swing, the wall clips that anchor fixed panels, any handles or pulls, and (if applicable) towel bars or support bars. All of these pieces come in a matching finish that ties the shower into the rest of the bathroom's fixtures (faucets, lights, mirrors). THEN describe the five finishes: Polished Chrome (timeless, most popular, matches almost anything), Brushed Nickel (warm satin tone, hides water spots), Matte Black (bold modern contrast), Polished Brass (classic luxury warmth), Satin Brass (soft golden, very on-trend right now). Ask which finish complements their bathroom. STOP and wait. Call show_slide("accessories") with their choice.`,
+  hardware: `Five hardware finishes displayed. FIRST, take 2-3 sentences to explain what "hardware" means on a frameless shower — it's all the metal that holds the glass: the hinges that let the door swing, the wall clips that anchor fixed panels, any handles or pulls, and (if applicable) towel bars or support bars. All of these pieces come in a matching finish that ties the shower into the rest of the bathroom's fixtures (faucets, lights, mirrors). THEN describe the five finishes: Polished Chrome (timeless, most popular, matches almost anything), Brushed Nickel (warm satin tone, hides water spots), Matte Black (bold modern contrast), Polished Brass (classic luxury warmth), Satin Brass (soft golden, very on-trend right now). If they're comparing finishes, call preview_option(category "hardware") to re-plate the 3D model's hardware live — preview one, then the other. Ask which finish complements their bathroom. STOP and wait. Call show_slide("accessories") with their choice.`,
 
-  accessories: `Handle and accessory options shown. Describe the HANDLE choices first: Pull Handles (sleek vertical tubular bar, most popular), U-Handles (classic U-shape bracket), Ladder Pulls (ladder-style bar with horizontal rungs, design statement), Knobs (minimalist round). Then mention the OPTIONAL ADD-ONS the customer can pair with any handle: Towel Bars, Robe Hooks, Support Bars. Mention hinges are always included standard. Ask which handle style they prefer AND whether they want any of the add-ons (towel bar, robe hook, support bar) — they can pick zero, one, or several. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
+  accessories: `Handle and accessory options shown. Describe the HANDLE choices first: Pull Handles (sleek vertical tubular bar, most popular), U-Handles (classic U-shape bracket), Ladder Pulls (ladder-style bar with horizontal rungs, design statement), Knobs (minimalist round). Then mention the OPTIONAL ADD-ONS the customer can pair with any handle: Towel Bars, Robe Hooks, Support Bars. Mention hinges are always included standard. Ask which handle style they prefer AND whether they want any of the add-ons (towel bar, robe hook, support bar) — they can pick zero, one, or several. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. If they ask what a handle looks like, call preview_option(category "handle") to swap it onto the 3D model's door. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
 
   extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. Ask if they're interested in either upgrade or want to move on. WAIT. Call show_slide("process") with their choice (use "none" if they decline).`,
 
@@ -461,6 +494,31 @@ DO THE FOLLOWING IN ORDER:
         success: true,
         message: instr(`A content modal is now showing on screen with the title "${title}" and ${image_tags.length ? 'relevant images from our library' : 'a default image selection'}. Briefly acknowledge that you pulled it up for them — one short sentence like "I've got some examples on screen for you" — then wait for them to engage or ask the next question. Do NOT read the modal body aloud.`),
       };
+    }
+
+    case 'preview_option': {
+      const category = String(args.category || '').toLowerCase().trim();
+      const value = String(args.value || '').trim();
+      if (!isCinematic() || getActiveService() !== 'showers') {
+        return { success: false, message: instr('The live 3D preview is not available right now. Describe the option in words instead and continue the conversation.') };
+      }
+      if (!['enclosure', 'glass', 'hardware', 'handle'].includes(category) || !value) {
+        return { success: false, message: instr('Invalid preview call. category must be enclosure, glass, hardware, or handle, with a value.') };
+      }
+      emitPreview(category, value);
+      return {
+        success: true,
+        message: instr(`The 3D model is now previewing "${value}". Point it out in ONE short sentence (e.g. "take a look — that's it on the model now") and keep the conversation going. This did NOT record a selection — when the customer states their final pick, advance with show_slide as usual.`),
+      };
+    }
+
+    case 'set_camera_view': {
+      const view = String(args.view || '').toLowerCase().trim();
+      if (!isCinematic() || getActiveService() !== 'showers') {
+        return { success: false, message: instr('The 3D camera is not available right now. Continue the conversation normally.') };
+      }
+      emitPreview('camera', view);
+      return { success: true, message: instr(`The camera is gliding to the ${view} view. Continue naturally — no need to announce it.`) };
     }
 
     case 'end_session': {

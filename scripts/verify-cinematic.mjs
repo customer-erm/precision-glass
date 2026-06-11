@@ -151,6 +151,32 @@ await mpage.waitForTimeout(3000);
 await mpage.screenshot({ path: `${SHOTS}12-mobile-intro.png` });
 log(true, 'mobile viewport renders the cinematic tour');
 
+/* ---- 12. Agent-conducted previews (same events the voice tools emit) ---- */
+const ppage = await ctx.newPage();
+ppage.on('pageerror', (e) => errors.push(`preview pageerror: ${e.message}`));
+await ppage.goto(BASE, { waitUntil: 'networkidle' });
+await ppage.click('[data-mode="browse"]');
+await ppage.waitForSelector('#browse-drawer-cta', { state: 'visible' });
+await ppage.click('#browse-drawer-cta');
+await ppage.waitForSelector('#photo-prompt.visible');
+await ppage.click('#photo-prompt-skip');
+await ppage.waitForSelector('#stage-canvas', { timeout: 10000 });
+await ppage.waitForTimeout(3500);
+const dispatch = (category, value) =>
+  ppage.evaluate(([c, v]) => window.dispatchEvent(new CustomEvent('pg:preview', { detail: { category: c, value: v } })), [category, value]);
+await dispatch('enclosure', 'Curved');
+await ppage.waitForTimeout(2600);
+await ppage.screenshot({ path: `${SHOTS}13-preview-curved.png` });
+await dispatch('glass', 'Rain Glass');
+await dispatch('hardware', 'Satin Brass');
+await ppage.waitForTimeout(1600);
+await dispatch('camera', 'closeup');
+await ppage.waitForTimeout(2200);
+await ppage.screenshot({ path: `${SHOTS}14-preview-rain-brass-closeup.png` });
+log(true, 'preview events morph the model without advancing the tour');
+const stillIntro = await ppage.$('#slide-intro.active');
+log(!!stillIntro, 'tour did not advance during previews');
+
 console.log('\n--- RESULTS ---');
 console.log(results.join('\n'));
 console.log('\n--- CONSOLE/PAGE ERRORS ---');

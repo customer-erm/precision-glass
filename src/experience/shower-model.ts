@@ -23,6 +23,8 @@ export interface ShowerRig {
   setHardware(label: string): void;
   setHandle(label: string): void;
   setSolidity(t: number): void;
+  /** Celebratory ring flash when a selection locks in. */
+  pulse(): void;
   idle(dt: number): void;
   dispose(): void;
 }
@@ -213,6 +215,8 @@ interface PanelRuntime {
   glassMat: THREE.MeshPhysicalMaterial;
   edges: THREE.LineSegments;
   edgeMat: THREE.LineBasicMaterial;
+  /** Structural yaw of the pivot — assembly animation swings into this. */
+  rotY: number;
 }
 
 export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
@@ -376,7 +380,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     }
 
     assembly.add(pivot);
-    return { pivot, glass, glassMat, edges, edgeMat };
+    return { pivot, glass, glassMat, edges, edgeMat, rotY };
   }
 
   function addCurvedPanel(spec: CurvedSpec): PanelRuntime {
@@ -398,7 +402,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     handleHost.lookAt(new THREE.Vector3(0, 1.05, 0).add(pivot.position));
     pivot.add(handleHost);
     assembly.add(pivot);
-    return { pivot, glass, glassMat, edges, edgeMat };
+    return { pivot, glass, glassMat, edges, edgeMat, rotY: 0 };
   }
 
   function disposePanels(): void {
@@ -427,22 +431,30 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       assembly.add(bar);
     }
 
-    buildHandle(handleKey, false);
-
-    // Materialize: edges rise from the floor, then the glass glazes in.
+    // Materialize: each panel's edges rise from the floor while the pane
+    // swings into its structural angle, then the glass glazes in with a
+    // bright reflective shimmer that settles. Hardware pops on last.
     const scale = solidityOpacityScale();
     if (animate && !prefersReducedMotion()) {
       panels.forEach((p, i) => {
         const finalOpacity = baseOpacityFor(glassKey) * scale;
-        p.glassMat.opacity = 0;
         applyGlassKey(p.glassMat, glassKey, false);
         p.glassMat.opacity = 0;
-        const d = i * 0.18;
+        const d = i * 0.16;
         gsap.fromTo(p.pivot.scale, { y: 0.001 }, { y: 1, duration: 0.7, ease: 'power3.out', delay: d });
+        gsap.fromTo(p.pivot.rotation, { y: p.rotY + 0.5 }, { y: p.rotY, duration: 0.95, ease: 'power3.out', delay: d });
         gsap.fromTo(p.edgeMat, { opacity: 0 }, { opacity: edgeOpacity(), duration: 0.45, delay: d });
-        gsap.to(p.glassMat, { opacity: finalOpacity, duration: 0.9, delay: d + 0.4, ease: 'power2.out' });
+        gsap.to(p.glassMat, { opacity: finalOpacity, duration: 0.9, delay: d + 0.35, ease: 'power2.out' });
+        gsap.fromTo(p.glassMat, { envMapIntensity: 3.4 }, { envMapIntensity: 1.4, duration: 1.5, ease: 'power2.out', delay: d + 0.35 });
       });
+      const hwDelay = panels.length * 0.16 + 0.45;
+      hingeMeshes.forEach((hm, i) => {
+        gsap.fromTo(hm.scale, { x: 0.01, y: 0.01, z: 0.01 },
+          { x: 1, y: 1, z: 1, duration: 0.5, ease: 'back.out(2.4)', delay: hwDelay + i * 0.08 });
+      });
+      buildHandle(handleKey, true, hwDelay + 0.15);
     } else {
+      buildHandle(handleKey, false);
       panels.forEach((p) => applyGlassKey(p.glassMat, glassKey, false));
       applySolidityNow();
     }
@@ -450,7 +462,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   /* ---- Handles ---- */
 
-  function buildHandle(key: HandleKey, animate: boolean): void {
+  function buildHandle(key: HandleKey, animate: boolean, delay = 0): void {
     if (!handleHost) return;
     handleHost.clear();
     const grp = new THREE.Group();
@@ -488,7 +500,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
     handleHost.add(grp);
     if (animate && !prefersReducedMotion()) {
-      gsap.fromTo(grp.scale, { x: 0.01, y: 0.01, z: 0.01 }, { x: 1, y: 1, z: 1, duration: 0.6, ease: 'back.out(2.2)' });
+      gsap.fromTo(grp.scale, { x: 0.01, y: 0.01, z: 0.01 }, { x: 1, y: 1, z: 1, duration: 0.6, ease: 'back.out(2.2)', delay });
     }
   }
 
@@ -552,6 +564,12 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
           applySolidityNow();
         },
       });
+    },
+
+    pulse(): void {
+      if (prefersReducedMotion()) return;
+      gsap.fromTo(ringMat, { opacity: 1 }, { opacity: 0.4 + solidity * 0.3, duration: 1.0, ease: 'power2.out', overwrite: 'auto' });
+      gsap.fromTo(ring.scale, { x: 1.07, y: 1.07 }, { x: 1, y: 1, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
     },
 
     idle(dt: number): void {

@@ -60,7 +60,13 @@ HOW TO USE IT:
 - Pass image_tags — simple keywords the library uses to find matches. Examples: ["matte black", "hardware"], ["steam shower"], ["curved"], ["neo-angle", "corner"], ["frosted glass"], ["railings", "pool"], ["storefront", "commercial"], ["polished chrome"], ["rain glass"]
 - Then briefly acknowledge verbally that you pulled it up ("I've got some examples on screen for you") — do NOT read the body aloud, it's already visible.
 
-This tool does NOT advance the guided tour. After the customer engages with the content, continue where you left off.`;
+This tool does NOT advance the guided tour. After the customer engages with the content, continue where you left off.
+
+=== LIVE 3D SHOWER MODEL (SHOWERS TOUR ONLY) ===
+During the showers tour, a 3D concept model of the customer's shower is assembling on screen. It starts as a glowing blueprint hologram and becomes more real with every selection they lock in — their choices physically build it. Two tools let you conduct the scene:
+- **preview_option(category, value)** — live-preview an option on the model while you talk: the glass morphs (clear/frosted/rain), the hardware re-plates to a finish, the enclosure reassembles into a style, or the handle swaps. Use it whenever the customer asks what something looks like, or is torn between two options — preview one, then the other ("here's frosted... and here's rain"). It does NOT record a selection and does NOT advance the tour; still wait for their final pick and advance with show_slide.
+- **set_camera_view(view)** — glide the camera to "front", "side", "closeup", or "overview" when it helps ("let me get you a closer look").
+Reference the model naturally and sparingly ("you can see it taking shape on screen"). It is a concept model, NOT their actual bathroom — the photorealistic render of their real space comes at the end of the tour.`;
 
 /**
  * Build the system prompt, optionally injecting a "KNOWN CUSTOMER" block

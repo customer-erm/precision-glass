@@ -14,7 +14,7 @@ import type { ServiceType } from '../animations/slideshow';
 import { gsap } from '../animations/engine';
 import { getBathroomPhoto } from '../utils/bathroom-photo';
 import { materializeSlide, dematerializeSlide, revealRender } from './materialize';
-import { onChoice } from './events';
+import { onChoice, onPreview } from './events';
 import { prefersReducedMotion } from './flag';
 import type { Stage, CameraSpec } from './stage';
 import './cinematic.css';
@@ -43,6 +43,14 @@ function stationFor(service: ServiceType, slideId: string, index: number): Camer
   return { angle: -0.9 + index * 0.32, distance: 7.5, height: 2.2 + (index % 3) * 0.4 };
 }
 
+/** Named showcase angles the voice agent can request via set_camera_view. */
+const CAMERA_VIEWS: Record<string, CameraSpec> = {
+  front: { angle: 0, distance: 4.4, height: 1.5 },
+  side: { angle: 1.25, distance: 4.2, height: 1.5 },
+  closeup: { angle: -0.45, distance: 2.3, height: 1.35 },
+  overview: { angle: 0.45, distance: 7.6, height: 3.1 },
+};
+
 const SLIDE_ORDER_BY_SERVICE: Record<string, string[]> = {
   showers: ['intro', 'gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'],
   railings: ['intro', 'gallery', 'rail-types', 'rail-glass', 'rail-finish', 'rail-mounting', 'process', 'quote'],
@@ -57,6 +65,7 @@ let stage: Stage | null = null;
 let stageLoading = false;
 let pendingSpec: CameraSpec | null = null;
 let unsubChoice: (() => void) | null = null;
+let unsubPreview: (() => void) | null = null;
 let activeServiceLocal: ServiceType = 'showers';
 let pushedThrough = false;
 const chosen = new Set<string>();
@@ -107,6 +116,29 @@ function applyChoice(category: string, value: string): void {
   if (['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(category)) {
     chosen.add(category);
     rig.setSolidity(0.15 + chosen.size * 0.17);
+    rig.pulse();
+  }
+}
+
+/**
+ * Agent-conducted preview: morph the model (or move the camera) while Alex
+ * talks, without recording a selection or advancing the tour.
+ */
+function applyPreview(category: string, value: string): void {
+  if (!stage) return;
+  if (category === 'camera') {
+    const view = CAMERA_VIEWS[value.toLowerCase().trim()];
+    if (view) stage.moveCamera(view, 1.4);
+    return;
+  }
+  if (activeServiceLocal !== 'showers') return;
+  const rig = stage.shower;
+  switch (category) {
+    case 'enclosure': rig.setEnclosure(value); break;
+    case 'glass': rig.setGlass(value); break;
+    case 'hardware': rig.setHardware(value); break;
+    case 'handle': rig.setHandle(value); break;
+    default: break;
   }
 }
 
@@ -126,6 +158,8 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   mountStage();
   unsubChoice?.();
   unsubChoice = onChoice(({ category, value }) => applyChoice(category, value));
+  unsubPreview?.();
+  unsubPreview = onPreview(({ category, value }) => applyPreview(category, value));
 }
 
 export async function showSlide(slideId: string): Promise<void> {
@@ -172,6 +206,8 @@ export async function showSlide(slideId: string): Promise<void> {
 export async function endSlideshow(): Promise<void> {
   unsubChoice?.();
   unsubChoice = null;
+  unsubPreview?.();
+  unsubPreview = null;
   await classic.endSlideshow();
   stage?.dispose();
   stage = null;
