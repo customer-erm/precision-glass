@@ -37,12 +37,11 @@ async function shot(name) {
   await page.screenshot({ path: `${SHOTS}${name}.png` });
 }
 
-async function startBrowseTour() {
-  await page.click('[data-mode="browse"]');
-  await page.waitForSelector('#browse-drawer-cta', { state: 'visible', timeout: 5000 });
-  await page.click('#browse-drawer-cta');
-  await page.waitForSelector('#photo-prompt.visible', { timeout: 8000 });
-  await page.click('#photo-prompt-skip');
+async function startBrowseTour(p = page) {
+  await p.click('[data-mode="browse"]');
+  await p.waitForSelector('#browse-drawer-cta', { state: 'visible', timeout: 5000 });
+  await p.click('#browse-drawer-cta');
+  // Photo upload is now opt-in via the intro button — no popup to skip.
 }
 
 /* ---- 1. Homepage ---- */
@@ -58,6 +57,8 @@ const canvas = await page.waitForSelector('#stage-canvas', { timeout: 10000 });
 const box = await canvas.boundingBox();
 log(!!box && box.width > 100, `stage canvas mounted (${box?.width}x${box?.height})`);
 await page.waitForTimeout(3500); // arrival dolly
+const introPhotoBtn = await page.$('#slide-intro .intro-photo-btn');
+log(!!introPhotoBtn, 'intro slide offers opt-in photo button (no forced popup)');
 await shot('02-intro');
 
 /* ---- 3. Advance: gallery → enclosures ---- */
@@ -67,7 +68,9 @@ await shot('03-gallery');
 await page.click('#manual-nav-next');
 await page.waitForTimeout(2300);
 const encCards = await page.$$('#slide-enclosures .ss-enc-card');
-log(encCards.length === 10, `enclosures slide shows ${encCards.length} cards`);
+log(encCards.length === 8, `enclosures slide trimmed to ${encCards.length} cards (8 signature styles)`);
+const sideLayout = await page.$('#slide-enclosures.cine-side');
+log(!!sideLayout, 'enclosures uses split-stage side layout');
 await shot('04-enclosures');
 
 /* ---- 4. Select Frameless Slider → assemble ---- */
@@ -127,8 +130,6 @@ await page2.goto(`${BASE}/?classic=1`, { waitUntil: 'networkidle' });
 await page2.click('[data-mode="browse"]');
 await page2.waitForSelector('#browse-drawer-cta', { state: 'visible' });
 await page2.click('#browse-drawer-cta');
-await page2.waitForSelector('#photo-prompt.visible');
-await page2.click('#photo-prompt-skip');
 await page2.waitForSelector('#tour-slideshow', { timeout: 8000 });
 await page2.waitForTimeout(1500);
 const classicCanvas = await page2.$('#stage-canvas');
@@ -144,12 +145,16 @@ await mpage.goto(BASE, { waitUntil: 'networkidle' });
 await mpage.click('[data-mode="browse"]');
 await mpage.waitForSelector('#browse-drawer-cta', { state: 'visible' });
 await mpage.click('#browse-drawer-cta');
-await mpage.waitForSelector('#photo-prompt.visible');
-await mpage.click('#photo-prompt-skip');
 await mpage.waitForSelector('#stage-canvas', { timeout: 10000 });
 await mpage.waitForTimeout(3000);
 await mpage.screenshot({ path: `${SHOTS}12-mobile-intro.png` });
-log(true, 'mobile viewport renders the cinematic tour');
+// Mobile split-stage: advance to enclosures and check the bottom sheet
+await mpage.click('#manual-nav-next');
+await mpage.waitForTimeout(1800);
+await mpage.click('#manual-nav-next');
+await mpage.waitForTimeout(2600);
+await mpage.screenshot({ path: `${SHOTS}12b-mobile-enclosures.png` });
+log(true, 'mobile viewport renders the cinematic tour + bottom-sheet options');
 
 /* ---- 12. Agent-conducted previews (same events the voice tools emit) ---- */
 const ppage = await ctx.newPage();
@@ -158,8 +163,6 @@ await ppage.goto(BASE, { waitUntil: 'networkidle' });
 await ppage.click('[data-mode="browse"]');
 await ppage.waitForSelector('#browse-drawer-cta', { state: 'visible' });
 await ppage.click('#browse-drawer-cta');
-await ppage.waitForSelector('#photo-prompt.visible');
-await ppage.click('#photo-prompt-skip');
 await ppage.waitForSelector('#stage-canvas', { timeout: 10000 });
 await ppage.waitForTimeout(3500);
 const dispatch = (category, value) =>
@@ -185,14 +188,17 @@ const fakeBathroom = await photoPage.screenshot(); // any real PNG works as the 
 await photoPage.click('[data-mode="browse"]');
 await photoPage.waitForSelector('#browse-drawer-cta', { state: 'visible' });
 await photoPage.click('#browse-drawer-cta');
-await photoPage.waitForSelector('#photo-prompt.visible');
+await photoPage.waitForSelector('#slide-intro .intro-photo-btn', { timeout: 10000 });
+await photoPage.click('#slide-intro .intro-photo-btn');
+await photoPage.waitForSelector('#photo-prompt.visible', { timeout: 8000 });
 await photoPage.setInputFiles('#photo-prompt-input', { name: 'bathroom.png', mimeType: 'image/png', buffer: fakeBathroom });
 await photoPage.waitForSelector('#photo-prompt-continue:not([hidden])', { timeout: 8000 });
 await photoPage.click('#photo-prompt-continue');
 await photoPage.waitForSelector('#stage-canvas', { timeout: 10000 });
 await photoPage.waitForTimeout(4500);
+const btnConfirm = await photoPage.$('.intro-photo-btn.has-photo');
+log(!!btnConfirm, 'opt-in photo upload works via intro button (backdrop in screenshot 15)');
 await photoPage.screenshot({ path: `${SHOTS}15-photo-backdrop.png` });
-log(true, 'uploaded photo flow reaches the tour (backdrop visible in screenshot 15)');
 
 /* ---- 14. Chat mode reaches the cinematic tour ---- */
 const cpage = await ctx.newPage();
@@ -205,12 +211,16 @@ await cpage.fill('#chat-input', 'Justin');
 await cpage.press('#chat-input', 'Enter');
 await cpage.waitForTimeout(1800);
 await cpage.locator('.chat-chip', { hasText: /shower/i }).first().click();
-await cpage.waitForSelector('#photo-prompt.visible', { timeout: 10000 });
-await cpage.click('#photo-prompt-skip');
 await cpage.waitForSelector('#tour-slideshow.cinematic #stage-canvas', { timeout: 10000 });
-await cpage.waitForTimeout(3000);
+await cpage.waitForTimeout(1500);
+await cpage.locator('.chat-chip', { hasText: /go/i }).first().click(); // Let's go
+await cpage.waitForTimeout(1500);
+const photoAskChip = await cpage.locator('.chat-chip', { hasText: /add a photo/i }).count();
+log(photoAskChip > 0, 'chat asks about photo as an opt-in step');
+await cpage.locator('.chat-chip', { hasText: /skip/i }).first().click();
+await cpage.waitForTimeout(2500);
 await cpage.screenshot({ path: `${SHOTS}16-chat-tour.png` });
-log(true, 'chat mode drives the cinematic tour');
+log(true, 'chat mode drives the cinematic tour through the new photo-ask flow');
 
 console.log('\n--- RESULTS ---');
 console.log(results.join('\n'));

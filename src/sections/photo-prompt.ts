@@ -15,6 +15,7 @@ import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPho
 import { emitPhoto } from '../experience/events';
 
 let resolver: ((uploaded: boolean) => void) | null = null;
+let autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function buildPhotoPrompt(): HTMLElement {
   const modal = el('div', { className: 'photo-prompt', id: 'photo-prompt' });
@@ -39,14 +40,25 @@ export function buildPhotoPrompt(): HTMLElement {
   return modal;
 }
 
-/** Open the prompt. Resolves true if a photo is in place, false if skipped. */
-export function openPhotoPrompt(): Promise<boolean> {
+/**
+ * Open the prompt. Resolves true if a photo is in place, false if skipped.
+ * Pass timeoutMs to auto-close after a deadline (keeps whatever photo state
+ * exists) — used by the agents so an abandoned card doesn't hold a live
+ * session open and burn API time.
+ */
+export function openPhotoPrompt(opts?: { timeoutMs?: number }): Promise<boolean> {
   return new Promise((resolve) => {
     resolver = resolve;
     const modal = document.getElementById('photo-prompt');
     if (!modal) { resolve(false); return; }
     renderState();
     modal.classList.add('visible');
+    if (opts?.timeoutMs) {
+      autoCloseTimer = setTimeout(() => {
+        console.log('[PhotoPrompt] Auto-closing after timeout');
+        done(!!getBathroomPhoto());
+      }, opts.timeoutMs);
+    }
   });
 }
 
@@ -75,6 +87,7 @@ function renderState(): void {
 }
 
 function done(uploaded: boolean): void {
+  if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null; }
   const modal = document.getElementById('photo-prompt');
   modal?.classList.remove('visible');
   const r = resolver;

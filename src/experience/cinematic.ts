@@ -13,6 +13,7 @@ import * as classic from '../animations/slideshow';
 import type { ServiceType } from '../animations/slideshow';
 import { gsap } from '../animations/engine';
 import { getBathroomPhoto } from '../utils/bathroom-photo';
+import { getState } from '../utils/state';
 import { materializeSlide, dematerializeSlide, revealRender } from './materialize';
 import { onChoice, onPreview, onPhoto } from './events';
 import { prefersReducedMotion } from './flag';
@@ -25,20 +26,35 @@ import './cinematic.css';
 
 const ARRIVAL: CameraSpec = { angle: 0.1, distance: 12, height: 4.4 };
 
+/**
+ * Option slides use a split stage: the 3D model owns the left two-thirds
+ * of the frame (the lateral offset pushes it left of center) while the
+ * option cards stack in the right third and fade in one by one.
+ */
+const SIDE_SLIDES = new Set(['enclosures', 'glass', 'hardware', 'accessories', 'extras']);
+
 const SHOWER_STATIONS: Record<string, CameraSpec> = {
   intro: { angle: 0.55, distance: 7.2, height: 2.5 },
   gallery: { angle: -0.85, distance: 6.6, height: 2.0, lateral: 0.4 },
-  enclosures: { angle: 0.05, distance: 5.4, height: 1.7 },
-  glass: { angle: -0.5, distance: 3.7, height: 1.5 },
-  hardware: { angle: 0.8, distance: 3.1, height: 1.35 },
-  accessories: { angle: 1.0, distance: 2.7, height: 1.25, lateral: 0.25 },
-  extras: { angle: -0.3, distance: 4.8, height: 2.3 },
+  enclosures: { angle: 0.05, distance: 5.0, height: 1.7, lateral: 1.15 },
+  glass: { angle: -0.5, distance: 3.6, height: 1.5, lateral: 0.95 },
+  hardware: { angle: 0.8, distance: 3.0, height: 1.35, lateral: 0.9 },
+  accessories: { angle: 1.0, distance: 2.6, height: 1.25, lateral: 0.85 },
+  extras: { angle: -0.3, distance: 4.6, height: 2.2, lateral: 1.0 },
   process: { angle: 0.4, distance: 6.2, height: 2.1 },
   quote: { angle: 0, distance: 4.2, height: 1.3 }, // approach before push-through
 };
 
 function stationFor(service: ServiceType, slideId: string, index: number): CameraSpec {
-  if (service === 'showers' && SHOWER_STATIONS[slideId]) return SHOWER_STATIONS[slideId];
+  if (service === 'showers' && SHOWER_STATIONS[slideId]) {
+    const spec = SHOWER_STATIONS[slideId];
+    // Mobile split: options live in a bottom sheet, so center the model and
+    // aim low — it frames in the open top half of the screen.
+    if (SIDE_SLIDES.has(slideId) && window.innerWidth < 768) {
+      return { ...spec, lateral: 0, targetHeight: 0.35, height: spec.height + 0.5, distance: spec.distance + 3.2 };
+    }
+    return spec;
+  }
   // Railings / commercial: a slow generic orbit through the atmosphere
   return { angle: -0.9 + index * 0.32, distance: 7.5, height: 2.2 + (index % 3) * 0.4 };
 }
@@ -162,7 +178,19 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   activeServiceLocal = service;
   chosen.clear();
   pushedThrough = false;
-  root()?.classList.add('cinematic');
+  const host = root();
+  host?.classList.add('cinematic');
+
+  // Trim the enclosure list to the 8 signature styles so the side column
+  // breathes — arched and fully-custom stay available by asking the agent.
+  if (host && service === 'showers') {
+    host.querySelectorAll<HTMLElement>('#slide-enclosures .ss-enc-card').forEach((card) => {
+      const label = card.querySelector('h4')?.textContent?.toLowerCase() ?? '';
+      if (label.includes('arched') || label.includes('custom')) card.remove();
+    });
+    const sub = host.querySelector('#slide-enclosures .slide-sub');
+    if (sub) sub.textContent = '8 signature styles — arched tops & custom layouts on request';
+  }
   mountStage();
   unsubChoice?.();
   unsubChoice = onChoice(({ category, value }) => applyChoice(category, value));
@@ -210,7 +238,15 @@ export async function showSlide(slideId: string): Promise<void> {
   await classic.showSlide(slideId);
 
   const target = host.querySelector(`#slide-${slideId}`) as HTMLElement | null;
-  if (target) materializeSlide(target);
+  if (target) {
+    const isSide = activeServiceLocal === 'showers' && SIDE_SLIDES.has(slideId);
+    target.classList.toggle('cine-side', isSide);
+    // Agent-led modes: options roll in one by one while Alex talks them
+    // through. Browse mode: snappy, the user drives.
+    const mode = getState().currentMode;
+    const slowReveal = isSide && (mode === 'voice' || mode === 'chat');
+    materializeSlide(target, { stagger: slowReveal ? 0.45 : 0.07 });
+  }
 }
 
 export async function endSlideshow(): Promise<void> {

@@ -33,6 +33,7 @@ export type ChipAction =
   | { kind: 'select-service'; service: 'showers' | 'railings' | 'commercial' }
   | { kind: 'advance'; next: string; choiceCategory?: string; choice?: string }
   | { kind: 'save-email-and-advance'; next: string }
+  | { kind: 'open-photo' }
   | { kind: 'submit-quote' }
   | { kind: 'close' };
 
@@ -119,8 +120,18 @@ function buildSteps(): Record<string, ChatStep> {
       progressTotal: 10,
       agent: 'Great — I’ll walk you through it like a glass pro would: layout first, then glass, hardware, the handle, and a visual proposal at the end. Ready?',
       chips: [
-        { label: 'Let’s go', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
+        { label: 'Let’s go', primary: true, action: { kind: 'advance', next: 'showers-photo-ask' } },
         { label: 'Tell me more first', action: { kind: 'advance', next: 'showers-intro-more' } },
+      ],
+    },
+    'showers-photo-ask': {
+      id: 'showers-photo-ask',
+      progressStep: 2,
+      progressTotal: 10,
+      agent: 'One quick thing — want to add a photo of your bathroom? I can tailor my advice to your space and render your new shower right into it at the end. Totally optional.',
+      chips: [
+        { label: 'Add a photo', hint: 'Personalized render', primary: true, action: { kind: 'open-photo' } },
+        { label: 'Skip for now', action: { kind: 'advance', next: 'showers-gallery' } },
       ],
     },
     'showers-upload': {
@@ -137,7 +148,7 @@ function buildSteps(): Record<string, ChatStep> {
       progressTotal: 10,
       agent: 'Sure — frameless means the glass panels stand on their own with only small discrete hardware. It\u2019s custom-cut to your exact space, uses 3/8" or 1/2" tempered safety glass, and comes with a lifetime workmanship warranty. Most installs are done in a single day. Ready?',
       chips: [
-        { label: 'Ready, walk me through', primary: true, action: { kind: 'advance', next: 'showers-gallery' } },
+        { label: 'Ready, walk me through', primary: true, action: { kind: 'advance', next: 'showers-photo-ask' } },
       ],
     },
     'showers-photo-guidance': {
@@ -722,17 +733,19 @@ export class ChatDriver {
       }
       case 'select-service': {
         await handleToolCall('select_service', { service: action.service });
-        if (action.service === 'showers') {
-          // Photo upload is the FIRST thing after choosing showers, in every mode.
-          const { openPhotoPrompt } = await import('../sections/photo-prompt');
-          const hasPhoto = await openPhotoPrompt();
-          if (hasPhoto) this.ctx.choices.photoSource = 'customer_upload';
-          const next = hasPhoto ? 'showers-photo-guidance' : 'showers-intro';
-          setTimeout(() => this.goToStep(next), 250);
-        } else {
-          const nextId = action.service === 'railings' ? 'railings-intro' : 'commercial-intro';
-          setTimeout(() => this.goToStep(nextId), 400);
-        }
+        // Let the morph land first; Alex asks about the photo as a step,
+        // so the upload card only appears if the customer opts in.
+        const nextId = action.service === 'showers' ? 'showers-intro'
+          : action.service === 'railings' ? 'railings-intro' : 'commercial-intro';
+        setTimeout(() => this.goToStep(nextId), 400);
+        break;
+      }
+      case 'open-photo': {
+        const { openPhotoPrompt } = await import('../sections/photo-prompt');
+        const hasPhoto = await openPhotoPrompt({ timeoutMs: 150_000 });
+        if (hasPhoto) this.ctx.choices.photoSource = 'customer_upload';
+        const next = hasPhoto ? 'showers-photo-guidance' : 'showers-gallery';
+        setTimeout(() => this.goToStep(next), 250);
         break;
       }
       case 'advance': {

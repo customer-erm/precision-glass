@@ -289,6 +289,15 @@ window.addEventListener('precision:end-session-soft', () => {
   stopTipRotation();
 });
 
+// While the photo-upload card is open we stop streaming mic audio (the
+// customer may step away to take a photo — no point burning API tokens).
+window.addEventListener('precision:mic-pause', () => {
+  gemini?.muteMic();
+});
+window.addEventListener('precision:mic-resume', () => {
+  gemini?.resumeMic();
+});
+
 window.addEventListener('precision:end-session', () => {
   console.log('[Main] Ending session via custom event');
   gemini?.disconnect({ keepAudioQueue: true });

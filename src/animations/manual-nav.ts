@@ -94,11 +94,10 @@ export async function startBrowseTour(
   const startSlide = startAtSlideId || 'intro';
   await showSlide(startSlide);
 
-  // Showers: offer the bathroom-photo upload at the start of the design tour
-  // (used for tailored guidance + rendering into their real space).
+  // Showers: offer the bathroom-photo upload as an inline invitation on the
+  // intro slide (opt-in — no forced popup before the experience lands).
   if (service === 'showers' && startSlide === 'intro') {
-    const { openPhotoPrompt } = await import('../sections/photo-prompt');
-    await openPhotoPrompt();
+    injectIntroPhotoButton();
   }
 
   injectManualNavBar();
@@ -111,6 +110,30 @@ export async function startBrowseTour(
     populateManualQuote();
   }
   updateNavCounter();
+}
+
+/* ------------------------------------------------------------------ */
+/*  Intro photo invitation (browse mode, showers)                      */
+/* ------------------------------------------------------------------ */
+
+function injectIntroPhotoButton(): void {
+  const content = document.querySelector('#slide-intro .slide-content');
+  if (!content || content.querySelector('.intro-photo-btn')) return;
+  const btn = el('button', {
+    className: 'intro-photo-btn slide-el',
+    type: 'button',
+    innerHTML: '<span aria-hidden="true">\u{1F4F7}</span><span>Add a photo of your bathroom — see your new shower in <em>your</em> space</span>',
+  });
+  btn.addEventListener('click', async () => {
+    const { openPhotoPrompt } = await import('../sections/photo-prompt');
+    const uploaded = await openPhotoPrompt({ timeoutMs: 150_000 });
+    if (uploaded) {
+      btn.classList.add('has-photo');
+      btn.innerHTML = '<span aria-hidden="true">✓</span><span>Photo added — your render will use your real bathroom</span>';
+    }
+  });
+  content.appendChild(btn);
+  requestAnimationFrame(() => btn.classList.add('revealed'));
 }
 
 /* ------------------------------------------------------------------ */

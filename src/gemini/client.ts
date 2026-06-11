@@ -270,6 +270,17 @@ export class GeminiLiveClient {
   muteMic(): void {
     console.log('[Gemini] Muting mic (soft end) — WebSocket remains open');
     this.audioCapture.stop();
+    // Flush any cached audio so the model doesn't sit on a partial turn
+    try {
+      this.session?.sendRealtimeInput({ audioStreamEnd: true });
+    } catch (_e) { /* session may be closing */ }
+  }
+
+  /** Restart audio capture after muteMic() — used when the photo-upload card closes. */
+  async resumeMic(): Promise<void> {
+    if (!this.session) return;
+    console.log('[Gemini] Resuming mic');
+    await this.startMic();
   }
 
   disconnect(opts: { keepAudioQueue?: boolean } = {}): void {

@@ -65,7 +65,8 @@ function collectUnits(slide: HTMLElement): HTMLElement[] {
   return units;
 }
 
-export function materializeSlide(slide: HTMLElement): gsap.core.Timeline {
+export function materializeSlide(slide: HTMLElement, opts?: { stagger?: number }): gsap.core.Timeline {
+  const stagger = opts?.stagger ?? 0.07;
   const tl = gsap.timeline();
   const units = collectUnits(slide);
   if (!units.length) return tl;
@@ -100,7 +101,7 @@ export function materializeSlide(slide: HTMLElement): gsap.core.Timeline {
       filter: 'blur(0px) brightness(1)',
       duration: 0.85,
       ease: 'power3.out',
-      stagger: { each: 0.07, from: 'start' },
+      stagger: { each: stagger, from: 'start' },
       clearProps: 'filter,transform',
     },
     0.05,

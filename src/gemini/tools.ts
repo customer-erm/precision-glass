@@ -120,6 +120,15 @@ export const TOOL_DECLARATIONS = [
     },
   },
   {
+    name: 'request_photo_upload',
+    description: 'Open the bathroom-photo upload card on screen. Call this ONLY after the customer has said YES to adding a photo. The call blocks until they finish (upload, skip, or a 2.5-minute timeout) and the result tells you what happened. While the card is open their mic is paused, so wait for the result before speaking.',
+    parameters: {
+      type: 'object' as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
     name: 'preview_option',
     description: 'Live-preview an option on the on-screen 3D shower model while you talk — the glass morphs, the hardware re-plates, the enclosure reassembles, or the handle swaps in real time. Use this whenever the customer asks what something looks like or is torn between options (preview one, then the other). It does NOT record a selection and does NOT advance the tour — still ask for their final pick and advance with show_slide. Showers tour only.',
     parameters: {
@@ -175,11 +184,13 @@ export const TOOL_DECLARATIONS = [
 
 const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Record<string, string>> = {
   showers: {
-  intro: `A dramatic frameless shower fills the screen, and a photo-upload card has just appeared on screen. FIRST, in one friendly sentence, invite the customer to upload a photo of their bathroom using the card on screen — it's optional, but it lets you tailor the design to their space and render the new shower right into their real bathroom (they can skip and you'll use a showcase bathroom). THEN give a short exciting pitch — frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass, and add real value to the home. Ask if they'd like you to walk through the options together. WAIT. When they agree, call show_slide("gallery").`,
+  intro: `The page has morphed into the design studio — a glowing 3D blueprint of a shower is assembling on the stage. FIRST give a short exciting pitch: frameless showers transform the bathroom, feel bigger and brighter, no bulky metal frames, just precision glass, and add real value to the home — and as they make choices, that 3D model on screen will build itself into THEIR shower. THEN ask ONE question: would they like to add a photo of their bathroom, so you can tailor every recommendation to their space and render their new shower right into their real bathroom at the end? WAIT for their answer.
+- If YES: say one short sentence like "Perfect — I'm putting the upload card on screen now, take your time", then call request_photo_upload() and follow the instructions it returns.
+- If NO or they hesitate: totally fine, don't push. Ask if they're ready to look at the options together, and when they agree call show_slide("gallery").`,
 
   gallery: `A slideshow is cycling through recent installations. Take 4-6 sentences here — really sell the work. Talk about the variety of styles you see, the craftsmanship, how every installation is custom-fit, the way frameless glass transforms a bathroom, mention you've done everything from compact alcoves to luxury spa builds. Get them excited. THEN ask for the email in a single clear sentence: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" Then STOP completely and wait silently. The buyer's guide popup will appear on screen automatically while you're talking — you do not need to call any tool for it. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
 
-  enclosures: `A grid shows all enclosure types. Touch on the key options: Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle for corner showers), Frameless Slider (no swing room needed), Curved (spa feel), Arched (statement piece), Splash Panel (open walk-in, just a fixed panel), Steam Shower (sealed floor-to-ceiling), and Custom for unique spaces. Mention the most popular are Single Door and Door + Panel. A 3D concept model is assembling on screen — if they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
+  enclosures: `The enclosure styles are fading in one by one beside the 3D model — pace your description to roughly match (one style at a time, top to bottom): Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle), Frameless Slider (no swing room needed), Curved (spa feel), Splash Panel (open walk-in, just a fixed panel), and Steam Shower (sealed floor-to-ceiling). Mention the most popular are Single Door and Door + Panel, and that arched tops and fully custom layouts are available too — just ask. If they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
   glass: `Three glass types shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. If they ask what one looks like, call preview_option(category "glass") — the 3D model's glass morphs live, which is a great "watch this" moment. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
 
@@ -226,7 +237,7 @@ const SLIDE_QUICK_REPLIES_BY_SERVICE: Record<'showers' | 'railings' | 'commercia
   showers: {
     intro: ['Yes, show me', 'Tell me more first'],
     gallery: ['Here\u2019s my email', 'Skip for now'],
-    enclosures: ['Single Door', 'Door + Panel', 'Neo-Angle', '90\u00B0 Corner', 'Frameless Slider', 'Curved', 'Arched', 'Splash Panel', 'Steam Shower', 'Custom'],
+    enclosures: ['Single Door', 'Door + Panel', 'Neo-Angle', '90\u00B0 Corner', 'Frameless Slider', 'Curved', 'Splash Panel', 'Steam Shower'],
     glass: ['Clear Glass', 'Frosted Glass', 'Rain Glass'],
     hardware: ['Polished Chrome', 'Brushed Nickel', 'Matte Black', 'Polished Brass', 'Satin Brass'],
     accessories: ['Pull Handle', 'U-Handle', 'Ladder Pull', 'Knob', 'Towel Bar', 'None, thanks'],
@@ -295,11 +306,8 @@ export async function handleToolCall(
       createSlideshow(service);
       await showSlide('intro');
       lastShowSlideAt = 0; // reset guard for the new flow
-      // Showers: surface the photo-upload card on screen right at the start so the
-      // customer can drop in their bathroom (used for guidance + the final render).
-      if (service === 'showers') {
-        import('../sections/photo-prompt').then(({ openPhotoPrompt }) => openPhotoPrompt());
-      }
+      // The photo-upload card is no longer auto-opened — the agent offers it
+      // and calls request_photo_upload only if the customer says yes.
       return { success: true, message: instr(getSlideContext('intro')) };
     }
 
@@ -493,6 +501,30 @@ DO THE FOLLOWING IN ORDER:
       return {
         success: true,
         message: instr(`A content modal is now showing on screen with the title "${title}" and ${image_tags.length ? 'relevant images from our library' : 'a default image selection'}. Briefly acknowledge that you pulled it up for them — one short sentence like "I've got some examples on screen for you" — then wait for them to engage or ask the next question. Do NOT read the modal body aloud.`),
+      };
+    }
+
+    case 'request_photo_upload': {
+      const { openPhotoPrompt } = await import('../sections/photo-prompt');
+      // Pause the mic while the card is open — the customer may step away
+      // to take a photo and we don't want to stream dead air to the API.
+      window.dispatchEvent(new CustomEvent('precision:mic-pause'));
+      let uploaded = false;
+      try {
+        uploaded = await openPhotoPrompt({ timeoutMs: 150_000 });
+      } finally {
+        window.dispatchEvent(new CustomEvent('precision:mic-resume'));
+      }
+      if (uploaded) {
+        quoteChoices['photoSource'] = 'customer_upload';
+        return {
+          success: true,
+          message: instr('The customer uploaded a photo of their bathroom — it now floats in the 3D scene and the final render will be composited into their real space. Thank them warmly in one sentence and mention you can now tailor everything to their space. Then ask if they\'re ready to look at the options, and when they agree call show_slide("gallery").'),
+        };
+      }
+      return {
+        success: true,
+        message: instr('The customer closed or skipped the upload card (or it timed out). No problem — do NOT mention the photo again. Ask if they\'re ready to look at the options, and when they agree call show_slide("gallery").'),
       };
     }
 

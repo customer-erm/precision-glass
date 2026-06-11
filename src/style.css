@@ -1761,10 +1761,13 @@ body.browse-active .help-launcher {
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
-  pointer-events: auto;
   background: rgba(255,255,255,0.05);
   color: var(--white);
 }
+/* Buttons only catch clicks once their overlay stage is actually shown —
+   an unconditional auto here lets the invisible overlay (painted above
+   every slide) swallow clicks across the whole tour. */
+.ss-quote-sent.show-actions .ss-action-btn { pointer-events: auto; }
 .ss-action-btn:hover {
   transform: translateY(-2px);
   background: rgba(255,255,255,0.1);
