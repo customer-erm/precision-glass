@@ -12,6 +12,7 @@
 
 import { el } from '../utils/dom';
 import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPhoto } from '../utils/bathroom-photo';
+import { emitPhoto } from '../experience/events';
 
 let resolver: ((uploaded: boolean) => void) | null = null;
 
@@ -78,6 +79,7 @@ function done(uploaded: boolean): void {
   modal?.classList.remove('visible');
   const r = resolver;
   resolver = null;
+  emitPhoto(uploaded);
   r?.(uploaded);
 }
 

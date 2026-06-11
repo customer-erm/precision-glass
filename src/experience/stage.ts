@@ -32,11 +32,26 @@ export interface Stage {
   moveCamera(spec: CameraSpec, duration?: number): void;
   /** Finale: dolly straight through the glass. Resolves at the moment of pass-through. */
   pushThroughGlass(): Promise<void>;
+  /** Float the customer's bathroom photo in the scene as a soft "vision" panel. */
+  setBackdropPhoto(dataUrl: string): void;
   setActive(active: boolean): void;
   dispose(): void;
 }
 
 const NAVY = 0x050d1a;
+
+function makeSoftMaskTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 170;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(128, 85, 20, 128, 85, 128);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.65, 'rgba(255,255,255,0.8)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 170);
+  return new THREE.CanvasTexture(c);
+}
 
 function makeGlowTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
@@ -125,6 +140,44 @@ export function createStage(container: HTMLElement): Stage {
   const shower = createShowerRig({ cheapGlass: lowPower });
   scene.add(shower.group);
 
+  /* ---- Customer-photo "vision" backdrop ---- */
+
+  let backdrop: THREE.Mesh | null = null;
+  let backdropTex: THREE.Texture | null = null;
+  let backdropMask: THREE.CanvasTexture | null = null;
+
+  function setBackdropPhoto(dataUrl: string): void {
+    new THREE.TextureLoader().load(dataUrl, (tex) => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      if (backdrop) {
+        ((backdrop.material as THREE.MeshBasicMaterial).map)?.dispose();
+        (backdrop.material as THREE.MeshBasicMaterial).map = tex;
+        (backdrop.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        backdropTex = tex;
+        return;
+      }
+      backdropTex = tex;
+      backdropMask = makeSoftMaskTexture();
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex,
+        alphaMap: backdropMask,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        fog: false,
+      });
+      backdrop = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.45), mat);
+      backdrop.position.set(3.4, 2.9, -4.6);
+      backdrop.rotation.y = -0.5;
+      backdrop.renderOrder = 1;
+      scene.add(backdrop);
+      gsap.to(mat, { opacity: 0.34, duration: 2.2, ease: 'power2.out' });
+      if (!prefersReducedMotion()) {
+        gsap.to(backdrop.position, { y: 3.05, duration: 6, ease: 'sine.inOut', yoyo: true, repeat: -1 });
+      }
+    });
+  }
+
   /* ---- Render loop ---- */
 
   let active = true;
@@ -200,6 +253,9 @@ export function createStage(container: HTMLElement): Stage {
     shower.dispose();
     particleGeo.dispose();
     glowTex.dispose();
+    backdrop?.geometry.dispose();
+    backdropTex?.dispose();
+    backdropMask?.dispose();
     scene.environment?.dispose();
     renderer.dispose();
     renderer.domElement.remove();
@@ -210,6 +266,7 @@ export function createStage(container: HTMLElement): Stage {
     shower,
     moveCamera,
     pushThroughGlass,
+    setBackdropPhoto,
     setActive: (v: boolean) => { active = v; if (v) clock.getDelta(); },
     dispose,
   };

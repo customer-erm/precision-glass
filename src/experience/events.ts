@@ -37,3 +37,14 @@ export function onPreview(fn: (detail: ChoiceDetail) => void): () => void {
   window.addEventListener('pg:preview', handler);
   return () => window.removeEventListener('pg:preview', handler);
 }
+
+/** Fired when the bathroom-photo prompt closes (uploaded=true if a photo is set). */
+export function emitPhoto(uploaded: boolean): void {
+  window.dispatchEvent(new CustomEvent<{ uploaded: boolean }>('pg:photo', { detail: { uploaded } }));
+}
+
+export function onPhoto(fn: (uploaded: boolean) => void): () => void {
+  const handler = (e: Event) => fn((e as CustomEvent<{ uploaded: boolean }>).detail.uploaded);
+  window.addEventListener('pg:photo', handler);
+  return () => window.removeEventListener('pg:photo', handler);
+}

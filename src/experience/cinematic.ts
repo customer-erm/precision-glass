@@ -14,7 +14,7 @@ import type { ServiceType } from '../animations/slideshow';
 import { gsap } from '../animations/engine';
 import { getBathroomPhoto } from '../utils/bathroom-photo';
 import { materializeSlide, dematerializeSlide, revealRender } from './materialize';
-import { onChoice, onPreview } from './events';
+import { onChoice, onPreview, onPhoto } from './events';
 import { prefersReducedMotion } from './flag';
 import type { Stage, CameraSpec } from './stage';
 import './cinematic.css';
@@ -66,6 +66,7 @@ let stageLoading = false;
 let pendingSpec: CameraSpec | null = null;
 let unsubChoice: (() => void) | null = null;
 let unsubPreview: (() => void) | null = null;
+let unsubPhoto: (() => void) | null = null;
 let activeServiceLocal: ServiceType = 'showers';
 let pushedThrough = false;
 const chosen = new Set<string>();
@@ -84,6 +85,7 @@ function mountStage(): void {
       stage = createStage(host);
       stage.shower.group.visible = activeServiceLocal === 'showers';
       host.classList.add('stage-ready');
+      applyBackdropPhoto();
       // Cinematic arrival: drift in from far out, then settle on the queued station
       const target = pendingSpec ?? stationFor(activeServiceLocal, 'intro', 0);
       pendingSpec = null;
@@ -118,6 +120,12 @@ function applyChoice(category: string, value: string): void {
     rig.setSolidity(0.15 + chosen.size * 0.17);
     rig.pulse();
   }
+}
+
+/** Their real bathroom floats in the scene as a soft vision panel. */
+function applyBackdropPhoto(): void {
+  const photo = getBathroomPhoto();
+  if (photo && stage) stage.setBackdropPhoto(photo.dataUrl);
 }
 
 /**
@@ -160,6 +168,8 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   unsubChoice = onChoice(({ category, value }) => applyChoice(category, value));
   unsubPreview?.();
   unsubPreview = onPreview(({ category, value }) => applyPreview(category, value));
+  unsubPhoto?.();
+  unsubPhoto = onPhoto((uploaded) => { if (uploaded) applyBackdropPhoto(); });
 }
 
 export async function showSlide(slideId: string): Promise<void> {
@@ -208,6 +218,8 @@ export async function endSlideshow(): Promise<void> {
   unsubChoice = null;
   unsubPreview?.();
   unsubPreview = null;
+  unsubPhoto?.();
+  unsubPhoto = null;
   await classic.endSlideshow();
   stage?.dispose();
   stage = null;

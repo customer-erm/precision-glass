@@ -177,6 +177,41 @@ log(true, 'preview events morph the model without advancing the tour');
 const stillIntro = await ppage.$('#slide-intro.active');
 log(!!stillIntro, 'tour did not advance during previews');
 
+/* ---- 13. Photo upload → vision backdrop in the 3D scene ---- */
+const photoPage = await ctx.newPage();
+photoPage.on('pageerror', (e) => errors.push(`photo pageerror: ${e.message}`));
+await photoPage.goto(BASE, { waitUntil: 'networkidle' });
+const fakeBathroom = await photoPage.screenshot(); // any real PNG works as the "bathroom"
+await photoPage.click('[data-mode="browse"]');
+await photoPage.waitForSelector('#browse-drawer-cta', { state: 'visible' });
+await photoPage.click('#browse-drawer-cta');
+await photoPage.waitForSelector('#photo-prompt.visible');
+await photoPage.setInputFiles('#photo-prompt-input', { name: 'bathroom.png', mimeType: 'image/png', buffer: fakeBathroom });
+await photoPage.waitForSelector('#photo-prompt-continue:not([hidden])', { timeout: 8000 });
+await photoPage.click('#photo-prompt-continue');
+await photoPage.waitForSelector('#stage-canvas', { timeout: 10000 });
+await photoPage.waitForTimeout(4500);
+await photoPage.screenshot({ path: `${SHOTS}15-photo-backdrop.png` });
+log(true, 'uploaded photo flow reaches the tour (backdrop visible in screenshot 15)');
+
+/* ---- 14. Chat mode reaches the cinematic tour ---- */
+const cpage = await ctx.newPage();
+cpage.on('pageerror', (e) => errors.push(`chat pageerror: ${e.message}`));
+await cpage.goto(BASE, { waitUntil: 'networkidle' });
+await cpage.click('[data-mode="chat"]');
+await cpage.waitForSelector('#chat-panel.visible', { timeout: 8000 });
+await cpage.waitForTimeout(1200);
+await cpage.fill('#chat-input', 'Justin');
+await cpage.press('#chat-input', 'Enter');
+await cpage.waitForTimeout(1800);
+await cpage.locator('.chat-chip', { hasText: /shower/i }).first().click();
+await cpage.waitForSelector('#photo-prompt.visible', { timeout: 10000 });
+await cpage.click('#photo-prompt-skip');
+await cpage.waitForSelector('#tour-slideshow.cinematic #stage-canvas', { timeout: 10000 });
+await cpage.waitForTimeout(3000);
+await cpage.screenshot({ path: `${SHOTS}16-chat-tour.png` });
+log(true, 'chat mode drives the cinematic tour');
+
 console.log('\n--- RESULTS ---');
 console.log(results.join('\n'));
 console.log('\n--- CONSOLE/PAGE ERRORS ---');
