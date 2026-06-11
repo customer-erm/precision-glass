@@ -1,0 +1,154 @@
+/**
+ * Materialize — the shared animation vocabulary of the cinematic experience.
+ * Content doesn't slide in; it *assembles*: text decodes like a drafting
+ * plotter, cards resolve from blur with depth, exits dissolve forward.
+ * All entrances respect prefers-reduced-motion (simple fades).
+ */
+import { gsap } from '../animations/engine';
+import { prefersReducedMotion } from './flag';
+
+const CARD_SELECTOR = [
+  '.ss-enc-card', '.ss-glass-card', '.ss-hw-card', '.ss-acc-card',
+  '.ss-extra-card', '.ss-process-step', '.ss-info-bullet', '.ss-quote-step',
+].join(',');
+
+const DECODE_CHARS = '▖▗▘▙▚▛▜▝▞▟ABCDEFGHIKLMNOPRSTUVZ0123456789';
+
+/* ------------------------------------------------------------------ */
+/*  Text decode — characters resolve left-to-right from plotter noise   */
+/* ------------------------------------------------------------------ */
+
+const originalText = new WeakMap<HTMLElement, string>();
+
+export function decodeText(el: HTMLElement, duration = 0.9): void {
+  if (prefersReducedMotion()) return;
+  const text = originalText.get(el) ?? el.textContent ?? '';
+  if (!text.trim()) return;
+  originalText.set(el, text);
+
+  const proxy = { progress: 0 };
+  gsap.to(proxy, {
+    progress: 1,
+    duration,
+    ease: 'power2.out',
+    onUpdate: () => {
+      const resolved = Math.floor(proxy.progress * text.length);
+      let out = text.slice(0, resolved);
+      for (let i = resolved; i < text.length; i++) {
+        const ch = text[i];
+        out += ch === ' ' ? ' ' : DECODE_CHARS[Math.floor(Math.random() * DECODE_CHARS.length)];
+      }
+      el.textContent = out;
+    },
+    onComplete: () => { el.textContent = text; },
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Slide entrance / exit                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Collect animation "units" inside a slide: each .slide-el, except that a
+ * .slide-el wrapping a grid of cards explodes into its individual cards so
+ * the grid assembles piece by piece.
+ */
+function collectUnits(slide: HTMLElement): HTMLElement[] {
+  const units: HTMLElement[] = [];
+  slide.querySelectorAll<HTMLElement>('.slide-el').forEach((el) => {
+    const cards = Array.from(el.querySelectorAll<HTMLElement>(CARD_SELECTOR));
+    if (cards.length >= 2) units.push(el, ...cards);
+    else units.push(el);
+  });
+  // Card grids that are NOT wrapped in a single .slide-el (each card is its
+  // own .slide-el) are already covered by the loop above.
+  return units;
+}
+
+export function materializeSlide(slide: HTMLElement): gsap.core.Timeline {
+  const tl = gsap.timeline();
+  const units = collectUnits(slide);
+  if (!units.length) return tl;
+
+  if (prefersReducedMotion()) {
+    tl.fromTo(units, { opacity: 0 }, { opacity: 1, duration: 0.5, stagger: 0.04 });
+    return tl;
+  }
+
+  // Separate wrappers (set visible immediately) from cards (assemble)
+  const wrappers = units.filter((u) => u.classList.contains('slide-el')
+    && u.querySelectorAll(CARD_SELECTOR).length >= 2);
+  const pieces = units.filter((u) => !wrappers.includes(u));
+
+  if (wrappers.length) tl.set(wrappers, { opacity: 1, y: 0, clearProps: 'filter' }, 0);
+
+  tl.fromTo(
+    pieces,
+    {
+      opacity: 0,
+      y: 36,
+      scale: 0.96,
+      rotationX: -8,
+      transformPerspective: 900,
+      filter: 'blur(14px) brightness(1.6)',
+    },
+    {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      rotationX: 0,
+      filter: 'blur(0px) brightness(1)',
+      duration: 0.85,
+      ease: 'power3.out',
+      stagger: { each: 0.07, from: 'start' },
+      clearProps: 'filter,transform',
+    },
+    0.05,
+  );
+
+  // Decode the headline text as it lands
+  slide.querySelectorAll<HTMLElement>('.slide-heading, .slide-title, .slide-label').forEach((el, i) => {
+    tl.add(() => decodeText(el, el.classList.contains('slide-label') ? 0.5 : 0.9), 0.1 + i * 0.08);
+  });
+
+  return tl;
+}
+
+export function dematerializeSlide(slide: HTMLElement): Promise<void> {
+  return new Promise((resolve) => {
+    const units = collectUnits(slide).filter((u) =>
+      !(u.classList.contains('slide-el') && u.querySelectorAll(CARD_SELECTOR).length >= 2));
+    if (!units.length || prefersReducedMotion()) {
+      gsap.to(slide, { opacity: 0, duration: 0.25, onComplete: () => { gsap.set(slide, { clearProps: 'opacity' }); resolve(); } });
+      return;
+    }
+    gsap.to(units, {
+      opacity: 0,
+      y: -22,
+      scale: 1.02,
+      filter: 'blur(10px)',
+      duration: 0.38,
+      ease: 'power2.in',
+      stagger: { each: 0.025, from: 'end' },
+      onComplete: () => {
+        gsap.set(units, { clearProps: 'filter' });
+        resolve();
+      },
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Render reveal flourish (finale)                                     */
+/* ------------------------------------------------------------------ */
+
+export function revealRender(imgWrap: HTMLElement): void {
+  if (prefersReducedMotion()) return;
+  const flash = document.createElement('div');
+  flash.className = 'cine-reveal-flash';
+  imgWrap.appendChild(flash);
+  const tl = gsap.timeline({ onComplete: () => flash.remove() });
+  tl.fromTo(flash, { opacity: 0 }, { opacity: 0.9, duration: 0.18, ease: 'power1.in' })
+    .to(flash, { opacity: 0, duration: 0.9, ease: 'power2.out' })
+    .fromTo(imgWrap, { scale: 0.965 }, { scale: 1, duration: 1.1, ease: 'power3.out', clearProps: 'transform' }, 0.1);
+}

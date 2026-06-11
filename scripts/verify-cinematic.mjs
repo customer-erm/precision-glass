@@ -1,0 +1,160 @@
+/**
+ * Playwright smoke test for the cinematic WebGL experience.
+ * Drives browse mode end-to-end and the ?classic=1 fallback.
+ * Run: node scripts/verify-cinematic.mjs
+ */
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+
+const BASE = 'http://localhost:5173';
+const SHOTS = new URL('../.verify-shots/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+fs.mkdirSync(SHOTS, { recursive: true });
+
+const errors = [];
+const results = [];
+
+function log(ok, msg) {
+  results.push(`${ok ? 'PASS' : 'FAIL'}  ${msg}`);
+  console.log(`${ok ? '✅' : '❌'} ${msg}`);
+}
+
+async function launch() {
+  for (const channel of ['chrome', 'msedge', undefined]) {
+    try {
+      return await chromium.launch({ channel, headless: true, args: ['--use-gl=angle', '--enable-unsafe-swiftshader'] });
+    } catch (e) { /* try next */ }
+  }
+  throw new Error('No Chromium-family browser available');
+}
+
+const browser = await launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const page = await ctx.newPage();
+page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
+
+async function shot(name) {
+  await page.screenshot({ path: `${SHOTS}${name}.png` });
+}
+
+async function startBrowseTour() {
+  await page.click('[data-mode="browse"]');
+  await page.waitForSelector('#browse-drawer-cta', { state: 'visible', timeout: 5000 });
+  await page.click('#browse-drawer-cta');
+  await page.waitForSelector('#photo-prompt.visible', { timeout: 8000 });
+  await page.click('#photo-prompt-skip');
+}
+
+/* ---- 1. Homepage ---- */
+await page.goto(BASE, { waitUntil: 'networkidle' });
+await page.waitForSelector('#hero', { timeout: 10000 });
+log(true, 'homepage loaded');
+await shot('01-home');
+
+/* ---- 2. Browse → showers tour with WebGL stage ---- */
+await startBrowseTour();
+await page.waitForSelector('#tour-slideshow.cinematic', { timeout: 8000 });
+const canvas = await page.waitForSelector('#stage-canvas', { timeout: 10000 });
+const box = await canvas.boundingBox();
+log(!!box && box.width > 100, `stage canvas mounted (${box?.width}x${box?.height})`);
+await page.waitForTimeout(3500); // arrival dolly
+await shot('02-intro');
+
+/* ---- 3. Advance: gallery → enclosures ---- */
+await page.click('#manual-nav-next');
+await page.waitForTimeout(2300);
+await shot('03-gallery');
+await page.click('#manual-nav-next');
+await page.waitForTimeout(2300);
+const encCards = await page.$$('#slide-enclosures .ss-enc-card');
+log(encCards.length === 10, `enclosures slide shows ${encCards.length} cards`);
+await shot('04-enclosures');
+
+/* ---- 4. Select Frameless Slider → assemble ---- */
+await encCards[3].click(); // Frameless Slider
+await page.waitForTimeout(400);
+const selected = await page.$('#slide-enclosures .browse-option.selected');
+log(!!selected, 'enclosure card selectable');
+await page.click('#manual-nav-next'); // → glass, model assembles
+await page.waitForTimeout(3000);
+await shot('05-glass-slider-assembled');
+
+/* ---- 5. Frosted glass morph ---- */
+const glassCards = await page.$$('#slide-glass .ss-glass-card');
+await glassCards[1].click(); // Frosted
+await page.click('#manual-nav-next'); // → hardware
+await page.waitForTimeout(2800);
+await shot('06-hardware-frosted');
+
+/* ---- 6. Matte black finish ---- */
+const hwCards = await page.$$('#slide-hardware .ss-hw-card');
+await hwCards[2].click(); // Matte Black
+await page.click('#manual-nav-next'); // → accessories
+await page.waitForTimeout(2800);
+await shot('07-accessories-black');
+
+/* ---- 7. Ladder pull handle ---- */
+const accCards = await page.$$('#slide-accessories .ss-acc-card');
+await accCards[2].click(); // Ladder Pulls
+await page.click('#manual-nav-next'); // → extras
+await page.waitForTimeout(2000);
+await page.click('#manual-nav-next'); // → process
+await page.waitForTimeout(2000);
+await shot('08-process');
+
+/* ---- 8. Quote: push-through-glass finale ---- */
+await page.click('#manual-nav-next'); // → quote
+await page.waitForTimeout(4200);
+const dimmed = await page.$('#tour-slideshow.cinematic.stage-dim');
+log(!!dimmed, 'quote slide dims the stage after push-through');
+const lock = await page.$('.ss-quote-lock');
+log(!!lock, 'quote lock overlay present (browse mode)');
+await shot('09-quote');
+
+/* ---- 9. Fill form & submit ---- */
+await page.fill('#bqf-name', 'Demo Tester');
+await page.fill('#bqf-email', 'demo@example.com');
+await page.click('#manual-nav-next'); // Prepare proposal
+await page.waitForTimeout(2500);
+const sent = await page.$('#qs-sent-overlay.visible');
+log(!!sent, 'proposal-sent overlay appears after submit');
+await shot('10-sent');
+
+/* ---- 10. Classic fallback ---- */
+const page2 = await ctx.newPage();
+page2.on('pageerror', (e) => errors.push(`classic pageerror: ${e.message}`));
+await page2.goto(`${BASE}/?classic=1`, { waitUntil: 'networkidle' });
+await page2.click('[data-mode="browse"]');
+await page2.waitForSelector('#browse-drawer-cta', { state: 'visible' });
+await page2.click('#browse-drawer-cta');
+await page2.waitForSelector('#photo-prompt.visible');
+await page2.click('#photo-prompt-skip');
+await page2.waitForSelector('#tour-slideshow', { timeout: 8000 });
+await page2.waitForTimeout(1500);
+const classicCanvas = await page2.$('#stage-canvas');
+const classicClass = await page2.$('#tour-slideshow.cinematic');
+log(!classicCanvas && !classicClass, '?classic=1 serves the old flow (no canvas, no cinematic class)');
+await page2.screenshot({ path: `${SHOTS}11-classic.png` });
+
+/* ---- 11. Mobile viewport sanity ---- */
+const mctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const mpage = await mctx.newPage();
+mpage.on('pageerror', (e) => errors.push(`mobile pageerror: ${e.message}`));
+await mpage.goto(BASE, { waitUntil: 'networkidle' });
+await mpage.click('[data-mode="browse"]');
+await mpage.waitForSelector('#browse-drawer-cta', { state: 'visible' });
+await mpage.click('#browse-drawer-cta');
+await mpage.waitForSelector('#photo-prompt.visible');
+await mpage.click('#photo-prompt-skip');
+await mpage.waitForSelector('#stage-canvas', { timeout: 10000 });
+await mpage.waitForTimeout(3000);
+await mpage.screenshot({ path: `${SHOTS}12-mobile-intro.png` });
+log(true, 'mobile viewport renders the cinematic tour');
+
+console.log('\n--- RESULTS ---');
+console.log(results.join('\n'));
+console.log('\n--- CONSOLE/PAGE ERRORS ---');
+console.log(errors.length ? errors.join('\n') : '(none)');
+
+await browser.close();
+process.exit(results.some(r => r.startsWith('FAIL')) ? 1 : 0);

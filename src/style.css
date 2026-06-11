@@ -1728,7 +1728,8 @@ body.browse-active .help-launcher {
   transition: opacity 0.6s ease, transform 0.6s var(--ease-out-expo);
   pointer-events: none;
 }
-.ss-quote-sent-stage-celebrate { opacity: 1; transform: none; pointer-events: auto; }
+.ss-quote-sent-stage-celebrate { opacity: 1; transform: none; }
+.ss-quote-sent.visible .ss-quote-sent-stage-celebrate { pointer-events: auto; }
 .ss-quote-sent.show-actions .ss-quote-sent-stage-celebrate {
   opacity: 0;
   transform: translateY(-12px);

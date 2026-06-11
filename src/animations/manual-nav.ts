@@ -16,7 +16,8 @@ import {
   endSlideshow,
   showQuoteSent,
   createSlideshow,
-} from './slideshow';
+} from '../experience/facade';
+import { emitChoice } from '../experience/events';
 import { playTransformAnimation } from './transform';
 import { generateShowerImage } from '../gemini/image-gen';
 import { saveUser } from '../utils/user-storage';
@@ -210,7 +211,10 @@ async function goNext(): Promise<void> {
     const selected = document.querySelector(`#slide-${cur} .browse-option.selected`) as HTMLElement | null;
     if (selected) {
       const choice = selected.getAttribute('data-label') || selected.textContent?.trim() || '';
-      if (choice) browseChoices[category] = choice;
+      if (choice) {
+        browseChoices[category] = choice;
+        emitChoice(category, choice);
+      }
     }
   }
 

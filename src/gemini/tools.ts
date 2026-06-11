@@ -1,5 +1,6 @@
 import { playTransformAnimation } from '../animations/transform';
-import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService, renderQuoteVisuals, markQuoteRenderReady } from '../animations/slideshow';
+import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService, renderQuoteVisuals, markQuoteRenderReady } from '../experience/facade';
+import { emitChoice } from '../experience/events';
 import { setState, getState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
@@ -300,6 +301,7 @@ export async function handleToolCall(
       }
       if (args.accessories) {
         quoteChoices['accessories'] = args.accessories;
+        emitChoice('accessories', args.accessories);
         console.log('[Quote] Saved accessories:', args.accessories);
       }
       // Save choice from current slide
@@ -307,6 +309,7 @@ export async function handleToolCall(
         const category = choiceCategoryForSlide(args.slide_id);
         if (category) {
           quoteChoices[category] = args.choice;
+          emitChoice(category, args.choice);
           console.log('[Quote] Saved:', category, '=', args.choice);
         }
       }
@@ -355,6 +358,9 @@ export async function handleToolCall(
       if (args.handle) quoteChoices['handle'] = args.handle;
       if (args.accessories) quoteChoices['accessories'] = args.accessories;
       if (args.extras) quoteChoices['extras'] = args.extras;
+      for (const k of ['enclosure', 'glass', 'hardware', 'handle', 'extras'] as const) {
+        if (quoteChoices[k]) emitChoice(k, quoteChoices[k]);
+      }
       if (args.customer_name) quoteChoices['name'] = args.customer_name;
       if (args.email) quoteChoices['email'] = args.email;
 

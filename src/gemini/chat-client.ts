@@ -19,7 +19,7 @@ import { loadUser, saveUser } from '../utils/user-storage';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
 import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPhoto } from '../utils/bathroom-photo';
-import { renderQuoteVisuals, markQuoteRenderReady } from '../animations/slideshow';
+import { renderQuoteVisuals, markQuoteRenderReady } from '../experience/facade';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
