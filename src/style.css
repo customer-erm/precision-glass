@@ -227,6 +227,8 @@ img { max-width: 100%; display: block; }
   width: min(100%, 1040px);
 }
 .hero-headline .mode-picker-wrap { margin-top: 20px; }
+.hero-headline > .hero-trust { justify-content: center; margin: 0 auto 4px; }
+.mode-picker-wrap > .mode-last-design { width: min(100%, 380px); }
 
 /* Stacked engagement panel (right column of the split hero) */
 .hero-actions .mode-picker-wrap.mode-stack {

@@ -78,15 +78,17 @@ export class GeminiLiveClient {
           },
           outputAudioTranscription: {},
           inputAudioTranscription: {},
-          // Faster end-of-speech detection so quick replies like "sure"
-          // trigger the agent in ~450-500ms instead of the default ~800ms,
-          // but not so aggressive that the server cuts the agent off.
+          // Tuned for HEARING over speed: generous prefix padding so the
+          // first word is never clipped, and a lower end-of-speech
+          // sensitivity + longer silence window so mid-sentence pauses
+          // don't cut the customer off (the "I have to say things twice"
+          // failure mode).
           realtimeInputConfig: {
             automaticActivityDetection: {
               startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
-              endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-              prefixPaddingMs: 150,
-              silenceDurationMs: 450,
+              endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
+              prefixPaddingMs: 400,
+              silenceDurationMs: 650,
             },
           },
         } as any,

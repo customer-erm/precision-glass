@@ -295,15 +295,19 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   floor.position.y = BASE_Y + 0.002;
   group.add(floor);
 
-  // Showerhead hint — instantly reads as "shower"
+  // Showerhead — arm comes out of the BACK wall, head hanging at its end
   const metalMat = new THREE.MeshStandardMaterial({ color: FINISHES.chrome.color, metalness: 1, roughness: FINISHES.chrome.roughness });
-  const armGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.3, 12);
+  const armGeo = new THREE.CylinderGeometry(0.013, 0.013, 0.3, 12);
   const arm = new THREE.Mesh(armGeo, metalMat);
-  arm.rotation.z = Math.PI / 2;
-  arm.position.set(-0.55, BASE_Y + 1.95, -0.6);
+  arm.rotation.x = Math.PI / 2;
+  arm.position.set(-0.35, BASE_Y + 1.96, -0.59); // spans wall (z=-0.74) → z=-0.44
   group.add(arm);
-  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 0.02, 24), metalMat);
-  head.position.set(-0.42, BASE_Y + 1.94, -0.6);
+  const headJoint = new THREE.Mesh(new THREE.SphereGeometry(0.022, 12, 10), metalMat);
+  headJoint.position.set(-0.35, BASE_Y + 1.96, -0.45);
+  group.add(headJoint);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.105, 0.02, 24), metalMat);
+  head.position.set(-0.35, BASE_Y + 1.92, -0.44);
+  head.rotation.x = 0.1;
   group.add(head);
 
   /* ---- Glass assembly (rebuilt per enclosure) ---- */
@@ -414,6 +418,25 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         pivot.add(hinge);
         hingeMeshes.push(hinge);
       }
+    } else if (!spec.baseY) {
+      // Fixed panels: U-channel where a vertical edge meets a wall — the
+      // detail that makes a frameless install read as professionally set.
+      const nearWall = (x: number, z: number) =>
+        Math.abs(x - L) < 0.06 || Math.abs(z - L) < 0.06;
+      for (const [end, sign] of [[spec.from, -1], [spec.to, 1]] as Array<[[number, number], number]>) {
+        if (nearWall(end[0], end[1])) {
+          const channel = new THREE.Mesh(new THREE.BoxGeometry(0.028, hgt, 0.034), metalMat);
+          channel.position.set(sign * (w / 2 - 0.012), hgt / 2, 0);
+          pivot.add(channel);
+          hingeMeshes.push(channel);
+        }
+      }
+    }
+    // Low tiled curb under every floor-standing panel
+    if (!spec.baseY) {
+      const curb = new THREE.Mesh(new THREE.BoxGeometry(w, 0.07, 0.1), pedestalMat);
+      curb.position.set(0, 0.035, 0);
+      pivot.add(curb);
     }
     if (spec.hasHandle) {
       handleHost = new THREE.Group();
@@ -552,7 +575,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   fxGroup.visible = false;
   group.add(fxGroup);
 
-  const HEAD = new THREE.Vector3(-0.42, BASE_Y + 1.92, -0.6);
+  const HEAD = new THREE.Vector3(-0.35, BASE_Y + 1.9, -0.44);
   const DROPS = 240;
   const dropPos = new Float32Array(DROPS * 3);
   const dropSeed = new Float32Array(DROPS * 2); // angle, radius factor

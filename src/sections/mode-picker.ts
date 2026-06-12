@@ -4,11 +4,10 @@
  *        [Chat]       (( MIC ))        [Browse]
  *      with Alex      Talk to Alex     yourself
  *
- * The mic stays the visual hero (voice is the fastest, most magical path),
- * but all three options are now equal in structure: a control, an
- * always-visible label, and a one-line value prop — so a first-time
- * visitor instantly understands they're three routes to the same outcome.
- * A shared caption mentions the free AI rendering, without overselling it.
+ * The mic is the visual hero (voice is the fastest, most magical path),
+ * with chat and browse flanking it as equal routes to the same outcome.
+ * Returning users get a welcome-back pill with a Reset escape hatch and
+ * a "Your last design" card pulled from localStorage.
  */
 
 import { el } from '../utils/dom';
@@ -20,13 +19,24 @@ const CHAT_SVG = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" st
 
 const BROWSE_SVG = `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`;
 
+interface ModeOptionSpec {
+  mode: 'voice' | 'chat' | 'browse';
+  variant: 'voice' | 'sm';
+  icon: string;
+  label: string;
+  sub: string;
+  preferred: boolean;
+  recommended?: boolean;
+}
+
 export function buildModePicker(): HTMLElement {
   const user = loadUser();
   const returning = !!(user && user.visitCount > 0 && user.name);
+  const preferredMode = user?.preferredMode || null;
 
-  const wrap = el('div', { className: 'mode-picker-wrap mode-stack', id: 'mode-picker-wrap' });
+  const wrap = el('div', { className: 'mode-picker-wrap', id: 'mode-picker-wrap' });
 
-  // Welcome-back pill + reset (clears the stored profile)
+  // Welcome-back pill + Reset (clears the stored profile)
   if (returning && user?.name) {
     const welcomeRow = el('div', { className: 'mode-welcome-row' });
     const welcome = el('div', { className: 'mode-picker-welcome' });
@@ -46,20 +56,21 @@ export function buildModePicker(): HTMLElement {
     wrap.appendChild(welcomeRow);
   }
 
+  // Framing prompt — tells the user these are three ways into the same thing
   const prompt = el('div', {
     className: 'mode-prompt',
     textContent: returning ? 'Pick up where you left off — how do you want to design?' : 'How would you like to design your shower?',
   });
   wrap.appendChild(prompt);
 
-  // Three routes, stacked — voice leads
-  const stack = el('div', { className: 'mode-stack-list' });
-  stack.append(
-    stackOption('voice', MIC_SVG, 'Talk to Alex', 'Voice · hands-free', true),
-    stackOption('chat', CHAT_SVG, 'Chat with Alex', 'Tap-through, no talking', false),
-    stackOption('browse', BROWSE_SVG, 'Browse yourself', 'Explore at your pace', false),
+  // Cluster: [chat]  (( MIC ))  [browse]
+  const cluster = el('div', { className: 'mode-cluster', id: 'mode-cluster' });
+  cluster.append(
+    buildOption({ mode: 'chat', variant: 'sm', icon: CHAT_SVG, label: 'Chat with Alex', sub: 'Tap-through, no talking', preferred: preferredMode === 'chat' }),
+    buildOption({ mode: 'voice', variant: 'voice', icon: MIC_SVG, label: 'Talk to Alex', sub: 'Voice · hands-free', preferred: preferredMode === 'voice', recommended: true }),
+    buildOption({ mode: 'browse', variant: 'sm', icon: BROWSE_SVG, label: 'Browse yourself', sub: 'Explore at your pace', preferred: preferredMode === 'browse' }),
   );
-  wrap.appendChild(stack);
+  wrap.appendChild(cluster);
 
   // Returning users see their last design at a glance
   if (returning && user?.lastQuote && (user.lastQuote.enclosure || user.lastQuote.service)) {
@@ -98,21 +109,39 @@ export function buildModePicker(): HTMLElement {
   return wrap;
 }
 
-function stackOption(mode: string, icon: string, label: string, sub: string, primary: boolean): HTMLElement {
+function buildOption(spec: ModeOptionSpec): HTMLElement {
   const btn = el('button', {
-    className: `mode-option mode-stack-option${primary ? ' primary' : ''}`,
+    className: `mode-option mode-option-${spec.mode}${spec.preferred ? ' preferred' : ''}${spec.variant === 'voice' ? ' mode-option-hero' : ''}`,
     type: 'button',
-    ariaLabel: `${label} — ${sub}`,
-    innerHTML: `
-      <span class="mso-icon">${icon}</span>
-      <span class="mso-text">
-        <span class="mso-label">${label}</span>
-        <span class="mso-sub">${sub}</span>
-      </span>
-      <span class="mso-arrow" aria-hidden="true">→</span>
-    `,
+    ariaLabel: `${spec.label} — ${spec.sub}`,
   });
-  btn.setAttribute('data-mode', mode);
+  btn.setAttribute('data-mode', spec.mode);
+
+  if (spec.recommended) {
+    btn.appendChild(el('span', { className: 'mode-option-badge', textContent: 'Recommended' }));
+  } else if (spec.preferred) {
+    btn.appendChild(el('span', { className: 'mode-option-badge mode-option-badge-muted', textContent: 'Last used' }));
+  }
+
+  if (spec.variant === 'voice') {
+    const hero = el('div', { className: 'mode-voice-hero' });
+    hero.innerHTML = `
+      <span class="mode-voice-ring ring1"></span>
+      <span class="mode-voice-ring ring2"></span>
+      <span class="mode-voice-ring ring3"></span>
+      <span class="mode-voice-core">${spec.icon}</span>
+      <span class="mode-voice-glow"></span>
+    `;
+    btn.appendChild(hero);
+  } else {
+    btn.appendChild(el('div', { className: 'mode-control', innerHTML: spec.icon }));
+  }
+
+  btn.append(
+    el('span', { className: 'mode-option-label', textContent: spec.label }),
+    el('span', { className: 'mode-option-sub', textContent: spec.sub }),
+  );
+
   return btn;
 }
 

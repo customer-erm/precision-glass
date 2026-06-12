@@ -38,7 +38,7 @@ const SHOWER_STATIONS: Record<string, CameraSpec> = {
   gallery: { angle: -0.6, distance: 6.6, height: 1.9, lateral: 1.55 },
   enclosures: { angle: 0.05, distance: 5.0, height: 1.7, lateral: 1.15 },
   glass: { angle: -0.5, distance: 3.6, height: 1.5, lateral: 0.95 },
-  hardware: { angle: 0.8, distance: 3.0, height: 1.35, lateral: 0.9 },
+  hardware: { angle: 0.7, distance: 2.0, height: 1.3, targetHeight: 1.05, lateral: 0.55 },
   accessories: { angle: 1.0, distance: 2.6, height: 1.25, lateral: 0.85 },
   extras: { angle: -0.3, distance: 4.6, height: 2.2, lateral: 1.0 },
   process: { angle: 0.45, distance: 5.4, height: 1.8, lateral: 1.05 },
@@ -215,6 +215,28 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   pushedThrough = false;
   const host = root();
   host?.classList.add('cinematic');
+  // The tour is a fixed overlay — the page behind must never scroll
+  document.body.style.overflow = 'hidden';
+
+  // Trust signals under the intro copy
+  if (host && service === 'showers') {
+    const introContent = host.querySelector('#slide-intro .slide-content');
+    if (introContent && !introContent.querySelector('.cine-intro-trust')) {
+      const SHIELD = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
+      const AWARD = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg>';
+      const CLOCK = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
+      const STAR = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+      const trust = document.createElement('div');
+      trust.className = 'cine-intro-trust slide-el';
+      trust.innerHTML = `
+        <span>${SHIELD}Licensed &amp; insured</span>
+        <span>${AWARD}Lifetime warranty</span>
+        <span>${CLOCK}Most installs in 1 day</span>
+        <span>${STAR}20+ years in S. Florida</span>
+      `;
+      introContent.appendChild(trust);
+    }
+  }
 
   // Trim the enclosure list to the 8 signature styles so the side column
   // breathes — arched and fully-custom stay available by asking the agent.
@@ -293,6 +315,7 @@ export async function endSlideshow(): Promise<void> {
   unsubChoice = null;
   unsubPreview?.();
   unsubPreview = null;
+  document.body.style.overflow = '';
   await classic.endSlideshow();
   stage?.dispose();
   stage = null;
