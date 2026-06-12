@@ -17,7 +17,7 @@ import {
   showQuoteSent,
   createSlideshow,
 } from '../experience/facade';
-import { emitChoice } from '../experience/events';
+import { emitChoice, emitPreview } from '../experience/events';
 import { playTransformAnimation } from './transform';
 import { generateShowerImage } from '../gemini/image-gen';
 import { saveUser } from '../utils/user-storage';
@@ -271,6 +271,8 @@ async function exitManualTour(): Promise<void> {
   const hero = document.getElementById('hero');
   if (hero) {
     hero.style.display = '';
+    hero.style.visibility = '';
+    hero.style.pointerEvents = '';
     hero.style.opacity = '1';
     hero.querySelectorAll<HTMLElement>('.hero-title, .hero-subtitle, .hero-trust, .mode-picker-wrap, .mode-picker-welcome, .mode-prompt, .mode-option, .mode-caption').forEach((el) => {
       el.style.opacity = '1';
@@ -334,6 +336,16 @@ function wireSlideInteraction(): void {
       slideEl.querySelectorAll('.browse-option.selected').forEach((e) => e.classList.remove('selected'));
       card.classList.add('selected');
       console.log('[Manual] Selected on', cur, '→', card.getAttribute('data-label'));
+      // Browse drives the 3D model live: morph the moment a card is picked
+      const previewLabel = card.getAttribute('data-label') || '';
+      const previewCategory: Record<string, string> = {
+        enclosures: 'enclosure', glass: 'glass', hardware: 'hardware', accessories: 'handle',
+      };
+      const cat = previewCategory[cur || ''];
+      const isHandle = /pull|handle|ladder|knob/i.test(previewLabel);
+      if (cat && previewLabel && (cat !== 'handle' || isHandle)) {
+        emitPreview(cat, previewLabel);
+      }
       const next = document.getElementById('manual-nav-next');
       if (next) next.classList.add('pulse-ready');
     });

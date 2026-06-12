@@ -8,7 +8,7 @@ import { gsap, EASE, DURATION } from './engine';
 export function playLandingAnimation(): void {
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-  const targets = '.hero-title, .hero-subtitle, .mode-picker-welcome, .mode-prompt, .mode-option, .mode-caption';
+  const targets = '.hero-title, .hero-subtitle, .hero-trust, .mode-picker-welcome, .mode-option, .mode-caption';
 
   if (reduce) {
     gsap.set(targets, { clearProps: 'opacity,transform' });
@@ -29,14 +29,14 @@ export function playLandingAnimation(): void {
       { opacity: 1, y: 0, duration: DURATION.medium },
       '-=0.45',
     )
-    .fromTo('.mode-prompt',
+    .fromTo('.hero-trust',
       { opacity: 0, y: 14 },
       { opacity: 1, y: 0, duration: 0.45 },
       '-=0.2',
     )
     .fromTo('.mode-option',
-      { opacity: 0, y: 40, scale: 0.85 },
-      { opacity: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.12, ease: EASE.snap },
+      { opacity: 0, y: 28, scale: 0.92 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.1, ease: EASE.snap },
       '-=0.15',
     )
     .fromTo('.mode-caption',

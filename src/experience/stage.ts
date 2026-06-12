@@ -73,13 +73,13 @@ export function createStage(container: HTMLElement): Stage {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.3 : 1.75));
   renderer.setSize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.18;
   renderer.domElement.id = 'stage-canvas';
   container.prepend(renderer.domElement);
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(NAVY);
-  scene.fog = new THREE.FogExp2(NAVY, 0.055);
+  scene.fog = new THREE.FogExp2(NAVY, 0.048);
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 120);
   const lookTarget = new THREE.Vector3(0, 1.1, 0);
@@ -124,16 +124,21 @@ export function createStage(container: HTMLElement): Stage {
 
   /* ---- Lights ---- */
 
-  scene.add(new THREE.AmbientLight(0x32507a, 0.7));
-  const key = new THREE.DirectionalLight(0xeaf4ff, 2.1);
+  scene.add(new THREE.AmbientLight(0x32507a, 0.65));
+  const key = new THREE.DirectionalLight(0xeaf4ff, 2.3);
   key.position.set(4, 7, 5);
   scene.add(key);
-  const rim = new THREE.PointLight(0x5fd4ff, 14, 22);
+  const rim = new THREE.PointLight(0x5fd4ff, 26, 24);
   rim.position.set(-4.5, 3.2, -3);
   scene.add(rim);
-  const warm = new THREE.PointLight(0xffd9a8, 5, 16);
+  const warm = new THREE.PointLight(0xffd9a8, 8, 16);
   warm.position.set(3.5, 1.2, 3.5);
   scene.add(warm);
+  // Cool dramatic key spot raking across the glass from the front-right
+  const spot = new THREE.SpotLight(0x9cc8ff, 30, 30, 0.5, 0.9, 1.2);
+  spot.position.set(3.2, 6.2, 5.5);
+  spot.target.position.set(0, 1.1, 0);
+  scene.add(spot, spot.target);
 
   /* ---- Shower rig on its pedestal ---- */
 

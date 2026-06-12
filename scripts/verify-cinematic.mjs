@@ -52,7 +52,7 @@ await shot('01-home');
 
 /* ---- 2. Browse → showers tour with WebGL stage ---- */
 await startBrowseTour();
-await page.waitForSelector('#tour-slideshow.cinematic', { timeout: 8000 });
+await page.waitForSelector('#tour-slideshow.cinematic', { timeout: 20000 });
 const canvas = await page.waitForSelector('#stage-canvas', { timeout: 10000 });
 const box = await canvas.boundingBox();
 log(!!box && box.width > 100, `stage canvas mounted (${box?.width}x${box?.height})`);

@@ -7,6 +7,11 @@ import { gsap, EASE } from './engine';
  */
 export function playTransformAnimation(): Promise<void> {
   return new Promise((resolve) => {
+    // Jump to the top instantly BEFORE anything moves — and hide the hero
+    // with visibility (not display) so the page never reflows and the
+    // section below the hero can't flash into view mid-transition.
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+
     const tl = gsap.timeline({ onComplete: resolve });
 
     // One fluid exit: copy and controls lift away together with a blur,
@@ -23,11 +28,13 @@ export function playTransformAnimation(): Promise<void> {
       ease: EASE.smooth,
     }, '-=0.18');
 
-    // Hide hero from layout
+    // Hide the hero without collapsing the layout (no scroll jump)
     tl.add(() => {
       const hero = document.getElementById('hero');
-      if (hero) hero.style.display = 'none';
-      window.scrollTo({ top: 0 });
+      if (hero) {
+        hero.style.visibility = 'hidden';
+        hero.style.pointerEvents = 'none';
+      }
     });
   });
 }

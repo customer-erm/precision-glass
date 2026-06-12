@@ -101,13 +101,11 @@ export function buildHero(): HTMLElement {
   // Mode picker (replaces the old single mic button)
   const modePicker = buildModePicker();
 
-  // Split layout: company copy on the left, engagement panel on the right
-  const headline = el('div', { className: 'hero-headline hero-split' });
+  // Left-anchored layout: copy + one clear CTA stack, photos breathe on the right
+  const headline = el('div', { className: 'hero-headline hero-left' });
   const copy = el('div', { className: 'hero-copy' });
-  copy.append(title, subtitle, trust);
-  const actions = el('div', { className: 'hero-actions' });
-  actions.appendChild(modePicker);
-  headline.append(copy, actions);
+  copy.append(title, subtitle, trust, modePicker);
+  headline.append(copy);
 
   // Services grid is retained but hidden (kept in DOM for any deep-links
   // that still query .service-card — we rely on the mode picker now).

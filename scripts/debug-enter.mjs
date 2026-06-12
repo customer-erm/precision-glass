@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ channel: 'chrome', headless: true, args: ['--use-gl=angle'] });
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+p.on('console', (m) => { if (['error', 'warning'].includes(m.type())) console.log(`[${m.type()}]`, m.text()); });
+p.on('pageerror', (e) => console.log('[pageerror]', e.message));
+await p.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+await p.click('[data-mode="browse"]');
+await p.waitForSelector('#browse-drawer-cta', { state: 'visible' });
+await p.click('#browse-drawer-cta');
+await p.waitForTimeout(6000);
+const ss = await p.$('#tour-slideshow');
+console.log('slideshow exists:', !!ss, '| classes:', ss ? await ss.getAttribute('class') : 'n/a');
+await p.screenshot({ path: '.verify-shots/debug-enter.png' });
+await b.close();

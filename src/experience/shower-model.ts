@@ -25,6 +25,8 @@ export interface ShowerRig {
   setSolidity(t: number): void;
   /** Celebratory ring flash when a selection locks in. */
   pulse(): void;
+  /** Shower-in-use mood: falling water spray + rising steam. */
+  setWater(on: boolean): void;
   idle(dt: number): void;
   dispose(): void;
 }
@@ -186,12 +188,14 @@ function makeRainBumpTexture(): THREE.CanvasTexture {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#808080';
   ctx.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 900; i++) {
+  // Dense elongated droplets with hard highlights — reads as real rain glass
+  for (let i = 0; i < 2200; i++) {
     const x = Math.random() * 512, y = Math.random() * 512;
-    const r = 2 + Math.random() * 7, len = r * (2 + Math.random() * 3);
+    const r = 2.5 + Math.random() * 8, len = r * (2.5 + Math.random() * 4);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    const bright = 150 + Math.floor(Math.random() * 80);
+    const bright = 185 + Math.floor(Math.random() * 70);
     g.addColorStop(0, `rgb(${bright},${bright},${bright})`);
+    g.addColorStop(0.55, `rgb(${bright - 70},${bright - 70},${bright - 70})`);
     g.addColorStop(1, 'rgba(128,128,128,0)');
     ctx.fillStyle = g;
     ctx.save();
@@ -202,7 +206,21 @@ function makeRainBumpTexture(): THREE.CanvasTexture {
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1.4, 1.4);
   return tex;
+}
+
+function makeSteamTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(64, 64, 4, 64, 64, 64);
+  g.addColorStop(0, 'rgba(235, 245, 255, 0.85)');
+  g.addColorStop(0.5, 'rgba(220, 235, 250, 0.3)');
+  g.addColorStop(1, 'rgba(210, 230, 250, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
 }
 
 /* ------------------------------------------------------------------ */
@@ -240,13 +258,32 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   ring.position.y = 0.1;
   group.add(ring);
 
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x16314e, roughness: 0.85, map: tileTex, side: THREE.FrontSide });
-  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.45), wallMat);
-  backWall.position.set(0, BASE_Y + 1.22, -0.74);
+  // Walls are thin extruded slabs: tiled (and bump-mapped) on the inside
+  // face, translucent on every other face — so no matter how the camera
+  // orbits, the walls never hide the glass; you see through them instead.
+  const tileMat = new THREE.MeshStandardMaterial({
+    color: 0x24527e, roughness: 0.72, map: tileTex,
+    bumpMap: tileTex, bumpScale: 2.2,
+  });
+  const shellMat = new THREE.MeshPhysicalMaterial({
+    color: 0x16395e, transparent: true, opacity: 0.34,
+    roughness: 0.35, metalness: 0.1, depthWrite: false,
+    envMapIntensity: 0.8,
+  });
+  // BoxGeometry face order: +x, -x, +y, -y, +z, -z
+  const backWall = new THREE.Mesh(
+    new THREE.BoxGeometry(1.58, 2.45, 0.07),
+    [shellMat, shellMat, shellMat, shellMat, tileMat, shellMat], // tile faces the shower (+z)
+  );
+  backWall.position.set(0, BASE_Y + 1.22, -0.745);
+  backWall.renderOrder = 1;
   group.add(backWall);
-  const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.45), wallMat);
-  leftWall.rotation.y = Math.PI / 2;
-  leftWall.position.set(-0.74, BASE_Y + 1.22, 0);
+  const leftWall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.07, 2.45, 1.58),
+    [tileMat, shellMat, shellMat, shellMat, shellMat, shellMat], // tile faces the shower (+x)
+  );
+  leftWall.position.set(-0.745, BASE_Y + 1.22, 0);
+  leftWall.renderOrder = 1;
   group.add(leftWall);
 
   const floorMat = new THREE.MeshStandardMaterial({ color: 0x14283f, roughness: 0.7, map: tileTex });
@@ -277,14 +314,16 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function makeGlassMaterial(): THREE.MeshPhysicalMaterial {
     const m = new THREE.MeshPhysicalMaterial({
-      color: 0xdcf1ff,
+      color: 0xb9e2ff,
       metalness: 0,
-      roughness: 0.05,
+      roughness: 0.03,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.34,
       side: THREE.DoubleSide,
       depthWrite: false,
-      envMapIntensity: 1.4,
+      envMapIntensity: 2.0,
+      clearcoat: 1,
+      clearcoatRoughness: 0.06,
     });
     if (!opts.cheapGlass) {
       m.transmission = 0.92;
@@ -296,12 +335,12 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function applyGlassKey(m: THREE.MeshPhysicalMaterial, key: GlassKey, animate: boolean): void {
     const target = key === 'frosted'
-      ? { roughness: 0.55, opacity: 0.55, color: new THREE.Color(0xe8f2fa) }
+      ? { roughness: 0.55, opacity: 0.58, color: new THREE.Color(0xdeeefc) }
       : key === 'rain'
-        ? { roughness: 0.18, opacity: 0.42, color: new THREE.Color(0xddf0fc) }
-        : { roughness: 0.05, opacity: 0.3, color: new THREE.Color(0xdcf1ff) };
+        ? { roughness: 0.16, opacity: 0.46, color: new THREE.Color(0xc9e8ff) }
+        : { roughness: 0.03, opacity: 0.34, color: new THREE.Color(0xb9e2ff) };
     m.bumpMap = key === 'rain' ? rainBump : null;
-    m.bumpScale = key === 'rain' ? 1.6 : 0;
+    m.bumpScale = key === 'rain' ? 5.5 : 0;
     m.needsUpdate = true;
     if (animate && !prefersReducedMotion()) {
       gsap.to(m, { roughness: target.roughness, duration: 1.1, ease: 'power2.inOut' });
@@ -319,7 +358,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   }
 
   function baseOpacityFor(key: GlassKey): number {
-    return key === 'frosted' ? 0.55 : key === 'rain' ? 0.42 : 0.3;
+    return key === 'frosted' ? 0.58 : key === 'rain' ? 0.46 : 0.34;
   }
 
   function makeArchedGeometry(w: number, hgt: number): THREE.ExtrudeGeometry {
@@ -504,6 +543,78 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     }
   }
 
+  /* ---- Water spray + steam (shower-in-use mood) ---- */
+
+  const fxGroup = new THREE.Group();
+  fxGroup.visible = false;
+  group.add(fxGroup);
+
+  const HEAD = new THREE.Vector3(-0.42, BASE_Y + 1.92, -0.6);
+  const DROPS = 240;
+  const dropPos = new Float32Array(DROPS * 3);
+  const dropSeed = new Float32Array(DROPS * 2); // angle, radius factor
+  function resetDrop(i: number, randomY: boolean): void {
+    const a = Math.random() * Math.PI * 2;
+    const rf = Math.random();
+    dropSeed[i * 2] = a;
+    dropSeed[i * 2 + 1] = rf;
+    const y = randomY ? BASE_Y + 0.15 + Math.random() * (HEAD.y - BASE_Y - 0.2) : HEAD.y;
+    const spread = ((HEAD.y - y) / (HEAD.y - BASE_Y)) * 0.34 * rf + 0.02;
+    dropPos[i * 3] = HEAD.x + Math.cos(a) * spread;
+    dropPos[i * 3 + 1] = y;
+    dropPos[i * 3 + 2] = HEAD.z + Math.sin(a) * spread;
+  }
+  for (let i = 0; i < DROPS; i++) resetDrop(i, true);
+  const dropGeo = new THREE.BufferGeometry();
+  dropGeo.setAttribute('position', new THREE.BufferAttribute(dropPos, 3));
+  const dropMat = new THREE.PointsMaterial({
+    color: 0xcfe9ff, size: 0.022, transparent: true, opacity: 0.65,
+    blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+  });
+  fxGroup.add(new THREE.Points(dropGeo, dropMat));
+
+  const steamTex = makeSteamTexture();
+  const steamSprites: Array<{ sprite: THREE.Sprite; phase: number; x: number; z: number }> = [];
+  for (let i = 0; i < 7; i++) {
+    const mat = new THREE.SpriteMaterial({
+      map: steamTex, transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.NormalBlending,
+    });
+    const sprite = new THREE.Sprite(mat);
+    const x = -0.45 + Math.random() * 0.7;
+    const z = -0.55 + Math.random() * 0.6;
+    sprite.position.set(x, BASE_Y + 0.5, z);
+    steamSprites.push({ sprite, phase: i / 7, x, z });
+    fxGroup.add(sprite);
+  }
+
+  function updateFx(dt: number, t: number): void {
+    for (let i = 0; i < DROPS; i++) {
+      dropPos[i * 3 + 1] -= (2.3 + dropSeed[i * 2 + 1] * 0.9) * dt;
+      const y = dropPos[i * 3 + 1];
+      if (y < BASE_Y + 0.12) { resetDrop(i, false); continue; }
+      // widen the cone as the drop falls
+      const a = dropSeed[i * 2];
+      const spread = ((HEAD.y - y) / (HEAD.y - BASE_Y)) * 0.34 * dropSeed[i * 2 + 1] + 0.02;
+      dropPos[i * 3] = HEAD.x + Math.cos(a) * spread;
+      dropPos[i * 3 + 2] = HEAD.z + Math.sin(a) * spread;
+    }
+    dropGeo.attributes.position.needsUpdate = true;
+
+    for (const s of steamSprites) {
+      const p = (t * 0.09 + s.phase) % 1;
+      s.sprite.position.set(
+        s.x + Math.sin(t * 0.5 + s.phase * 9) * 0.08,
+        BASE_Y + 0.45 + p * 1.7,
+        s.z,
+      );
+      const fade = Math.sin(Math.PI * p);
+      (s.sprite.material as THREE.SpriteMaterial).opacity = fade * 0.16;
+      const sc = 0.45 + p * 1.15;
+      s.sprite.scale.set(sc, sc, 1);
+    }
+  }
+
   /* ---- Solidity ---- */
 
   function edgeOpacity(): number {
@@ -521,7 +632,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   /* ---- Public API ---- */
 
-  buildEnclosure('door-panel', false); // blueprint hologram while browsing
+  buildEnclosure('corner90', false); // slick two-pane corner as the opening hologram
 
   return {
     group,
@@ -572,19 +683,27 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       gsap.fromTo(ring.scale, { x: 1.07, y: 1.07 }, { x: 1, y: 1, duration: 0.8, ease: 'power3.out', overwrite: 'auto' });
     },
 
+    setWater(on: boolean): void {
+      if (prefersReducedMotion()) { fxGroup.visible = false; return; }
+      fxGroup.visible = on;
+    },
+
     idle(dt: number): void {
       elapsed += dt;
       group.rotation.y = Math.sin(elapsed * 0.1) * 0.06;
       ring.rotation.z = elapsed * 0.05;
+      if (fxGroup.visible) updateFx(dt, elapsed);
     },
 
     dispose(): void {
       disposePanels();
       pedestal.geometry.dispose(); pedestalMat.dispose();
       ring.geometry.dispose(); ringMat.dispose();
-      backWall.geometry.dispose(); wallMat.dispose();
+      backWall.geometry.dispose(); leftWall.geometry.dispose();
+      tileMat.dispose(); shellMat.dispose();
       floor.geometry.dispose(); floorMat.dispose();
       metalMat.dispose();
+      dropGeo.dispose(); dropMat.dispose(); steamTex.dispose();
       rainBump.dispose(); tileTex.dispose();
     },
   };
