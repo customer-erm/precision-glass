@@ -8,7 +8,7 @@
  * but all three options are now equal in structure: a control, an
  * always-visible label, and a one-line value prop — so a first-time
  * visitor instantly understands they're three routes to the same outcome.
- * A shared caption promises the payoff (a free AI render) for every path.
+ * A shared caption mentions the free AI rendering, without overselling it.
  */
 
 import { el } from '../utils/dom';
@@ -68,7 +68,7 @@ export function buildModePicker(): HTMLElement {
       <svg class="mode-caption-spark" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
         <path d="M12 2 L13.8 10.2 L22 12 L13.8 13.8 L12 22 L10.2 13.8 L2 12 L10.2 10.2 Z" fill="currentColor"/>
       </svg>
-      Every path ends with a free AI render of your bathroom
+      Ask about a free AI rendering of your new shower
     </span>
   `;
   wrap.appendChild(caption);

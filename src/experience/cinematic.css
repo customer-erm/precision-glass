@@ -14,7 +14,7 @@
   height: 100%;
   z-index: 0;
   opacity: 0;
-  transition: opacity 1.4s ease;
+  transition: opacity 0.9s ease;
 }
 .tour-slideshow.cinematic.stage-ready #stage-canvas {
   opacity: 1;
@@ -30,11 +30,38 @@
   transition: none;
 }
 
-/* Full-bleed slide photos become ghosted vistas so the stage shows through */
+/* The stage IS the scenery — full-bleed slide photos never compete with it */
 .tour-slideshow.cinematic .slide-bg {
-  opacity: 0.4;
-  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, black 25%, transparent 78%);
-  mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, black 25%, transparent 78%);
+  display: none;
+}
+
+/* Intro mirrors the homepage hero: copy left, the 3D model owns the right */
+.tour-slideshow.cinematic #slide-intro .slide-content.slide-center {
+  text-align: left;
+  align-items: flex-start;
+  max-width: 520px;
+  margin-right: auto;
+  margin-left: 6vw;
+}
+.tour-slideshow.cinematic #slide-intro .slide-title {
+  font-size: 3.1rem;
+  line-height: 1.08;
+}
+@media (max-width: 767px) {
+  .tour-slideshow.cinematic #slide-intro .slide-content.slide-center {
+    margin: 0 18px;
+    max-width: none;
+    justify-content: flex-end;
+    padding-bottom: 40px;
+  }
+  .tour-slideshow.cinematic #slide-intro .slide-title { font-size: 2.1rem; }
+}
+
+/* Keep the buyer's-guide popup clear of the agent bar */
+body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
+  bottom: 112px;
+  right: 22px;
+  width: 168px;
 }
 
 /* Drafting-cyan accent language */

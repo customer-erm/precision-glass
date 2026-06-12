@@ -272,9 +272,10 @@ async function exitManualTour(): Promise<void> {
   if (hero) {
     hero.style.display = '';
     hero.style.opacity = '1';
-    hero.querySelectorAll<HTMLElement>('.hero-title, .hero-subtitle, .mode-picker-wrap, .mode-picker-welcome, .mode-prompt, .mode-option, .mode-caption').forEach((el) => {
+    hero.querySelectorAll<HTMLElement>('.hero-title, .hero-subtitle, .hero-trust, .mode-picker-wrap, .mode-picker-welcome, .mode-prompt, .mode-option, .mode-caption').forEach((el) => {
       el.style.opacity = '1';
       el.style.transform = 'none';
+      el.style.filter = 'none';
     });
   }
   window.scrollTo({ top: 0, behavior: 'smooth' });

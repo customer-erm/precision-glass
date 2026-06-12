@@ -24,18 +24,18 @@ import './cinematic.css';
 /*  Camera stations                                                     */
 /* ------------------------------------------------------------------ */
 
-const ARRIVAL: CameraSpec = { angle: 0.1, distance: 12, height: 4.4 };
+const ARRIVAL: CameraSpec = { angle: 0.1, distance: 9.5, height: 3.6 };
 
 /**
  * Option slides use a split stage: the 3D model owns the left two-thirds
  * of the frame (the lateral offset pushes it left of center) while the
  * option cards stack in the right third and fade in one by one.
  */
-const SIDE_SLIDES = new Set(['enclosures', 'glass', 'hardware', 'accessories', 'extras']);
+const SIDE_SLIDES = new Set(['gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras']);
 
 const SHOWER_STATIONS: Record<string, CameraSpec> = {
-  intro: { angle: 0.55, distance: 7.2, height: 2.5 },
-  gallery: { angle: -0.85, distance: 6.6, height: 2.0, lateral: 0.4 },
+  intro: { angle: 0.55, distance: 6.8, height: 2.4, lateral: -0.85 }, // copy left, model right
+  gallery: { angle: -0.7, distance: 6.0, height: 1.9, lateral: 1.0 },
   enclosures: { angle: 0.05, distance: 5.0, height: 1.7, lateral: 1.15 },
   glass: { angle: -0.5, distance: 3.6, height: 1.5, lateral: 0.95 },
   hardware: { angle: 0.8, distance: 3.0, height: 1.35, lateral: 0.9 },
@@ -79,6 +79,18 @@ const SLIDE_ORDER_BY_SERVICE: Record<string, string[]> = {
 
 let stage: Stage | null = null;
 let stageLoading = false;
+
+// Warm the three.js chunk on homepage idle so the morph into the tour is
+// instant — no pop-in while the stage module downloads mid-transition.
+if (typeof window !== 'undefined') {
+  const idle = (window as unknown as { requestIdleCallback?: (fn: () => void) => void }).requestIdleCallback
+    ?? ((fn: () => void) => setTimeout(fn, 1500));
+  idle(() => {
+    import('./flag').then(({ isCinematic }) => {
+      if (isCinematic()) import('./stage').catch(() => { /* loads on demand later */ });
+    });
+  });
+}
 let pendingSpec: CameraSpec | null = null;
 let unsubChoice: (() => void) | null = null;
 let unsubPreview: (() => void) | null = null;
@@ -107,7 +119,7 @@ function mountStage(): void {
       pendingSpec = null;
       if (!prefersReducedMotion()) {
         stage.moveCamera(ARRIVAL, 0.01);
-        setTimeout(() => stage?.moveCamera(target, 3.0), 60);
+        setTimeout(() => stage?.moveCamera(target, 2.1), 60);
       } else {
         stage.moveCamera(target, 0.01);
       }

@@ -9,20 +9,19 @@ export function playTransformAnimation(): Promise<void> {
   return new Promise((resolve) => {
     const tl = gsap.timeline({ onComplete: resolve });
 
-    // Fade out hero content elements with a staggered exit
-    tl.to('.hero-title', { opacity: 0, y: -30, duration: 0.3 })
-      .to('.hero-subtitle', { opacity: 0, y: -20, duration: 0.25 }, '-=0.18')
-      .to('.mode-picker-welcome', { opacity: 0, y: -14, duration: 0.2 }, '-=0.18')
-      .to('.mode-prompt', { opacity: 0, y: -14, duration: 0.22 }, '-=0.16')
-      .to('.mode-option', { opacity: 0, y: 24, scale: 0.8, duration: 0.32, stagger: 0.06 }, '-=0.12')
-      .to('.mode-caption', { opacity: 0, y: 10, duration: 0.22 }, '-=0.26');
+    // One fluid exit: copy and controls lift away together with a blur,
+    // overlapping heavily so the whole hand-off reads as a single motion.
+    tl.to('.hero-title, .hero-subtitle, .hero-trust, .mode-picker-welcome, .mode-prompt', {
+      opacity: 0, y: -26, filter: 'blur(8px)', duration: 0.34, stagger: 0.03,
+    })
+      .to('.mode-option, .mode-caption', { opacity: 0, y: 18, scale: 0.92, duration: 0.3, stagger: 0.04 }, '-=0.3');
 
-    // Fade the entire hero to dark
+    // Fade the entire hero to dark while the content is still exiting
     tl.to('#hero', {
       opacity: 0,
-      duration: 0.4,
+      duration: 0.35,
       ease: EASE.smooth,
-    });
+    }, '-=0.18');
 
     // Hide hero from layout
     tl.add(() => {

@@ -62,14 +62,19 @@ export function buildHero(): HTMLElement {
   }, 7000);
   section.appendChild(heroBg);
 
-  // Title
+  // Title — generic full-service glass company positioning
   const title = el('h1', {
     className: 'hero-title',
-    innerHTML: 'Custom shower glass, <span class="accent">visualized in your bathroom.</span>',
+    innerHTML: 'Exceptional glass, <span class="accent">expertly installed.</span>',
   });
   const subtitle = el('p', {
     className: 'hero-subtitle',
-    textContent: 'Serving Miami, Fort Lauderdale, and West Palm Beach.',
+    textContent: 'Frameless showers, glass railings, and commercial storefronts — family-owned and serving Miami, Fort Lauderdale & West Palm Beach for over 20 years.',
+  });
+  const CHECK_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+  const trust = el('div', { className: 'hero-trust' });
+  ['Licensed & insured', 'Lifetime workmanship warranty', 'Free estimates'].forEach((t) => {
+    trust.appendChild(el('span', { innerHTML: `${CHECK_SVG}${t}` }));
   });
 
   // Service cards
@@ -96,9 +101,13 @@ export function buildHero(): HTMLElement {
   // Mode picker (replaces the old single mic button)
   const modePicker = buildModePicker();
 
-  // Single centered block: title + subtitle + action icons grouped tightly
-  const headline = el('div', { className: 'hero-headline' });
-  headline.append(title, subtitle, modePicker);
+  // Split layout: company copy on the left, engagement panel on the right
+  const headline = el('div', { className: 'hero-headline hero-split' });
+  const copy = el('div', { className: 'hero-copy' });
+  copy.append(title, subtitle, trust);
+  const actions = el('div', { className: 'hero-actions' });
+  actions.appendChild(modePicker);
+  headline.append(copy, actions);
 
   // Services grid is retained but hidden (kept in DOM for any deep-links
   // that still query .service-card — we rely on the mode picker now).
