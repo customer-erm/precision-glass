@@ -11,8 +11,6 @@ await page.goto(BASE, { waitUntil: 'networkidle' });
 await page.click('[data-mode="browse"]');
 await page.waitForSelector('#browse-drawer-cta', { state: 'visible' });
 await page.click('#browse-drawer-cta');
-await page.waitForSelector('#photo-prompt.visible');
-await page.click('#photo-prompt-skip');
 await page.waitForSelector('#tour-slideshow.cinematic #stage-canvas', { timeout: 15000 });
 await page.waitForTimeout(3500);
 await page.screenshot({ path: '.verify-shots/17-prod-live.png' });
