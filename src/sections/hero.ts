@@ -67,10 +67,6 @@ export function buildHero(): HTMLElement {
     className: 'hero-title',
     innerHTML: 'Exceptional glass, <span class="accent">expertly installed.</span>',
   });
-  const subtitle = el('p', {
-    className: 'hero-subtitle',
-    textContent: 'Frameless showers, glass railings, and commercial storefronts — family-owned and serving Miami, Fort Lauderdale & West Palm Beach for over 20 years.',
-  });
   const CHECK_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
   const trust = el('div', { className: 'hero-trust' });
   ['Licensed & insured', 'Lifetime workmanship warranty', 'Free estimates'].forEach((t) => {
@@ -101,9 +97,9 @@ export function buildHero(): HTMLElement {
   // Mode picker (replaces the old single mic button)
   const modePicker = buildModePicker();
 
-  // Single centered block: title, subtitle, trust badges, the 3-circle picker
+  // Single centered block: title, trust badges, the 3-circle picker
   const headline = el('div', { className: 'hero-headline' });
-  headline.append(title, subtitle, trust, modePicker);
+  headline.append(title, trust, modePicker);
 
   // Services grid is retained but hidden (kept in DOM for any deep-links
   // that still query .service-card — we rely on the mode picker now).

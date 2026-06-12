@@ -10,6 +10,7 @@ export class AudioCapture {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private gainNode: GainNode | null = null;
   private processorNode: ScriptProcessorNode | null = null;
   private onChunk: AudioChunkCallback | null = null;
   private _isCapturing = false;
@@ -34,6 +35,13 @@ export class AudioCapture {
     this.audioContext = new AudioContext({ sampleRate: 16000 });
     this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
 
+    // Boost the mic signal ~2x before encoding — laptop mics at normal
+    // conversation distance run quiet, which made the VAD miss soft
+    // speech ("I have to shout / repeat answers"). Hard-clipped in
+    // float32ToInt16, so the boost can't blow out the encoding.
+    this.gainNode = this.audioContext.createGain();
+    this.gainNode.gain.value = 2.0;
+
     // Use ScriptProcessor for broad compatibility (AudioWorklet needs HTTPS + separate file)
     const bufferSize = 4096;
     this.processorNode = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
@@ -47,7 +55,8 @@ export class AudioCapture {
       this.onChunk(base64);
     };
 
-    this.sourceNode.connect(this.processorNode);
+    this.sourceNode.connect(this.gainNode);
+    this.gainNode.connect(this.processorNode);
     this.processorNode.connect(this.audioContext.destination);
     this._isCapturing = true;
   }
@@ -58,6 +67,10 @@ export class AudioCapture {
     if (this.processorNode) {
       this.processorNode.disconnect();
       this.processorNode = null;
+    }
+    if (this.gainNode) {
+      this.gainNode.disconnect();
+      this.gainNode = null;
     }
     if (this.sourceNode) {
       this.sourceNode.disconnect();

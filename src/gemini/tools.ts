@@ -238,6 +238,16 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Re
   },
 };
 
+function loadUserName(): string {
+  try {
+    const raw = localStorage.getItem('precision-glass-user');
+    const parsed = raw ? JSON.parse(raw) : null;
+    return (parsed?.name as string) || '';
+  } catch {
+    return '';
+  }
+}
+
 function getSlideContext(slideId: string): string {
   const ctx = SLIDE_CONTEXT_BY_SERVICE[getActiveService()];
   return ctx?.[slideId] || 'Slide is showing.';
@@ -354,6 +364,7 @@ export async function handleToolCall(
       }
       if (args.customer_name) {
         quoteChoices['name'] = args.customer_name;
+        setState({ customerName: args.customer_name });
       }
       if (args.accessories) {
         quoteChoices['accessories'] = args.accessories;
@@ -419,6 +430,13 @@ export async function handleToolCall(
       }
       if (args.customer_name) quoteChoices['name'] = args.customer_name;
       if (args.email) quoteChoices['email'] = args.email;
+
+      // The customer's name must never be missing from their own proposal —
+      // fall back through every place it may have been captured.
+      if (!quoteChoices['name']) {
+        const known = getState().customerName || loadUserName();
+        if (known) quoteChoices['name'] = known;
+      }
 
       // Walk-in/splash always wins over a stale value the agent may pass.
       const enclLower = (quoteChoices['enclosure'] || '').toLowerCase();

@@ -59,7 +59,7 @@ export function buildModePicker(): HTMLElement {
   // Framing prompt — tells the user these are three ways into the same thing
   const prompt = el('div', {
     className: 'mode-prompt',
-    textContent: returning ? 'Pick up where you left off — how do you want to design?' : 'How would you like to design your shower?',
+    textContent: returning ? 'Pick up where you left off' : 'Take an interactive tour',
   });
   wrap.appendChild(prompt);
 
