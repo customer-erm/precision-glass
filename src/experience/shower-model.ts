@@ -126,11 +126,14 @@ const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
     { from: [0, F], to: [R, F], isDoor: true, hasHandle: true },
     { from: [R, F], to: [R, -0.7] },
   ] },
+  // Neo-angle (per DreamLine Prism / Delta 38x38 geometry): a square corner
+  // footprint with the outer corner cut at 45° — two fixed side panels run
+  // PARALLEL to the walls (held in U-channels), and the door spans the
+  // diagonal cut. Pentagon plan: wall, wall, fixed, 45° door, fixed.
   neo: { panels: [
-    { from: [L, 0.25], to: [-0.28, F] },
-    { from: [-0.28, F], to: [0.28, F], isDoor: true, hasHandle: true },
-    { from: [0.28, F], to: [0.7, 0.25] },
-    { from: [0.7, 0.25], to: [0.7, -0.7] },
+    { from: [L, 0.26], to: [-0.17, 0.26] },                          // left fixed ∥ back wall
+    { from: [-0.17, 0.26], to: [0.26, -0.17], isDoor: true, hasHandle: true }, // 45° door (~24")
+    { from: [0.26, -0.17], to: [0.26, L] },                          // right fixed ∥ left wall
   ] },
   slider: { headerBar: true, panels: [
     { from: [L, 0.66], to: [0.06, 0.66] },

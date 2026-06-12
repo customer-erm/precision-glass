@@ -12,7 +12,7 @@
  */
 
 import { el } from '../utils/dom';
-import { loadUser } from '../utils/user-storage';
+import { loadUser, clearUser } from '../utils/user-storage';
 
 const MIC_SVG = `<svg viewBox="0 0 24 24" width="44" height="44" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`;
 
@@ -24,40 +24,64 @@ export function buildModePicker(): HTMLElement {
   const user = loadUser();
   const returning = !!(user && user.visitCount > 0 && user.name);
 
-  const wrap = el('div', { className: 'mode-picker-wrap', id: 'mode-picker-wrap' });
+  const wrap = el('div', { className: 'mode-picker-wrap mode-stack', id: 'mode-picker-wrap' });
 
-  // Welcome-back pill for returning users
+  // Welcome-back pill + reset (clears the stored profile)
   if (returning && user?.name) {
+    const welcomeRow = el('div', { className: 'mode-welcome-row' });
     const welcome = el('div', { className: 'mode-picker-welcome' });
     welcome.innerHTML = `<span class="mode-picker-wave">\u{1F44B}</span> Welcome back, <strong>${escapeHtml(user.name)}</strong>`;
-    wrap.appendChild(welcome);
+    const reset = el('button', {
+      className: 'mode-reset-btn',
+      type: 'button',
+      title: 'Not you? Clear the saved profile and start fresh',
+      ariaLabel: 'Reset saved profile',
+      innerHTML: '<span aria-hidden="true">✕</span> Reset',
+    });
+    reset.addEventListener('click', () => {
+      clearUser();
+      window.location.reload();
+    });
+    welcomeRow.append(welcome, reset);
+    wrap.appendChild(welcomeRow);
   }
 
-  // One clear primary action — everything else is quiet
-  const primary = el('button', {
-    className: 'mode-option mode-cta-primary',
-    type: 'button',
-    ariaLabel: 'Talk to a specialist now — voice, hands-free',
-    innerHTML: `${MIC_SVG}<span>Talk to a specialist now</span>`,
+  const prompt = el('div', {
+    className: 'mode-prompt',
+    textContent: returning ? 'Pick up where you left off — how do you want to design?' : 'How would you like to design your shower?',
   });
-  primary.setAttribute('data-mode', 'voice');
-  wrap.appendChild(primary);
+  wrap.appendChild(prompt);
 
-  const secondaryRow = el('div', { className: 'mode-cta-secondary-row' });
-  const chatBtn = el('button', {
-    className: 'mode-option mode-cta-secondary',
-    type: 'button',
-    innerHTML: `${CHAT_SVG}<span>Text chat</span>`,
-  });
-  chatBtn.setAttribute('data-mode', 'chat');
-  const browseBtn = el('button', {
-    className: 'mode-option mode-cta-secondary',
-    type: 'button',
-    innerHTML: `${BROWSE_SVG}<span>Browse on your own</span>`,
-  });
-  browseBtn.setAttribute('data-mode', 'browse');
-  secondaryRow.append(chatBtn, browseBtn);
-  wrap.appendChild(secondaryRow);
+  // Three routes, stacked — voice leads
+  const stack = el('div', { className: 'mode-stack-list' });
+  stack.append(
+    stackOption('voice', MIC_SVG, 'Talk to Alex', 'Voice · hands-free', true),
+    stackOption('chat', CHAT_SVG, 'Chat with Alex', 'Tap-through, no talking', false),
+    stackOption('browse', BROWSE_SVG, 'Browse yourself', 'Explore at your pace', false),
+  );
+  wrap.appendChild(stack);
+
+  // Returning users see their last design at a glance
+  if (returning && user?.lastQuote && (user.lastQuote.enclosure || user.lastQuote.service)) {
+    const q = user.lastQuote;
+    const summary = [q.enclosure, q.glass, q.hardware].filter(Boolean).join(' · ') || q.service || '';
+    const hasRender = !!user.lastRenderUrl;
+    const card = el(hasRender ? 'a' : 'div', { className: 'mode-last-design' });
+    if (hasRender) {
+      card.setAttribute('href', user.lastRenderUrl!);
+      card.setAttribute('target', '_blank');
+      card.setAttribute('rel', 'noopener');
+    }
+    card.innerHTML = `
+      ${hasRender ? `<img src="${escapeHtml(user.lastRenderUrl!)}" alt="Your last AI rendering" loading="lazy">` : ''}
+      <span class="mode-last-design-info">
+        <span class="mode-last-design-label">Your last design</span>
+        <span class="mode-last-design-summary">${escapeHtml(summary)}</span>
+        <span class="mode-last-design-hint">${hasRender ? 'View your rendering ↗' : 'Ask Alex to pull it back up'}</span>
+      </span>
+    `;
+    wrap.appendChild(card);
+  }
 
   // Soft incentive line
   const caption = el('div', { className: 'mode-caption' });
@@ -72,6 +96,24 @@ export function buildModePicker(): HTMLElement {
   wrap.appendChild(caption);
 
   return wrap;
+}
+
+function stackOption(mode: string, icon: string, label: string, sub: string, primary: boolean): HTMLElement {
+  const btn = el('button', {
+    className: `mode-option mode-stack-option${primary ? ' primary' : ''}`,
+    type: 'button',
+    ariaLabel: `${label} — ${sub}`,
+    innerHTML: `
+      <span class="mso-icon">${icon}</span>
+      <span class="mso-text">
+        <span class="mso-label">${label}</span>
+        <span class="mso-sub">${sub}</span>
+      </span>
+      <span class="mso-arrow" aria-hidden="true">→</span>
+    `,
+  });
+  btn.setAttribute('data-mode', mode);
+  return btn;
 }
 
 function escapeHtml(s: string): string {

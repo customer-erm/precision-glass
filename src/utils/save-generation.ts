@@ -19,6 +19,8 @@ export interface GenerationMeta {
   mode?: 'voice' | 'chat' | 'browse';
 }
 
+import { saveUser } from './user-storage';
+
 export async function saveCustomerGeneration(
   dataUrl: string,
   meta: GenerationMeta = {},
@@ -33,6 +35,11 @@ export async function saveCustomerGeneration(
     if (res.ok) {
       const json = await res.json().catch(() => null);
       console.log('[SaveGen] Saved customer generation', json);
+      // Remember the rendering for their next visit
+      const url = json?.url || json?.blob?.url;
+      if (typeof url === 'string' && url.startsWith('http')) {
+        saveUser({ lastRenderUrl: url });
+      }
     } else {
       console.warn('[SaveGen] Save failed:', res.status);
     }

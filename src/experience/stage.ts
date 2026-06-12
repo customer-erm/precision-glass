@@ -9,6 +9,7 @@
  */
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { gsap } from '../animations/engine';
 import { isLowPowerDevice, prefersReducedMotion } from './flag';
 import { createShowerRig, type ShowerRig } from './shower-model';
@@ -32,26 +33,13 @@ export interface Stage {
   moveCamera(spec: CameraSpec, duration?: number): void;
   /** Finale: dolly straight through the glass. Resolves at the moment of pass-through. */
   pushThroughGlass(): Promise<void>;
-  /** Float the customer's bathroom photo in the scene as a soft "vision" panel. */
-  setBackdropPhoto(dataUrl: string): void;
+  /** Re-home the canvas into a new container (used by the pre-warm flow). */
+  adopt(host: HTMLElement): void;
   setActive(active: boolean): void;
   dispose(): void;
 }
 
 const NAVY = 0x050d1a;
-
-function makeSoftMaskTexture(): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 170;
-  const ctx = c.getContext('2d')!;
-  const g = ctx.createRadialGradient(128, 85, 20, 128, 85, 128);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.65, 'rgba(255,255,255,0.8)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 170);
-  return new THREE.CanvasTexture(c);
-}
 
 function makeGlowTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
@@ -66,7 +54,8 @@ function makeGlowTexture(): THREE.CanvasTexture {
   return new THREE.CanvasTexture(c);
 }
 
-export function createStage(container: HTMLElement): Stage {
+export function createStage(initialContainer: HTMLElement): Stage {
+  let container = initialContainer;
   const lowPower = isLowPowerDevice();
 
   const renderer = new THREE.WebGLRenderer({ antialias: !lowPower, alpha: false });
@@ -85,6 +74,31 @@ export function createStage(container: HTMLElement): Stage {
   const lookTarget = new THREE.Vector3(0, 1.1, 0);
   camera.position.set(0, 2.2, 9);
   camera.lookAt(lookTarget);
+
+  // Hands-on inspection: drag to orbit, wheel/pinch to zoom, right-drag /
+  // two-finger to pan. The DOM slides pass pointer events through to the
+  // canvas wherever there's no content. A scripted camera move (station
+  // dolly) takes the wheel back until the user grabs it again.
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.target = lookTarget;
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.rotateSpeed = 0.65;
+  controls.zoomSpeed = 0.8;
+  controls.panSpeed = 0.6;
+  controls.minDistance = 2.0;
+  controls.maxDistance = 12;
+  controls.minPolarAngle = 0.15;
+  controls.maxPolarAngle = 1.52;
+  let userDriving = false;
+  let cameraTweening = false;
+  controls.addEventListener('start', () => {
+    userDriving = true;
+    cameraTweening = false;
+    gsap.killTweensOf(camera.position);
+    gsap.killTweensOf(lookTarget);
+    gsap.killTweensOf(camera);
+  });
 
   // Environment for glass + metal reflections
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -145,44 +159,6 @@ export function createStage(container: HTMLElement): Stage {
   const shower = createShowerRig({ cheapGlass: lowPower });
   scene.add(shower.group);
 
-  /* ---- Customer-photo "vision" backdrop ---- */
-
-  let backdrop: THREE.Mesh | null = null;
-  let backdropTex: THREE.Texture | null = null;
-  let backdropMask: THREE.CanvasTexture | null = null;
-
-  function setBackdropPhoto(dataUrl: string): void {
-    new THREE.TextureLoader().load(dataUrl, (tex) => {
-      tex.colorSpace = THREE.SRGBColorSpace;
-      if (backdrop) {
-        ((backdrop.material as THREE.MeshBasicMaterial).map)?.dispose();
-        (backdrop.material as THREE.MeshBasicMaterial).map = tex;
-        (backdrop.material as THREE.MeshBasicMaterial).needsUpdate = true;
-        backdropTex = tex;
-        return;
-      }
-      backdropTex = tex;
-      backdropMask = makeSoftMaskTexture();
-      const mat = new THREE.MeshBasicMaterial({
-        map: tex,
-        alphaMap: backdropMask,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-        fog: false,
-      });
-      backdrop = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.45), mat);
-      backdrop.position.set(3.4, 2.9, -4.6);
-      backdrop.rotation.y = -0.5;
-      backdrop.renderOrder = 1;
-      scene.add(backdrop);
-      gsap.to(mat, { opacity: 0.34, duration: 2.2, ease: 'power2.out' });
-      if (!prefersReducedMotion()) {
-        gsap.to(backdrop.position, { y: 3.05, duration: 6, ease: 'sine.inOut', yoyo: true, repeat: -1 });
-      }
-    });
-  }
-
   /* ---- Render loop ---- */
 
   let active = true;
@@ -208,7 +184,8 @@ export function createStage(container: HTMLElement): Stage {
     particles.rotation.y += dt * 0.012;
     glow.material.opacity = 0.42 + Math.sin(t * 0.6) * 0.08;
     shower.idle(dt);
-    camera.lookAt(lookTarget);
+    if (userDriving && !cameraTweening) controls.update();
+    else camera.lookAt(lookTarget);
     renderer.render(scene, camera);
   }
   tick();
@@ -227,12 +204,17 @@ export function createStage(container: HTMLElement): Stage {
 
   function moveCamera(spec: CameraSpec, duration = 1.6): void {
     const { pos, target } = specToPosition(spec);
+    userDriving = false; // scripted move takes the wheel back
     if (prefersReducedMotion()) {
       camera.position.copy(pos);
       lookTarget.copy(target);
       return;
     }
-    gsap.to(camera.position, { x: pos.x, y: pos.y, z: pos.z, duration, ease: 'power3.inOut', overwrite: 'auto' });
+    cameraTweening = true;
+    gsap.to(camera.position, {
+      x: pos.x, y: pos.y, z: pos.z, duration, ease: 'power3.inOut', overwrite: 'auto',
+      onComplete: () => { cameraTweening = false; },
+    });
     gsap.to(lookTarget, { x: target.x, y: target.y, z: target.z, duration, ease: 'power3.inOut', overwrite: 'auto' });
     if (camera.fov !== 42) {
       gsap.to(camera, { fov: 42, duration, ease: 'power3.inOut', overwrite: 'auto', onUpdate: () => camera.updateProjectionMatrix() });
@@ -242,7 +224,9 @@ export function createStage(container: HTMLElement): Stage {
   function pushThroughGlass(): Promise<void> {
     return new Promise((resolve) => {
       if (prefersReducedMotion()) { resolve(); return; }
-      const tl = gsap.timeline();
+      userDriving = false;
+      cameraTweening = true;
+      const tl = gsap.timeline({ onComplete: () => { cameraTweening = false; } });
       // Line up straight-on, then dolly through the front glass.
       tl.to(lookTarget, { x: 0, y: 1.15, z: 0, duration: 0.7, ease: 'power2.inOut' }, 0)
         .to(camera.position, { x: 0, y: 1.3, z: 4.2, duration: 0.7, ease: 'power2.inOut' }, 0)
@@ -252,15 +236,19 @@ export function createStage(container: HTMLElement): Stage {
     });
   }
 
+  function adopt(host: HTMLElement): void {
+    container = host;
+    host.prepend(renderer.domElement);
+    resize();
+  }
+
   function dispose(): void {
     disposed = true;
     window.removeEventListener('resize', resize);
+    controls.dispose();
     shower.dispose();
     particleGeo.dispose();
     glowTex.dispose();
-    backdrop?.geometry.dispose();
-    backdropTex?.dispose();
-    backdropMask?.dispose();
     scene.environment?.dispose();
     renderer.dispose();
     renderer.domElement.remove();
@@ -271,7 +259,7 @@ export function createStage(container: HTMLElement): Stage {
     shower,
     moveCamera,
     pushThroughGlass,
-    setBackdropPhoto,
+    adopt,
     setActive: (v: boolean) => { active = v; if (v) clock.getDelta(); },
     dispose,
   };

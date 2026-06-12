@@ -30,6 +30,26 @@
   transition: none;
 }
 
+/* Let pointer events fall through to the WebGL canvas everywhere there's
+   no content — drag to orbit the shower, wheel to zoom, right-drag to pan.
+   Interactive surfaces re-enable themselves. */
+.tour-slideshow.cinematic .tour-slide.active {
+  pointer-events: none;
+}
+.tour-slideshow.cinematic .tour-slide.active .slide-content,
+.tour-slideshow.cinematic .tour-slide.active .ss-quote-sent.visible {
+  pointer-events: auto;
+}
+.tour-slideshow.cinematic #stage-canvas {
+  touch-action: none;
+}
+.tour-slideshow.cinematic.stage-ready #stage-canvas {
+  cursor: grab;
+}
+.tour-slideshow.cinematic.stage-ready #stage-canvas:active {
+  cursor: grabbing;
+}
+
 /* The stage IS the scenery — full-bleed slide photos never compete with it */
 .tour-slideshow.cinematic .slide-bg {
   display: none;
@@ -57,11 +77,17 @@
   .tour-slideshow.cinematic #slide-intro .slide-title { font-size: 2.1rem; }
 }
 
-/* Keep the buyer's-guide popup clear of the agent bar */
+/* Buyer's-guide popup lives on the LEFT so it never overlaps the options rail */
 body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
   bottom: 112px;
-  right: 22px;
+  left: 22px;
+  right: auto;
   width: 168px;
+}
+
+/* Gallery gets a wider rail so the portfolio breathes */
+.tour-slideshow.cinematic #slide-gallery.cine-side .slide-content {
+  width: clamp(440px, 42vw, 660px);
 }
 
 /* Drafting-cyan accent language */

@@ -20,6 +20,11 @@ import { startBrowseTour } from './animations/manual-nav';
 // --- Register visit count on page load ---
 registerVisit();
 
+// "Start over" reloads must always land on the hero, not wherever the
+// browser remembers the scroll position from before the tour.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+
 // --- Build DOM ---
 const app = document.getElementById('app')!;
 const bgEl = buildBackground();

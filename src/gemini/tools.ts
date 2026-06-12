@@ -22,7 +22,21 @@ let presentQuoteAt = 0;
 // produce an inputTranscription event, which would falsely block legitimate
 // advances).
 let lastShowSlideAt = 0;
-const MIN_SLIDE_INTERVAL_MS = 1500;
+const MIN_SLIDE_INTERVAL_MS = 900;
+
+/**
+ * Defensive: the agent may legitimately jump straight into the tour (e.g.
+ * a returning customer says "show me my shower again") without having
+ * called select_service. If no slideshow exists yet, build it first so
+ * the page always responds visibly to the conversation.
+ */
+async function ensureSlideshow(service?: 'showers' | 'railings' | 'commercial'): Promise<void> {
+  if (document.getElementById('tour-slideshow')) return;
+  const svc = service || (getState().currentService as 'showers' | 'railings' | 'commercial' | null) || 'showers';
+  setState({ currentService: svc, isTransformed: true });
+  await playTransformAnimation();
+  createSlideshow(svc);
+}
 
 export const TOOL_DECLARATIONS = [
   {
@@ -327,10 +341,11 @@ export async function handleToolCall(
         });
         return {
           success: false,
-          message: instr(`Slow down — you just advanced ${sinceLastSlide}ms ago. Wait for the customer to actually finish speaking before calling show_slide again. Continue your current explanation, then pause and listen.`),
+          message: instr(`That advance was blocked only because it came ${sinceLastSlide}ms after the previous one. If the customer really did make this choice, call show_slide AGAIN right now with the exact same arguments — it will succeed. Do not drop their selection.`),
         };
       }
       lastShowSlideAt = now;
+      await ensureSlideshow();
 
       // Save email if provided
       if (args.email) {
@@ -412,6 +427,7 @@ export async function handleToolCall(
         quoteChoices['extras'] = 'N/A';
       }
 
+      await ensureSlideshow();
       await showSlide('quote');
       presentQuoteAt = Date.now();
       setTimeout(() => populateQuoteSummary(quoteChoices), 500);

@@ -210,20 +210,16 @@ export class GeminiLiveClient {
       }
     }
 
-    // Handle interruption — but ignore if it fires while we're still
-    // streaming our own audio out (almost certainly speaker bleed/echo
-    // bouncing back into the mic, not the user actually interrupting).
+    // Handle interruption — the customer barged in. Kill the queued audio
+    // IMMEDIATELY and flip to listening so the site feels instantly
+    // responsive to the redirect.
     if (content.interrupted) {
-      const sinceAudio = Date.now() - this.lastAudioOutAt;
-      if (this.isAgentSpeaking || sinceAudio < 1500) {
-        console.log('[Gemini] Interrupted IGNORED (likely echo) sinceAudio=', sinceAudio);
-        return;
-      }
-      console.log('[Gemini] Interrupted (real)');
+      console.log('[Gemini] Interrupted — customer barge-in');
       this.audioPlayer.clearQueue();
-      if (this.hasSpokenOnce) {
-        this.scheduleListening();
-      }
+      this.isAgentSpeaking = false;
+      this.cancelListeningTimer();
+      this.onStateChange?.('listening');
+      setState({ agentState: 'listening' });
     }
 
     // Handle transcription
@@ -248,12 +244,12 @@ export class GeminiLiveClient {
       console.log('[Gemini] Requesting mic access...');
       await this.audioCapture.start((base64) => {
         if (!this.session) return;
-        // Only gate while the agent is actively producing a turn or
-        // executing a tool. As soon as turnComplete fires we let the
-        // user's audio through immediately so quick replies like "sure"
-        // or "ok" are not clipped. Browser echo-cancellation handles
-        // residual speaker bleed.
-        if (this.isAgentSpeaking || this.toolCallInFlight) return;
+        // Stream mic audio CONTINUOUSLY — including while the agent is
+        // speaking — so the customer can barge in and redirect at any
+        // moment. Browser echo-cancellation handles speaker bleed; the
+        // API's VAD decides what counts as real speech. Only gate during
+        // tool execution (function calling is synchronous anyway).
+        if (this.toolCallInFlight) return;
         this.session.sendRealtimeInput({
           audio: {
             data: base64,

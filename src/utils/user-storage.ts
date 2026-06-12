@@ -29,6 +29,8 @@ export interface StoredUser {
   budget?: string;
   notes?: string;
   lastQuote?: LastQuote;
+  /** Public URL of their last AI rendering (Vercel Blob) — shown on return visits. */
+  lastRenderUrl?: string;
   preferredMode?: InteractionMode;
   visitCount: number;
   firstVisit: string;

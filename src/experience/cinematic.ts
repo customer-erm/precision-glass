@@ -15,7 +15,7 @@ import { gsap } from '../animations/engine';
 import { getBathroomPhoto } from '../utils/bathroom-photo';
 import { getState } from '../utils/state';
 import { materializeSlide, dematerializeSlide, revealRender } from './materialize';
-import { onChoice, onPreview, onPhoto } from './events';
+import { onChoice, onPreview } from './events';
 import { prefersReducedMotion } from './flag';
 import type { Stage, CameraSpec } from './stage';
 import './cinematic.css';
@@ -35,7 +35,7 @@ const SIDE_SLIDES = new Set(['gallery', 'enclosures', 'glass', 'hardware', 'acce
 
 const SHOWER_STATIONS: Record<string, CameraSpec> = {
   intro: { angle: 0.55, distance: 6.8, height: 2.4, lateral: -0.85 }, // copy left, model right
-  gallery: { angle: -0.7, distance: 6.0, height: 1.9, lateral: 1.0 },
+  gallery: { angle: -0.6, distance: 6.6, height: 1.9, lateral: 1.55 },
   enclosures: { angle: 0.05, distance: 5.0, height: 1.7, lateral: 1.15 },
   glass: { angle: -0.5, distance: 3.6, height: 1.5, lateral: 0.95 },
   hardware: { angle: 0.8, distance: 3.0, height: 1.35, lateral: 0.9 },
@@ -79,28 +79,58 @@ const SLIDE_ORDER_BY_SERVICE: Record<string, string[]> = {
 
 let stage: Stage | null = null;
 let stageLoading = false;
+let prewarmed: Stage | null = null;
+let prewarmHost: HTMLElement | null = null;
 
-// Warm the three.js chunk on homepage idle so the morph into the tour is
-// instant — no pop-in while the stage module downloads mid-transition.
+/**
+ * Fully boot the WebGL stage on homepage idle — download three.js, create
+ * the renderer, compile the glass shaders, render a few warm-up frames in
+ * a hidden full-viewport host — so the morph into the tour is instant.
+ */
+function prewarmStage(): void {
+  if (prewarmed || stage || stageLoading) return;
+  import('./flag').then(({ isCinematic }) => {
+    if (!isCinematic()) return;
+    import('./stage').then(({ createStage }) => {
+      if (prewarmed || stage) return;
+      prewarmHost = document.createElement('div');
+      prewarmHost.style.cssText = 'position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1;';
+      document.body.appendChild(prewarmHost);
+      prewarmed = createStage(prewarmHost);
+      // A few live frames force shader compilation, then sleep until needed
+      setTimeout(() => prewarmed?.setActive(false), 1200);
+      console.log('[Cinematic] Stage pre-warmed');
+    }).catch(() => { /* loads on demand later */ });
+  });
+}
+
 if (typeof window !== 'undefined') {
   const idle = (window as unknown as { requestIdleCallback?: (fn: () => void) => void }).requestIdleCallback
     ?? ((fn: () => void) => setTimeout(fn, 1500));
-  idle(() => {
-    import('./flag').then(({ isCinematic }) => {
-      if (isCinematic()) import('./stage').catch(() => { /* loads on demand later */ });
-    });
-  });
+  idle(prewarmStage);
 }
 let pendingSpec: CameraSpec | null = null;
 let unsubChoice: (() => void) | null = null;
 let unsubPreview: (() => void) | null = null;
-let unsubPhoto: (() => void) | null = null;
 let activeServiceLocal: ServiceType = 'showers';
 let pushedThrough = false;
 const chosen = new Set<string>();
 
 function root(): HTMLElement | null {
   return document.getElementById('tour-slideshow');
+}
+
+function adoptOrCreateStage(host: HTMLElement, createStage: (c: HTMLElement) => Stage): Stage {
+  if (prewarmed) {
+    const s = prewarmed;
+    prewarmed = null;
+    s.adopt(host);
+    s.setActive(true);
+    prewarmHost?.remove();
+    prewarmHost = null;
+    return s;
+  }
+  return createStage(host);
 }
 
 function mountStage(): void {
@@ -110,10 +140,9 @@ function mountStage(): void {
     .then(({ createStage }) => {
       const host = root();
       if (!host) { stageLoading = false; return; }
-      stage = createStage(host);
+      stage = adoptOrCreateStage(host, createStage);
       stage.shower.group.visible = activeServiceLocal === 'showers';
       host.classList.add('stage-ready');
-      applyBackdropPhoto();
       // Cinematic arrival: drift in from far out, then settle on the queued station
       const target = pendingSpec ?? stationFor(activeServiceLocal, 'intro', 0);
       pendingSpec = null;
@@ -148,12 +177,6 @@ function applyChoice(category: string, value: string): void {
     rig.setSolidity(0.15 + chosen.size * 0.17);
     rig.pulse();
   }
-}
-
-/** Their real bathroom floats in the scene as a soft vision panel. */
-function applyBackdropPhoto(): void {
-  const photo = getBathroomPhoto();
-  if (photo && stage) stage.setBackdropPhoto(photo.dataUrl);
 }
 
 /**
@@ -208,8 +231,6 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   unsubChoice = onChoice(({ category, value }) => applyChoice(category, value));
   unsubPreview?.();
   unsubPreview = onPreview(({ category, value }) => applyPreview(category, value));
-  unsubPhoto?.();
-  unsubPhoto = onPhoto((uploaded) => { if (uploaded) applyBackdropPhoto(); });
 }
 
 export async function showSlide(slideId: string): Promise<void> {
@@ -272,8 +293,6 @@ export async function endSlideshow(): Promise<void> {
   unsubChoice = null;
   unsubPreview?.();
   unsubPreview = null;
-  unsubPhoto?.();
-  unsubPhoto = null;
   await classic.endSlideshow();
   stage?.dispose();
   stage = null;
