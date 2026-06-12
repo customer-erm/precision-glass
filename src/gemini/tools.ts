@@ -2,6 +2,7 @@ import { playTransformAnimation } from '../animations/transform';
 import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService, renderQuoteVisuals, markQuoteRenderReady } from '../experience/facade';
 import { emitChoice, emitPreview } from '../experience/events';
 import { isCinematic } from '../experience/flag';
+import { extrasCompat } from '../experience/compat';
 import { setState, getState } from '../utils/state';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
@@ -372,12 +373,29 @@ export async function handleToolCall(
         console.log('[Quote] Saved accessories:', args.accessories);
       }
       // Save choice from current slide
+      let extrasSanitizedNote = '';
       if (args.choice) {
         const category = choiceCategoryForSlide(args.slide_id);
         if (category) {
-          quoteChoices[category] = args.choice;
-          emitChoice(category, args.choice);
-          console.log('[Quote] Saved:', category, '=', args.choice);
+          let value = args.choice;
+          // Upgrades that don't apply to the chosen enclosure are stripped —
+          // the proposal must never promise an impossible install.
+          if (category === 'extras' && !/^(none|n\/a)$/i.test(value.trim())) {
+            const compat = extrasCompat(quoteChoices['enclosure'] || '');
+            const wantsGrid = /grid|both/i.test(value);
+            const wantsSteam = /steam|both/i.test(value);
+            const removed: string[] = [];
+            if (wantsSteam && !compat.steam) removed.push(`the Steam upgrade (${compat.steamReason})`);
+            if (wantsGrid && !compat.grid) removed.push(`Grid Patterns (${compat.gridReason})`);
+            if (removed.length) {
+              value = [wantsGrid && compat.grid && 'Grid Patterns', wantsSteam && compat.steam && 'Steam Upgrade']
+                .filter(Boolean).join(', ') || 'none';
+              extrasSanitizedNote = `NOTE: I removed ${removed.join(' and ')} from their selections because it is not compatible with their ${quoteChoices['enclosure']}. Gently tell the customer this in one friendly sentence and confirm the rest of their design is unaffected. `;
+            }
+          }
+          quoteChoices[category] = value;
+          emitChoice(category, value);
+          console.log('[Quote] Saved:', category, '=', value);
         }
       }
 
@@ -415,6 +433,19 @@ export async function handleToolCall(
       if (isWalkIn && targetSlide === 'process') {
         msg = `NOTE: This is a walk-in / splash panel layout — there is NO door, so we have skipped BOTH the handle/accessories step AND the grid/steam upgrades step (they don't apply). Do NOT mention handles or upgrades. Move directly into the process walkthrough. ` + msg;
       }
+      // Arriving at the upgrades step: tell the agent what does NOT apply
+      // to the chosen style (the cards are greyed out on screen too).
+      if (isShowers && args.slide_id === 'extras') {
+        const compat = extrasCompat(quoteChoices['enclosure'] || '');
+        const notes: string[] = [];
+        if (!compat.steam) notes.push(`The STEAM upgrade is NOT available with their ${quoteChoices['enclosure']} — ${compat.steamReason}. Its card is greyed out on screen. Do NOT offer steam; if they ask, explain why in one friendly sentence.`);
+        if (!compat.grid) notes.push(`GRID PATTERNS are NOT available with their ${quoteChoices['enclosure']} — ${compat.gridReason}. The card is greyed out. Do NOT offer grids; if they ask, explain why briefly.`);
+        if (notes.length) msg = `${notes.join(' ')} ` + msg;
+        if (!compat.steam && !compat.grid) {
+          msg += ' Since neither upgrade applies, keep this step to one short sentence and move on to show_slide("process").';
+        }
+      }
+      if (extrasSanitizedNote) msg = extrasSanitizedNote + msg;
       return { success: true, message: instr(msg) };
     }
 
@@ -443,6 +474,16 @@ export async function handleToolCall(
       if (enclLower.includes('splash') || enclLower.includes('walk')) {
         quoteChoices['handle'] = 'N/A';
         quoteChoices['extras'] = 'N/A';
+      }
+
+      // Final compatibility pass — the proposal never promises an
+      // upgrade the chosen style can't physically take.
+      const extrasVal = quoteChoices['extras'] || '';
+      if (extrasVal && !/^(none|n\/a)$/i.test(extrasVal.trim())) {
+        const compat = extrasCompat(quoteChoices['enclosure'] || '');
+        const wg = /grid|both/i.test(extrasVal) && compat.grid;
+        const ws = /steam|both/i.test(extrasVal) && compat.steam;
+        quoteChoices['extras'] = [wg && 'Grid Patterns', ws && 'Steam Upgrade'].filter(Boolean).join(', ') || 'none';
       }
 
       await ensureSlideshow();

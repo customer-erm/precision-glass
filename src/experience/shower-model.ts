@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { gsap } from '../animations/engine';
 import { prefersReducedMotion } from './flag';
+import { extrasCompat } from './compat';
 
 export interface ShowerRig {
   group: THREE.Group;
@@ -22,6 +23,8 @@ export interface ShowerRig {
   setGlass(label: string): void;
   setHardware(label: string): void;
   setHandle(label: string): void;
+  /** Apply upgrades: grid muntin bars and/or the steam transom package. */
+  setExtras(label: string): void;
   setSolidity(t: number): void;
   /** Celebratory ring flash when a selection locks in. */
   pulse(): void;
@@ -238,6 +241,11 @@ interface PanelRuntime {
   edgeMat: THREE.LineBasicMaterial;
   /** Structural yaw of the pivot — assembly animation swings into this. */
   rotY: number;
+  /** Flat-panel dimensions (0 for curved) — used by the grid upgrade. */
+  w: number;
+  h: number;
+  /** Applied muntin-bar group when the grid upgrade is active. */
+  grid?: THREE.Group;
 }
 
 export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
@@ -315,9 +323,18 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   const assembly = new THREE.Group();
   group.add(assembly);
   let panels: PanelRuntime[] = [];
+  const extraPanels: PanelRuntime[] = []; // steam transoms
   let handleHost: THREE.Group | null = null; // attached to the door pivot
   let handleKey: HandleKey = 'pull';
+  let currentKey: EnclosureKey = 'corner90';
+  let currentLabel = '90 corner';
+  let gridOn = false;
+  let steamOn = false;
   const hingeMeshes: THREE.Mesh[] = [];
+
+  function allGlass(): PanelRuntime[] {
+    return panels.concat(extraPanels);
+  }
 
   function makeGlassMaterial(): THREE.MeshPhysicalMaterial {
     const m = new THREE.MeshPhysicalMaterial({
@@ -445,7 +462,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     }
 
     assembly.add(pivot);
-    return { pivot, glass, glassMat, edges, edgeMat, rotY };
+    return { pivot, glass, glassMat, edges, edgeMat, rotY, w, h: hgt };
   }
 
   function addCurvedPanel(spec: CurvedSpec): PanelRuntime {
@@ -467,23 +484,29 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     handleHost.lookAt(new THREE.Vector3(0, 1.05, 0).add(pivot.position));
     pivot.add(handleHost);
     assembly.add(pivot);
-    return { pivot, glass, glassMat, edges, edgeMat, rotY: 0 };
+    return { pivot, glass, glassMat, edges, edgeMat, rotY: 0, w: 0, h: GLASS_H };
+  }
+
+  function disposeRuntime(p: PanelRuntime): void {
+    p.glass.geometry.dispose();
+    p.glassMat.dispose();
+    p.edges.geometry.dispose();
+    p.edgeMat.dispose();
+    p.grid?.traverse((o) => { (o as THREE.Mesh).geometry?.dispose?.(); });
   }
 
   function disposePanels(): void {
-    for (const p of panels) {
-      p.glass.geometry.dispose();
-      p.glassMat.dispose();
-      p.edges.geometry.dispose();
-      p.edgeMat.dispose();
-    }
+    for (const p of panels) disposeRuntime(p);
+    for (const p of extraPanels) disposeRuntime(p);
     hingeMeshes.length = 0;
     handleHost = null;
     assembly.clear();
     panels = [];
+    extraPanels.length = 0;
   }
 
   function buildEnclosure(key: EnclosureKey, animate: boolean): void {
+    currentKey = key;
     disposePanels();
     const layout = LAYOUTS[key];
     for (const spec of layout.panels) panels.push(addPanel(spec));
@@ -523,6 +546,85 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       panels.forEach((p) => applyGlassKey(p.glassMat, glassKey, false));
       applySolidityNow();
     }
+
+    // Upgrades survive an enclosure change — but only where they still apply
+    syncExtras(animate);
+  }
+
+  /* ---- Upgrades: grid muntins + steam transom package ---- */
+
+  function clearGrids(): void {
+    for (const p of panels) {
+      if (p.grid) {
+        p.pivot.remove(p.grid);
+        p.grid.traverse((o) => { (o as THREE.Mesh).geometry?.dispose?.(); });
+        p.grid = undefined;
+      }
+    }
+  }
+
+  function applyGrid(animate: boolean): void {
+    for (const p of panels) {
+      if (p.grid || p.w <= 0.2) continue; // skip curved + slivers
+      const grid = new THREE.Group();
+      const depth = 0.022;
+      for (const fx of [-1 / 6, 1 / 6]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.016, p.h - 0.04, depth), metalMat);
+        bar.position.set(p.w * fx, p.h / 2, 0);
+        grid.add(bar);
+      }
+      for (const fy of [0.25, 0.5, 0.75]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(p.w - 0.03, 0.016, depth), metalMat);
+        bar.position.set(0, p.h * fy, 0);
+        grid.add(bar);
+      }
+      p.grid = grid;
+      p.pivot.add(grid);
+      if (animate && !prefersReducedMotion()) {
+        gsap.fromTo(grid.scale, { x: 0.01, z: 0.01 }, { x: 1, z: 1, duration: 0.7, ease: 'back.out(1.8)' });
+      }
+    }
+  }
+
+  function clearSteam(): void {
+    for (const p of extraPanels) {
+      disposeRuntime(p);
+      assembly.remove(p.pivot);
+    }
+    extraPanels.length = 0;
+  }
+
+  function applySteam(animate: boolean): void {
+    if (extraPanels.length) return;
+    const layout = LAYOUTS[currentKey];
+    const savedHandleHost = handleHost; // addPanel must not steal the door's handle anchor
+    for (const spec of layout.panels) {
+      if (spec.baseY) continue; // transoms only over floor-standing panels
+      const transom = addPanel({
+        from: spec.from,
+        to: spec.to,
+        baseY: BASE_Y + (spec.height ?? GLASS_H) + 0.02,
+        height: 0.3,
+      });
+      applyGlassKey(transom.glassMat, glassKey, false);
+      transom.edgeMat.opacity = edgeOpacity();
+      transom.glassMat.opacity = baseOpacityFor(glassKey) * solidityOpacityScale();
+      extraPanels.push(transom);
+      if (animate && !prefersReducedMotion()) {
+        const target = transom.glassMat.opacity;
+        transom.glassMat.opacity = 0;
+        gsap.fromTo(transom.pivot.scale, { y: 0.001 }, { y: 1, duration: 0.6, ease: 'power3.out' });
+        gsap.to(transom.glassMat, { opacity: target, duration: 0.8, delay: 0.25 });
+      }
+    }
+    handleHost = savedHandleHost;
+  }
+
+  function syncExtras(animate: boolean): void {
+    const compat = extrasCompat(currentLabel);
+    if (gridOn && compat.grid) applyGrid(animate); else clearGrids();
+    // A steam-type enclosure already carries its transom — don't double it
+    if (steamOn && compat.steam && currentKey !== 'steam') applySteam(animate); else clearSteam();
   }
 
   /* ---- Handles ---- */
@@ -649,7 +751,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function applySolidityNow(): void {
     const scale = solidityOpacityScale();
-    for (const p of panels) {
+    for (const p of allGlass()) {
       p.edgeMat.opacity = edgeOpacity();
       p.glassMat.opacity = baseOpacityFor(glassKey) * scale;
     }
@@ -664,12 +766,13 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     group,
 
     setEnclosure(label: string): void {
+      currentLabel = label;
       buildEnclosure(enclosureKeyFor(label), true);
     },
 
     setGlass(label: string): void {
       glassKey = glassKeyFor(label);
-      for (const p of panels) applyGlassKey(p.glassMat, glassKey, true);
+      for (const p of allGlass()) applyGlassKey(p.glassMat, glassKey, true);
     },
 
     setHardware(label: string): void {
@@ -687,6 +790,13 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     setHandle(label: string): void {
       handleKey = handleKeyFor(label);
       buildHandle(handleKey, true);
+    },
+
+    setExtras(label: string): void {
+      const v = (label || '').toLowerCase();
+      gridOn = v.includes('grid') || v.includes('both');
+      steamOn = v.includes('steam') || v.includes('both');
+      syncExtras(true);
     },
 
     setSolidity(t: number): void {

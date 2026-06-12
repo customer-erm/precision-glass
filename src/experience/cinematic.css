@@ -303,6 +303,21 @@ body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
   background: rgba(110, 231, 183, 0.1);
 }
 
+/* Incompatible upgrades: visibly off the table, with the reason */
+.cinematic .ss-extra-card.cine-disabled {
+  opacity: 0.4;
+  filter: grayscale(0.75);
+  pointer-events: none;
+}
+.cine-incompat-note {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: #fda4af;
+}
+
 /* ===========================================================
    Intro trust signals
    =========================================================== */

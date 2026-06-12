@@ -16,6 +16,7 @@ import { getBathroomPhoto } from '../utils/bathroom-photo';
 import { getState } from '../utils/state';
 import { materializeSlide, dematerializeSlide, revealRender } from './materialize';
 import { onChoice, onPreview } from './events';
+import { extrasCompat } from './compat';
 import { prefersReducedMotion } from './flag';
 import type { Stage, CameraSpec } from './stage';
 import './cinematic.css';
@@ -114,6 +115,7 @@ let unsubChoice: (() => void) | null = null;
 let unsubPreview: (() => void) | null = null;
 let activeServiceLocal: ServiceType = 'showers';
 let pushedThrough = false;
+let enclosureChoice = '';
 const chosen = new Set<string>();
 
 function root(): HTMLElement | null {
@@ -164,12 +166,13 @@ function applyChoice(category: string, value: string): void {
   if (!stage || activeServiceLocal !== 'showers') return;
   const rig = stage.shower;
   switch (category) {
-    case 'enclosure': rig.setEnclosure(value); break;
+    case 'enclosure': enclosureChoice = value; rig.setEnclosure(value); break;
     case 'glass': rig.setGlass(value); break;
     case 'hardware': rig.setHardware(value); break;
     case 'handle':
       if (!/^(n\/a|none)$/i.test(value.trim())) rig.setHandle(value);
       break;
+    case 'extras': rig.setExtras(value); break;
     default: break;
   }
   if (['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(category)) {
@@ -193,7 +196,7 @@ function applyPreview(category: string, value: string): void {
   if (activeServiceLocal !== 'showers') return;
   const rig = stage.shower;
   switch (category) {
-    case 'enclosure': rig.setEnclosure(value); break;
+    case 'enclosure': enclosureChoice = value; rig.setEnclosure(value); break;
     case 'glass': rig.setGlass(value); break;
     case 'hardware': rig.setHardware(value); break;
     case 'handle': rig.setHandle(value); break;
@@ -212,6 +215,7 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
 
   activeServiceLocal = service;
   chosen.clear();
+  enclosureChoice = '';
   pushedThrough = false;
   const host = root();
   host?.classList.add('cinematic');
@@ -298,6 +302,11 @@ export async function showSlide(slideId: string): Promise<void> {
     stage.shower.setWater(slideId === 'process');
   }
 
+  // Upgrades that don't apply to the chosen style are greyed out with a reason
+  if (slideId === 'extras' && activeServiceLocal === 'showers') {
+    applyExtrasCompatUI(host);
+  }
+
   const target = host.querySelector(`#slide-${slideId}`) as HTMLElement | null;
   if (target) {
     const isSide = activeServiceLocal === 'showers' && SIDE_SLIDES.has(slideId);
@@ -308,6 +317,26 @@ export async function showSlide(slideId: string): Promise<void> {
     const slowReveal = isSide && (mode === 'voice' || mode === 'chat');
     materializeSlide(target, { stagger: slowReveal ? 0.45 : 0.07 });
   }
+}
+
+function applyExtrasCompatUI(host: HTMLElement): void {
+  const compat = extrasCompat(enclosureChoice);
+  host.querySelectorAll<HTMLElement>('#slide-extras .ss-extra-card').forEach((card) => {
+    const label = card.querySelector('h4')?.textContent?.toLowerCase() ?? '';
+    const isSteam = label.includes('steam');
+    const isGrid = label.includes('grid');
+    const ok = isSteam ? compat.steam : isGrid ? compat.grid : true;
+    const reason = isSteam ? compat.steamReason : compat.gridReason;
+    card.classList.toggle('cine-disabled', !ok);
+    if (!ok) card.classList.remove('selected');
+    card.querySelector('.cine-incompat-note')?.remove();
+    if (!ok && reason && enclosureChoice) {
+      const note = document.createElement('span');
+      note.className = 'cine-incompat-note';
+      note.textContent = `Not available with ${enclosureChoice} — ${reason}`;
+      card.querySelector('.ss-card-info')?.appendChild(note);
+    }
+  });
 }
 
 export async function endSlideshow(): Promise<void> {
