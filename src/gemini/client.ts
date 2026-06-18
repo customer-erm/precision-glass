@@ -78,14 +78,12 @@ export class GeminiLiveClient {
           },
           outputAudioTranscription: {},
           inputAudioTranscription: {},
-          // Tuned for HEARING over speed: generous prefix padding so the
-          // first word is never clipped, and a lower end-of-speech
-          // sensitivity + longer silence window so mid-sentence pauses
-          // don't cut the customer off (the "I have to say things twice"
-          // failure mode).
+          // Tuned for clean turn-taking: avoid barge-in and require a clearer
+          // speech start so background noise does not steer the tour.
           realtimeInputConfig: {
+            activityHandling: 'NO_INTERRUPTION',
             automaticActivityDetection: {
-              startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+              startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
               endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
               prefixPaddingMs: 400,
               silenceDurationMs: 650,
@@ -212,16 +210,11 @@ export class GeminiLiveClient {
       }
     }
 
-    // Handle interruption — the customer barged in. Kill the queued audio
-    // IMMEDIATELY and flip to listening so the site feels instantly
-    // responsive to the redirect.
+    // Barge-in is intentionally disabled for now. If the API still reports an
+    // interruption, keep Alex's queued audio intact so incidental noise cannot
+    // cut off the tour.
     if (content.interrupted) {
-      console.log('[Gemini] Interrupted — customer barge-in');
-      this.audioPlayer.clearQueue();
-      this.isAgentSpeaking = false;
-      this.cancelListeningTimer();
-      this.onStateChange?.('listening');
-      setState({ agentState: 'listening' });
+      console.log('[Gemini] Ignoring interruption — barge-in disabled');
     }
 
     // Handle transcription
@@ -246,12 +239,9 @@ export class GeminiLiveClient {
       console.log('[Gemini] Requesting mic access...');
       await this.audioCapture.start((base64) => {
         if (!this.session) return;
-        // Stream mic audio CONTINUOUSLY — including while the agent is
-        // speaking — so the customer can barge in and redirect at any
-        // moment. Browser echo-cancellation handles speaker bleed; the
-        // API's VAD decides what counts as real speech. Only gate during
-        // tool execution (function calling is synchronous anyway).
-        if (this.toolCallInFlight) return;
+        // Keep turns clean while interruption is disabled: do not stream mic
+        // frames during tool calls or while Alex's response is still playing.
+        if (this.toolCallInFlight || this.isAgentSpeaking || this.audioPlayer.isActive) return;
         this.session.sendRealtimeInput({
           audio: {
             data: base64,

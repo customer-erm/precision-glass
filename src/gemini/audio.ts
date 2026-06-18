@@ -6,6 +6,8 @@
 
 type AudioChunkCallback = (base64: string) => void;
 
+const MIC_INPUT_GAIN = 1.2;
+
 export class AudioCapture {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
@@ -28,19 +30,17 @@ export class AudioCapture {
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true,
+        autoGainControl: false,
       },
     });
 
     this.audioContext = new AudioContext({ sampleRate: 16000 });
     this.sourceNode = this.audioContext.createMediaStreamSource(this.stream);
 
-    // Boost the mic signal ~2x before encoding — laptop mics at normal
-    // conversation distance run quiet, which made the VAD miss soft
-    // speech ("I have to shout / repeat answers"). Hard-clipped in
-    // float32ToInt16, so the boost can't blow out the encoding.
+    // Keep a modest lift for normal conversation without raising room tone
+    // enough for server VAD to treat white noise as speech.
     this.gainNode = this.audioContext.createGain();
-    this.gainNode.gain.value = 2.0;
+    this.gainNode.gain.value = MIC_INPUT_GAIN;
 
     // Use ScriptProcessor for broad compatibility (AudioWorklet needs HTTPS + separate file)
     const bufferSize = 4096;
@@ -98,6 +98,10 @@ export class AudioPlayer {
 
   get context(): AudioContext | null {
     return this.audioContext;
+  }
+
+  get isActive(): boolean {
+    return this.queue.length > 0 || this.scheduledSources.length > 0;
   }
 
   init(): void {
