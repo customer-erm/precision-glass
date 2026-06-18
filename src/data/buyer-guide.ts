@@ -78,17 +78,6 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
     pros: ['No swing clearance needed', 'Huge openings when slid open', 'Quiet, smooth action'],
     cons: ['Heavier hardware', 'Top track is visible (though minimal)'],
   },
-  'curved': {
-    title: 'Curved',
-    subtitle: 'Bent glass for a spa aesthetic',
-    body: `A single sheet of glass heat-bent into a smooth radius curve. No seams, no straight edges in the curved section — just flowing glass. Makes a shower feel more like a resort spa.\n\nBecause the glass is custom-formed for your dimensions, the team verifies feasibility before quoting or scheduling.`,
-    specs: [
-      { label: 'Glass', value: 'Heat-bent 3/8" tempered' },
-      { label: 'Review', value: 'Staff verifies feasibility' },
-    ],
-    pros: ['Dramatic statement piece', 'Softens the bathroom aesthetic', 'No seams to clean'],
-    cons: ['Requires feasibility review', 'More specialized fabrication'],
-  },
   'arched': {
     title: 'Arched',
     subtitle: 'Decorative arched top edge',

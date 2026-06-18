@@ -39,7 +39,7 @@ export interface ShowerRig {
 /* ------------------------------------------------------------------ */
 
 type EnclosureKey = 'single' | 'door-panel' | 'corner90' | 'neo' | 'slider'
-  | 'curved' | 'arched' | 'splash' | 'steam' | 'custom';
+  | 'arched' | 'splash' | 'steam' | 'custom';
 
 function enclosureKeyFor(label: string): EnclosureKey {
   const v = label.toLowerCase();
@@ -47,7 +47,6 @@ function enclosureKeyFor(label: string): EnclosureKey {
   if (v.includes('90') || v.includes('corner')) return 'corner90';
   if (v.includes('neo')) return 'neo';
   if (v.includes('slid') || v.includes('bypass')) return 'slider';
-  if (v.includes('curv') || v.includes('round')) return 'curved';
   if (v.includes('arch')) return 'arched';
   if (v.includes('steam')) return 'steam';
   if (v.includes('custom')) return 'custom';
@@ -95,7 +94,9 @@ function handleKeyFor(label: string): HandleKey {
 /*  Panel layout specs                                                  */
 /* ------------------------------------------------------------------ */
 
+const WALL_H = 2.45;
 const GLASS_H = 2.0;
+const STEAM_GLASS_H = WALL_H;
 const BASE_Y = 0.1; // top of pedestal
 const T = 0.012;    // 1/2" glass
 
@@ -109,18 +110,15 @@ interface PanelSpec {
   arched?: boolean;
 }
 
-interface CurvedSpec { center: [number, number]; radius: number; thetaStart: number; thetaLength: number; }
-
-interface EnclosureLayout { panels: PanelSpec[]; curved?: CurvedSpec; headerBar?: boolean; }
+interface EnclosureLayout { panels: PanelSpec[]; headerBar?: boolean; alcoveRightWall?: boolean; }
 
 const L = -0.7, R = 0.7, F = 0.7; // left wall x, right extent, front z
 
 const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
-  single: { panels: [
-    { from: [L, F], to: [-0.45, F] },
-    { from: [-0.45, F], to: [0.42, F], isDoor: true, hasHandle: true },
+  single: { alcoveRightWall: true, panels: [
+    { from: [L, F], to: [R, F], isDoor: true, hasHandle: true },
   ] },
-  'door-panel': { panels: [
+  'door-panel': { alcoveRightWall: true, panels: [
     { from: [L, F], to: [0, F] },
     { from: [0, F], to: [R, F], isDoor: true, hasHandle: true },
   ] },
@@ -142,10 +140,6 @@ const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
     { from: [L, 0.66], to: [0.06, 0.66] },
     { from: [-0.06, 0.74], to: [R, 0.74], isDoor: true, hasHandle: true },
   ] },
-  curved: {
-    panels: [],
-    curved: { center: [L, -0.7], radius: 1.4, thetaStart: 0, thetaLength: Math.PI / 2 },
-  },
   arched: { panels: [
     { from: [L, F], to: [-0.05, F] },
     { from: [-0.05, F], to: [R, F], isDoor: true, hasHandle: true, arched: true },
@@ -154,10 +148,10 @@ const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
     { from: [L, F], to: [0.15, F] },
   ] },
   steam: { panels: [
-    { from: [L, F], to: [-0.15, F] },
+    { from: [L, F], to: [-0.15, F], height: STEAM_GLASS_H },
     { from: [-0.15, F], to: [R, F], isDoor: true, hasHandle: true },
-    { from: [R, F], to: [R, -0.7] },
-    { from: [L, F], to: [R, F], baseY: BASE_Y + GLASS_H + 0.02, height: 0.32 }, // transom
+    { from: [R, F], to: [R, -0.7], height: STEAM_GLASS_H },
+    { from: [-0.15, F], to: [R, F], baseY: BASE_Y + GLASS_H, height: STEAM_GLASS_H - GLASS_H }, // door transom to ceiling
   ] },
   custom: { panels: [
     { from: [L, 0.45], to: [-0.3, F] },
@@ -241,7 +235,7 @@ interface PanelRuntime {
   edgeMat: THREE.LineBasicMaterial;
   /** Structural yaw of the pivot — assembly animation swings into this. */
   rotY: number;
-  /** Flat-panel dimensions (0 for curved) — used by the grid upgrade. */
+  /** Flat-panel dimensions — used by the grid upgrade. */
   w: number;
   h: number;
   /** Applied muntin-bar group when the grid upgrade is active. */
@@ -283,24 +277,32 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   });
   // BoxGeometry face order: +x, -x, +y, -y, +z, -z
   const backWall = new THREE.Mesh(
-    new THREE.BoxGeometry(1.58, 2.45, 0.07),
+    new THREE.BoxGeometry(1.58, WALL_H, 0.07),
     [shellMat, shellMat, shellMat, shellMat, tileMat, shellMat], // tile faces the shower (+z)
   );
-  backWall.position.set(0, BASE_Y + 1.22, -0.745);
+  backWall.position.set(0, BASE_Y + WALL_H / 2, -0.745);
   backWall.renderOrder = 1;
   group.add(backWall);
   const leftWall = new THREE.Mesh(
-    new THREE.BoxGeometry(0.07, 2.45, 1.58),
+    new THREE.BoxGeometry(0.07, WALL_H, 1.58),
     [tileMat, shellMat, shellMat, shellMat, shellMat, shellMat], // tile faces the shower (+x)
   );
-  leftWall.position.set(-0.745, BASE_Y + 1.22, 0);
+  leftWall.position.set(-0.745, BASE_Y + WALL_H / 2, 0);
   leftWall.renderOrder = 1;
   group.add(leftWall);
+  const rightWall = new THREE.Mesh(
+    new THREE.BoxGeometry(0.07, WALL_H, 1.58),
+    [shellMat, tileMat, shellMat, shellMat, shellMat, shellMat], // tile faces the shower (-x)
+  );
+  rightWall.position.set(0.745, BASE_Y + WALL_H / 2, 0);
+  rightWall.renderOrder = 1;
+  rightWall.visible = false;
+  group.add(rightWall);
 
   const floorMat = new THREE.MeshStandardMaterial({ color: 0x14283f, roughness: 0.7, map: tileTex });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(1.68, 48), floorMat);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.y = BASE_Y + 0.002;
+  floor.position.y = BASE_Y - 0.001;
   group.add(floor);
 
   // Showerhead — arm comes out of the BACK wall, head hanging at its end
@@ -449,12 +451,6 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         }
       }
     }
-    // Low tiled curb under every floor-standing panel
-    if (!spec.baseY) {
-      const curb = new THREE.Mesh(new THREE.BoxGeometry(w, 0.07, 0.1), pedestalMat);
-      curb.position.set(0, 0.035, 0);
-      pivot.add(curb);
-    }
     if (spec.hasHandle) {
       handleHost = new THREE.Group();
       handleHost.position.set(w / 2 - 0.09, 1.05, 0);
@@ -463,28 +459,6 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
     assembly.add(pivot);
     return { pivot, glass, glassMat, edges, edgeMat, rotY, w, h: hgt };
-  }
-
-  function addCurvedPanel(spec: CurvedSpec): PanelRuntime {
-    const geo = new THREE.CylinderGeometry(spec.radius, spec.radius, GLASS_H, 36, 1, true, spec.thetaStart, spec.thetaLength);
-    geo.translate(0, GLASS_H / 2, 0);
-    const glassMat = makeGlassMaterial();
-    const glass = new THREE.Mesh(geo, glassMat);
-    glass.renderOrder = 2;
-    const edgeMat = new THREE.LineBasicMaterial({ color: 0x6fd8ff, transparent: true, opacity: 0.9 });
-    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 50), edgeMat);
-    edges.renderOrder = 3;
-    const pivot = new THREE.Group();
-    pivot.position.set(spec.center[0], BASE_Y, spec.center[1]);
-    pivot.add(glass, edges);
-    // Handle on the curve's leading edge
-    handleHost = new THREE.Group();
-    handleHost.position.set(Math.sin(spec.thetaStart + spec.thetaLength * 0.5) * spec.radius, 1.05,
-      Math.cos(spec.thetaStart + spec.thetaLength * 0.5) * spec.radius);
-    handleHost.lookAt(new THREE.Vector3(0, 1.05, 0).add(pivot.position));
-    pivot.add(handleHost);
-    assembly.add(pivot);
-    return { pivot, glass, glassMat, edges, edgeMat, rotY: 0, w: 0, h: GLASS_H };
   }
 
   function disposeRuntime(p: PanelRuntime): void {
@@ -509,8 +483,8 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     currentKey = key;
     disposePanels();
     const layout = LAYOUTS[key];
+    rightWall.visible = !!layout.alcoveRightWall;
     for (const spec of layout.panels) panels.push(addPanel(spec));
-    if (layout.curved) panels.push(addCurvedPanel(layout.curved));
 
     if (layout.headerBar) {
       const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.44, 12), metalMat);
@@ -565,7 +539,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function applyGrid(animate: boolean): void {
     for (const p of panels) {
-      if (p.grid || p.w <= 0.2) continue; // skip curved + slivers
+      if (p.grid || p.w <= 0.2) continue; // skip narrow slivers
       const grid = new THREE.Group();
       const depth = 0.022;
       for (const fx of [-1 / 6, 1 / 6]) {
@@ -835,7 +809,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       disposePanels();
       pedestal.geometry.dispose(); pedestalMat.dispose();
       ring.geometry.dispose(); ringMat.dispose();
-      backWall.geometry.dispose(); leftWall.geometry.dispose();
+      backWall.geometry.dispose(); leftWall.geometry.dispose(); rightWall.geometry.dispose();
       tileMat.dispose(); shellMat.dispose();
       floor.geometry.dispose(); floorMat.dispose();
       metalMat.dispose();

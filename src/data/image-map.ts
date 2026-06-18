@@ -15,7 +15,6 @@ export const images = {
       { id: 'enc-door-panel', src: '/images/shower-details/enclosures-3d/door-panel.jpg', label: 'Door + Panel', desc: 'Door with fixed panel for wider openings' },
       { id: 'enc-neo', src: '/images/shower-details/enclosures-3d/neo-angle.jpg', label: 'Neo-Angle', desc: 'Corner-saving diamond-shaped enclosure' },
       { id: 'enc-slider', src: '/images/shower-details/enclosures-3d/slider.jpg', label: 'Frameless Slider', desc: 'Bypass door system for tub-to-shower conversions' },
-      { id: 'enc-curved', src: '/images/shower-details/enclosures-3d/curved.jpg', label: 'Curved', desc: 'Elegant curved glass for a spa-like feel' },
       { id: 'enc-arched', src: '/images/shower-details/enclosures-3d/arched.jpg', label: 'Arched', desc: 'Distinctive arched top for a statement look' },
       { id: 'enc-splash', src: '/images/shower-details/enclosures-3d/splash-panel.jpg', label: 'Splash Panel', desc: 'Simple fixed panel for open shower designs' },
       { id: 'enc-steam', src: '/images/shower-details/enclosures-3d/steam-shower.jpg', label: 'Steam Shower', desc: 'Fully sealed enclosure for steam functionality' },

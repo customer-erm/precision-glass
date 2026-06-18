@@ -12,22 +12,24 @@ const CARD_SELECTOR = [
   '.ss-extra-card', '.ss-process-step', '.ss-info-bullet', '.ss-quote-step',
 ].join(',');
 
-const DECODE_CHARS = '▖▗▘▙▚▛▜▝▞▟ABCDEFGHIKLMNOPRSTUVZ0123456789';
+const DECODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%+*/';
 
 /* ------------------------------------------------------------------ */
 /*  Text decode — characters resolve left-to-right from plotter noise   */
 /* ------------------------------------------------------------------ */
 
 const originalText = new WeakMap<HTMLElement, string>();
+const decodeTweens = new WeakMap<HTMLElement, gsap.core.Tween>();
 
 export function decodeText(el: HTMLElement, duration = 0.9): void {
   if (prefersReducedMotion()) return;
   const text = originalText.get(el) ?? el.textContent ?? '';
   if (!text.trim()) return;
   originalText.set(el, text);
+  decodeTweens.get(el)?.kill();
 
   const proxy = { progress: 0 };
-  gsap.to(proxy, {
+  const tween = gsap.to(proxy, {
     progress: 1,
     duration,
     ease: 'power2.out',
@@ -40,8 +42,12 @@ export function decodeText(el: HTMLElement, duration = 0.9): void {
       }
       el.textContent = out;
     },
-    onComplete: () => { el.textContent = text; },
+    onComplete: () => {
+      el.textContent = text;
+      decodeTweens.delete(el);
+    },
   });
+  decodeTweens.set(el, tween);
 }
 
 /* ------------------------------------------------------------------ */

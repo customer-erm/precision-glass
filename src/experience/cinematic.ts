@@ -362,7 +362,7 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
     }
   }
 
-  // Trim the enclosure list to the 8 signature styles so the side column
+  // Trim the enclosure list to the 7 signature styles so the side column
   // breathes — arched and fully-custom stay available by asking the agent.
   if (host && service === 'showers') {
     host.querySelectorAll<HTMLElement>('#slide-enclosures .ss-enc-card').forEach((card) => {
@@ -370,7 +370,7 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
       if (label.includes('arched') || label.includes('custom')) card.remove();
     });
     const sub = host.querySelector('#slide-enclosures .slide-sub');
-    if (sub) sub.textContent = '8 signature styles — arched tops & custom layouts on request';
+    if (sub) sub.textContent = '7 signature styles — arched tops & custom layouts on request';
   }
   mountStage();
   unsubChoice?.();

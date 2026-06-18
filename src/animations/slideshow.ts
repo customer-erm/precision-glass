@@ -465,7 +465,7 @@ function thumbForStep(key: string, value: string): string | null {
   if (key === 'enclosure') {
     return find(images.showers.enclosures, [
       ['splash', 'Splash Panel'], ['walk', 'Splash Panel'], ['90', '90° Corner'], ['corner', '90° Corner'],
-      ['neo', 'Neo-Angle'], ['slider', 'Frameless Slider'], ['slide', 'Frameless Slider'], ['curved', 'Curved'],
+      ['neo', 'Neo-Angle'], ['slider', 'Frameless Slider'], ['slide', 'Frameless Slider'],
       ['arch', 'Arched'], ['steam', 'Steam Shower'], ['custom', 'Custom'], ['panel', 'Door + Panel'],
       ['single', 'Single Door'], ['door', 'Single Door'],
     ]);

@@ -45,7 +45,6 @@ function findEnclosureImage(choice: string): string {
     ['neo', 'Neo-Angle'],
     ['slider', 'Frameless Slider'],
     ['slide', 'Frameless Slider'],
-    ['curved', 'Curved'],
     ['arch', 'Arched'],
     ['steam', 'Steam Shower'],
     ['custom', 'Custom'],
@@ -104,7 +103,6 @@ function buildPrompt(choices: Record<string, string>): string {
   const enclosureLower = (choices.enclosure || '').toLowerCase();
   const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
   const isSlider = enclosureLower.includes('slider') || enclosureLower.includes('slide') || enclosureLower.includes('bypass');
-  const isCurved = enclosureLower.includes('curved');
   const isArched = enclosureLower.includes('arched');
   const isNeo = enclosureLower.includes('neo');
   const isSteam = enclosureLower.includes('steam');
@@ -120,14 +118,11 @@ function buildPrompt(choices: Record<string, string>): string {
   } else if (!isWalkIn && !isSlider) {
     parts.push('DOOR SIDE (no customer cue given — derive it from the layout like an installer would): the door goes at the natural ENTRY point of the wet area — the side closest to the open room, farthest from the shower valve/showerhead wall. Hinges mount on the edge adjacent to the fixed panel (glass-to-glass hinges) or to the nearest full-height wall (wall-mount hinges); the handle goes on the opposite (latch) edge. If a vanity, toilet, or wall would block the door swing on one side, hinge on the other side. Choose ONE consistent configuration and keep every hinge, handle, and gap consistent with it.');
   }
-  parts.push('PRO INSTALLER ACCURACY RULES (clients are detail experts — treat this like a shop drawing): (1) place glass ONLY at the existing shower/tub threshold or wet-area opening; (2) preserve the original room perspective exactly; (3) all vertical glass edges perfectly plumb, all horizontal edges level; (4) bottom glass edges land on the curb/tub deck/threshold with a consistent ~1/2 inch clearance gap under the door only; (5) hinged doors ALWAYS swing OUTWARD into the room (safety code) — render the door closed and flush; (6) glass reads as 3/8 inch low-iron tempered — slight green-blue edge tint on exposed edges, crisp polished edges; (7) fixed panels secure to walls with slim U-channel or two mirror-polished clips per edge — matching the chosen finish; (8) consistent ~3/16 inch gaps between glass panels; (9) do not block plumbing fixtures, toilet, vanity drawers, towel bars, windows, or entry paths; (10) do not move walls, tile, vanity, toilet, window, mirror, lighting, or shower fixtures unless directly hidden by glass; (11) the shower VALVE and showerhead stay on their existing plumbing wall and the door must give dry-hand access to the valve.');
+  parts.push('PRO INSTALLER ACCURACY RULES (clients are detail experts — treat this like a shop drawing): (1) place glass ONLY at the existing shower/tub threshold or wet-area opening; (2) preserve the original room perspective exactly; (3) all vertical glass edges perfectly plumb, all horizontal edges level; (4) bottom glass edges land directly at the finished shower floor/curb/tub deck with NO metal floor track or bottom frame; use only a discreet clear sweep/clearance under the operable door if needed; (5) hinged doors ALWAYS swing OUTWARD into the room (safety code) — render the door closed and flush; (6) glass reads as 3/8 inch low-iron tempered — slight green-blue edge tint on exposed edges, crisp polished edges; (7) fixed panels secure to walls with slim U-channel or two mirror-polished clips per edge — matching the chosen finish; (8) consistent ~3/16 inch gaps between glass panels; (9) do not block plumbing fixtures, toilet, vanity drawers, towel bars, windows, or entry paths; (10) do not move walls, tile, vanity, toilet, window, mirror, lighting, or shower fixtures unless directly hidden by glass; (11) the shower VALVE and showerhead stay on their existing plumbing wall and the door must give dry-hand access to the valve.');
   parts.push('PANEL COUNT — EXACT: build the enclosure with EXACTLY the panels shown in the layout reference image — same number of panels, same proportions, same angles. Do not add extra panels, do not merge panels, do not change which panel is the door.');
 
   if (isSlider) {
     parts.push('CRITICAL — ENCLOSURE TYPE: This is a FRAMELESS SLIDING shower door (bypass slider). It has TWO large rectangular glass panels: one fixed and one that slides horizontally. The sliding panel hangs from a continuous top-mounted metal RAIL/TRACK that spans the full width of the opening, suspended by two clearly visible ROLLER WHEELS / trolley assemblies that ride along the rail. Small floor guides keep the bottom of the sliding panel in place. The door SLIDES — it does NOT swing. There are absolutely NO hinges, NO pivots, NO swinging door panels anywhere in this enclosure. Show the top rail and the roller hardware clearly in the image.');
-  }
-  if (isCurved) {
-    parts.push('CRITICAL — ENCLOSURE TYPE: This is a CURVED frameless shower with a single radius-bent glass panel forming a smooth arc. No straight glass panels in the curved section.');
   }
   if (isArched) {
     parts.push('CRITICAL — ENCLOSURE TYPE: The top edge of the glass door has a decorative ARCHED / curved cutout shape. The sides remain straight.');

@@ -131,7 +131,7 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: 'show_topic',
-    description: "Surface a large on-screen content modal to visually answer a question or highlight a topic with images from our library. Use this when the customer asks about something outside the main tour flow — e.g. \"show me some matte black installs\", \"what do steam showers look like\", \"tell me about curved enclosures\". You write the title and body (keep body to 1-3 short paragraphs). Specify image_tags (keywords like 'matte-black', 'frosted-glass', 'steam', 'curved', 'railings', 'storefront') and the system will pull the most relevant images from our library. This is a spontaneous teaching moment — it does NOT advance the tour and does NOT replace show_slide.",
+    description: "Surface a large on-screen content modal to visually answer a question or highlight a topic with images from our library. Use this when the customer asks about something outside the main tour flow — e.g. \"show me some matte black installs\", \"what do steam showers look like\", or \"show me pool-deck railings\". You write the title and body (keep body to 1-3 short paragraphs). Specify image_tags (keywords like 'matte-black', 'frosted-glass', 'steam', 'neo-angle', 'railings', 'storefront') and the system will pull the most relevant images from our library. This is a spontaneous teaching moment — it does NOT advance the tour and does NOT replace show_slide.",
     parameters: {
       type: 'object' as const,
       properties: {
@@ -223,7 +223,7 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Re
 
   gallery: `Recent installations are cycling beside the 3D model. Keep this BRISK — 2 sentences max about the work (custom-fit, everything from compact alcoves to luxury spa builds). THEN ask for the email in a single clear sentence: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" Then STOP completely and wait silently. The buyer's guide popup will appear on screen automatically while you're talking — you do not need to call any tool for it. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
 
-  enclosures: `The enclosure styles are fading in one by one beside the 3D model — pace your description to roughly match (one style at a time, top to bottom): Single Door (clean, minimal), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle), Frameless Slider (no swing room needed), Curved (spa feel), Splash Panel (open walk-in, just a fixed panel), and Steam Shower (sealed floor-to-ceiling). Mention the most popular are Single Door and Door + Panel, and that arched tops and fully custom layouts are available too — just ask. If they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
+  enclosures: `The enclosure styles are fading in one by one beside the 3D model — pace your description to roughly match (one style at a time, top to bottom): Single Door (clean alcove door), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle), Frameless Slider (no swing room needed), Splash Panel (open walk-in, just a fixed panel), and Steam Shower (sealed floor-to-ceiling). Mention the most popular are Single Door and Door + Panel, and that arched tops and fully custom layouts are available too — just ask. Do not offer curved glass in this flow for now. If they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
   glass: `Three glass types shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. If they ask what one looks like, call preview_option(category "glass") — the 3D model's glass morphs live, which is a great "watch this" moment. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
 
@@ -280,7 +280,7 @@ const SLIDE_QUICK_REPLIES_BY_SERVICE: Record<'showers' | 'railings' | 'commercia
   showers: {
     intro: ['Yes, show me', 'Tell me more first'],
     gallery: ['Here\u2019s my email', 'Skip for now'],
-    enclosures: ['Single Door', 'Door + Panel', 'Neo-Angle', '90\u00B0 Corner', 'Frameless Slider', 'Curved', 'Splash Panel', 'Steam Shower'],
+    enclosures: ['Single Door', 'Door + Panel', 'Neo-Angle', '90\u00B0 Corner', 'Frameless Slider', 'Splash Panel', 'Steam Shower'],
     glass: ['Clear Glass', 'Frosted Glass', 'Rain Glass'],
     hardware: ['Polished Chrome', 'Brushed Nickel', 'Matte Black', 'Polished Brass', 'Satin Brass'],
     accessories: ['Pull Handle', 'U-Handle', 'Ladder Pull', 'Knob', 'Towel Bar', 'None, thanks'],

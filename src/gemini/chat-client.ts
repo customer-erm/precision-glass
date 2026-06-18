@@ -214,7 +214,7 @@ function buildSteps(): Record<string, ChatStep> {
         if (ctx.choices.doorPlacement?.toLowerCase().includes('hinge')) {
           return `Great. I will keep "${ctx.choices.doorPlacement}" in mind so the hinge side and handle side do not get flipped in the rendering. Which enclosure style fits the opening best?`;
         }
-        return 'Great. There are 10 enclosure styles on screen. If you are not sure, Single Door and Door + Panel are the safest starting points for most remodels. Which style fits your space best?';
+        return 'Great. There are seven enclosure styles on screen. If you are not sure, Single Door and Door + Panel are the safest starting points for most remodels. Which style fits your space best?';
       },
       chips: [
         { label: 'Single Door', hint: 'Clean, minimal', primary: true, action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Single Door' } },
@@ -222,7 +222,6 @@ function buildSteps(): Record<string, ChatStep> {
         { label: 'Neo-Angle', hint: 'Corner', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Neo-Angle' } },
         { label: '90° Corner', hint: 'Two panels', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: '90° Corner' } },
         { label: 'Frameless Slider', hint: 'No swing', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Frameless Slider' } },
-        { label: 'Curved', hint: 'Spa feel', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Curved' } },
         { label: 'Arched', hint: 'Statement', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Arched' } },
         { label: 'Splash Panel', hint: 'Walk-in', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Splash Panel' } },
         { label: 'Steam Shower', hint: 'Spa upgrade', action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Steam Shower' } },
