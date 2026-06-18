@@ -370,12 +370,12 @@ function buildSteps(): Record<string, ChatStep> {
 
     'commercial-intro': {
       id: 'commercial-intro',
-      agent: 'We do commercial end-to-end — engineering, permits, fabrication, installation. Let\u2019s get a sense of your project.',
+      agent: 'We do commercial glass end-to-end: storefronts, curtain walls, partitions, doors, code review, and install coordination. I will ask for one project category, then glass, framing, and scale.',
       chips: [{ label: 'Walk me through', primary: true, action: { kind: 'advance', next: 'commercial-type' } }],
     },
     'commercial-type': {
       id: 'commercial-type',
-      agent: 'Which project type?',
+      agent: 'First, which category best matches the job?',
       chips: [
         { label: 'Storefront System', primary: true, action: { kind: 'advance', next: 'commercial-glass', choiceCategory: 'com-type', choice: 'Storefront System' } },
         { label: 'Curtain Wall', action: { kind: 'advance', next: 'commercial-glass', choiceCategory: 'com-type', choice: 'Curtain Wall' } },
@@ -405,7 +405,7 @@ function buildSteps(): Record<string, ChatStep> {
     },
     'commercial-scope': {
       id: 'commercial-scope',
-      agent: 'Project scope?',
+      agent: 'Last design-intake item: what is the approximate scale or stage? This routes review, submittals, and site coordination without asking project type again.',
       chips: [
         { label: 'Small / Repair', primary: true, action: { kind: 'advance', next: 'commercial-process', choiceCategory: 'com-scope', choice: 'Small / Repair' } },
         { label: 'Medium Build-Out', action: { kind: 'advance', next: 'commercial-process', choiceCategory: 'com-scope', choice: 'Medium Build-Out' } },

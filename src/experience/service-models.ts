@@ -412,10 +412,6 @@ export function createCommercialRig(): CommercialRig {
   floor.position.y = 0.02;
   group.add(floor);
 
-  const { mesh: ring, mat: ringMat } = makeGlowRing(0x9fd8ff);
-  ring.scale.set(1.25, 0.7, 1);
-  group.add(ring);
-
   const assembly = new THREE.Group();
   group.add(assembly);
   const processGroup = new THREE.Group();
@@ -433,96 +429,145 @@ export function createCommercialRig(): CommercialRig {
   let solidity = 0.18;
   let elapsed = 0;
 
-  function frameBox(w: number, h: number, d: number, x: number, y: number, z: number): void {
+  function profile(): number {
+    return 0.045 * frameScale;
+  }
+
+  function frameBox(w: number, h: number, d: number, x: number, y: number, z: number, rotY = 0): void {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
     mesh.position.set(x, y, z);
+    mesh.rotation.y = rotY;
     assembly.add(mesh);
   }
 
-  function glassPane(w: number, h: number, x: number, y: number, z: number): void {
-    const pane = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.024), glassMat);
+  function glassPane(w: number, h: number, x: number, y: number, z: number, rotY = 0): void {
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.018), glassMat);
     pane.position.set(x, y, z);
+    pane.rotation.y = rotY;
     pane.renderOrder = 2;
     assembly.add(pane);
-    const edge = lineBox(w, h, 0.026);
+    const edge = lineBox(w, h, 0.02);
     edge.position.copy(pane.position);
+    edge.rotation.y = rotY;
     assembly.add(edge);
   }
 
-  function addDoor(x: number, y: number, h = 1.7): void {
-    glassPane(0.48, h, x, y, 0.36);
+  function addVertical(x: number, y1: number, y2: number, z: number, rotY = 0): void {
+    frameBox(profile(), y2 - y1, 0.08, x, (y1 + y2) / 2, z, rotY);
+  }
+
+  function addHorizontal(x1: number, x2: number, y: number, z: number, rotY = 0): void {
+    frameBox(x2 - x1 + profile(), profile(), 0.08, (x1 + x2) / 2, y, z, rotY);
+  }
+
+  function addGlassOpening(x1: number, x2: number, y1: number, y2: number, z: number, rotY = 0): void {
+    const inset = profile() * 1.35;
+    const w = Math.max(0.08, x2 - x1 - inset * 2);
+    const h = Math.max(0.08, y2 - y1 - inset * 2);
+    glassPane(w, h, (x1 + x2) / 2, (y1 + y2) / 2, z, rotY);
+  }
+
+  function addDoorLeaf(x1: number, x2: number, y1: number, y2: number, handleSide: 'left' | 'right'): void {
+    addGlassOpening(x1, x2, y1, y2, 0.36);
+    const leafX = (x1 + x2) / 2;
+    frameBox(x2 - x1, profile() * 0.85, 0.09, leafX, y1 + 0.08, 0.385);
+    frameBox(x2 - x1, profile() * 0.85, 0.09, leafX, y2 - 0.08, 0.385);
+    const handleX = handleSide === 'right' ? x2 - 0.12 : x1 + 0.12;
     const pull = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.48, 12), frameMat);
-    pull.position.set(x + 0.16, y, 0.41);
+    pull.position.set(handleX, (y1 + y2) / 2, 0.43);
     assembly.add(pull);
     const closer = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.045, 0.055), frameMat);
-    closer.position.set(x, y + h / 2 - 0.1, 0.42);
+    closer.position.set(leafX, y2 - 0.11, 0.43);
     assembly.add(closer);
   }
 
-  function addScopeGhosts(): void {
-    const count = scope === 'small' ? 0 : scope === 'medium' ? 1 : scope === 'full' ? 2 : 3;
-    for (let i = 0; i < count; i++) {
-      const ghost = lineBox(0.72, 1.55 + i * 0.12, 0.035, 0x8fe5ff);
-      ghost.position.set(1.95 + i * 0.34, 0.92 + i * 0.06, 0.36);
-      (ghost.material as THREE.LineBasicMaterial).opacity = 0.28;
-      assembly.add(ghost);
-    }
+  function storefrontWidth(): number {
+    if (scope === 'small') return 2.75;
+    if (scope === 'full' || scope === 'tower') return 4.1;
+    return 3.55;
   }
 
   function buildStorefront(): void {
-    const fw = 0.045 * frameScale;
-    frameBox(3.35, fw, 0.08, 0, 1.83, 0.36);
-    frameBox(3.35, fw, 0.08, 0, 0.08, 0.36);
-    for (const x of [-1.7, -0.58, 0.58, 1.7]) frameBox(fw, 1.78, 0.08, x, 0.95, 0.36);
-    frameBox(3.35, fw, 0.08, 0, 1.35, 0.36);
-    glassPane(0.94, 1.15, -1.13, 0.72, 0.36);
-    addDoor(-0.28, 0.78, 1.38);
-    addDoor(0.28, 0.78, 1.38);
-    glassPane(0.94, 1.15, 1.13, 0.72, 0.36);
-    glassPane(3.1, 0.38, 0, 1.58, 0.36);
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.18, 0.045), darkMat);
-    sign.position.set(0, 2.05, 0.32);
-    assembly.add(sign);
-    addScopeGhosts();
+    const w = storefrontWidth();
+    const left = -w / 2;
+    const right = w / 2;
+    const sill = 0.14;
+    const transom = 1.42;
+    const head = 2.08;
+    const doorW = Math.min(0.64, w * 0.18);
+    const xs = [left, -doorW, 0, doorW, right];
+
+    addHorizontal(left, right, sill, 0.36);
+    addHorizontal(left, right, transom, 0.36);
+    addHorizontal(left, right, head, 0.36);
+    xs.forEach((x) => addVertical(x, sill, head, 0.36));
+
+    // Lower side lites and paired entrance doors.
+    addGlassOpening(xs[0], xs[1], sill, transom, 0.36);
+    addDoorLeaf(xs[1], xs[2], sill, transom, 'right');
+    addDoorLeaf(xs[2], xs[3], sill, transom, 'left');
+    addGlassOpening(xs[3], xs[4], sill, transom, 0.36);
+
+    // Separate transom lites per bay, not one sheet behind the mullions.
+    for (let i = 0; i < xs.length - 1; i++) addGlassOpening(xs[i], xs[i + 1], transom, head, 0.36);
+
+    const threshold = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.035, 0.12), darkMat);
+    threshold.position.set(0, sill - 0.055, 0.38);
+    assembly.add(threshold);
   }
 
   function buildCurtainWall(): void {
     const levels = scope === 'tower' ? 4 : 3;
     const cols = scope === 'small' ? 3 : 4;
-    const fw = 0.038 * frameScale;
     const w = 3.1;
     const h = 2.45;
-    frameBox(w, fw, 0.08, 0, 0.1, 0.36);
-    frameBox(w, fw, 0.08, 0, h, 0.36);
-    for (let c = 0; c <= cols; c++) frameBox(fw, h, 0.08, -w / 2 + (w / cols) * c, h / 2, 0.36);
-    for (let r = 0; r <= levels; r++) frameBox(w, fw, 0.08, 0, 0.1 + ((h - 0.1) / levels) * r, 0.36);
+    const left = -w / 2;
+    const right = w / 2;
+    const bottom = 0.1;
+    const bayH = (h - bottom) / levels;
+    for (let c = 0; c <= cols; c++) addVertical(left + (w / cols) * c, bottom, h, 0.36);
+    for (let r = 0; r <= levels; r++) addHorizontal(left, right, bottom + bayH * r, 0.36);
     for (let c = 0; c < cols; c++) {
       for (let r = 0; r < levels; r++) {
-        glassPane(w / cols - fw * 2, (h - 0.15) / levels - fw * 2, -w / 2 + (w / cols) * (c + 0.5), 0.22 + ((h - 0.15) / levels) * (r + 0.5), 0.36);
+        addGlassOpening(left + (w / cols) * c, left + (w / cols) * (c + 1), bottom + bayH * r, bottom + bayH * (r + 1), 0.36);
       }
     }
   }
 
   function buildPartitions(): void {
-    const fw = 0.03 * frameScale;
-    glassPane(2.1, 1.45, -0.35, 0.85, 0.36);
-    glassPane(1.25, 1.45, 0.95, 0.85, -0.24);
-    assembly.children[assembly.children.length - 2]?.rotateY?.(Math.PI / 2);
-    assembly.children[assembly.children.length - 1]?.rotateY?.(Math.PI / 2);
-    frameBox(2.2, fw, 0.07, -0.35, 1.58, 0.36);
-    frameBox(2.2, fw, 0.07, -0.35, 0.12, 0.36);
-    frameBox(fw, 1.48, 0.07, -1.45, 0.85, 0.36);
-    frameBox(fw, 1.48, 0.07, 0.75, 0.85, 0.36);
-    addDoor(0.15, 0.78, 1.28);
+    const left = -1.45;
+    const right = 1.35;
+    const sill = 0.12;
+    const head = 1.72;
+    const doorLeft = -0.18;
+    const doorRight = 0.5;
+    [left, doorLeft, doorRight, right].forEach((x) => addVertical(x, sill, head, 0.36));
+    addHorizontal(left, right, sill, 0.36);
+    addHorizontal(left, right, head, 0.36);
+    addGlassOpening(left, doorLeft, sill, head, 0.36);
+    addDoorLeaf(doorLeft, doorRight, sill, head, 'right');
+    addGlassOpening(doorRight, right, sill, head, 0.36);
+
+    const returnX = right;
+    const returnZ1 = -1.16;
+    const returnZ2 = -0.16;
+    frameBox(profile(), head - sill, 0.07, returnX, (sill + head) / 2, returnZ1, Math.PI / 2);
+    frameBox(profile(), head - sill, 0.07, returnX, (sill + head) / 2, returnZ2, Math.PI / 2);
+    frameBox(returnZ2 - returnZ1 + profile(), profile(), 0.07, returnX, sill, (returnZ1 + returnZ2) / 2, Math.PI / 2);
+    frameBox(returnZ2 - returnZ1 + profile(), profile(), 0.07, returnX, head, (returnZ1 + returnZ2) / 2, Math.PI / 2);
+    glassPane(0.86, head - sill - profile() * 2.7, returnX, (sill + head) / 2, -0.66, Math.PI / 2);
   }
 
   function buildDoors(): void {
-    const fw = 0.05 * frameScale;
-    frameBox(2.15, fw, 0.08, 0, 1.88, 0.36);
-    frameBox(fw, 1.82, 0.08, -1.1, 0.98, 0.36);
-    frameBox(fw, 1.82, 0.08, 1.1, 0.98, 0.36);
-    addDoor(-0.27, 0.88, 1.62);
-    addDoor(0.27, 0.88, 1.62);
+    const left = -1.1;
+    const right = 1.1;
+    const sill = 0.12;
+    const head = 1.88;
+    for (const x of [left, 0, right]) addVertical(x, sill, head, 0.36);
+    addHorizontal(left, right, sill, 0.36);
+    addHorizontal(left, right, head, 0.36);
+    addDoorLeaf(left, 0, sill, head, 'right');
+    addDoorLeaf(0, right, sill, head, 'left');
     const panic = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.82, 12), frameMat);
     panic.rotation.z = Math.PI / 2;
     panic.position.set(0, 0.82, 0.43);
@@ -612,8 +657,7 @@ export function createCommercialRig(): CommercialRig {
     },
     pulse(): void {
       if (prefersReducedMotion()) return;
-      gsap.fromTo(ringMat, { opacity: 0.95 }, { opacity: 0.52, duration: 0.9, ease: 'power2.out' });
-      gsap.fromTo(ring.scale, { x: 1.38, y: 0.8 }, { x: 1.25, y: 0.7, duration: 0.8, ease: 'power3.out' });
+      gsap.fromTo(assembly.scale, { x: 1.02, y: 1.018, z: 1.02 }, { x: 1, y: 1, z: 1, duration: 0.8, ease: 'power3.out' });
     },
     setProcess(on: boolean): void {
       processGroup.visible = on && !prefersReducedMotion();
@@ -621,14 +665,12 @@ export function createCommercialRig(): CommercialRig {
     idle(dt: number): void {
       elapsed += dt;
       group.rotation.y = Math.sin(elapsed * 0.1) * 0.05;
-      ring.rotation.z = elapsed * 0.055;
       if (processGroup.visible) processGroup.rotation.y = Math.sin(elapsed * 0.7) * 0.08;
     },
     dispose(): void {
       disposeGroup(assembly);
       disposeGroup(processGroup);
       floor.geometry.dispose(); floorMat.dispose();
-      ring.geometry.dispose(); ringMat.dispose();
       frameMat.dispose(); darkMat.dispose(); glassMat.dispose(); sealMat.dispose();
     },
   };

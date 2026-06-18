@@ -53,22 +53,22 @@ const SHOWER_STATIONS: Record<string, CameraSpec> = {
 const RAILING_STATIONS: Record<string, CameraSpec> = {
   intro: { angle: 0.52, distance: 7.2, height: 2.35, lateral: -0.75 },
   gallery: { angle: -0.55, distance: 6.8, height: 2.1, lateral: 1.55 },
-  'rail-types': { angle: 0.05, distance: 4.7, height: 1.55, lateral: 1.1, targetHeight: 0.78 },
-  'rail-glass': { angle: -0.45, distance: 3.9, height: 1.35, lateral: 0.95, targetHeight: 0.8 },
-  'rail-finish': { angle: 0.72, distance: 3.35, height: 1.3, lateral: 0.85, targetHeight: 0.72 },
-  'rail-mounting': { angle: 1.08, distance: 3.7, height: 1.45, lateral: 0.9, targetHeight: 0.45 },
-  process: { angle: 0.35, distance: 5.4, height: 2.0, lateral: 1.05, targetHeight: 0.8 },
+  'rail-types': { angle: 0.05, distance: 6.3, height: 1.65, lateral: 1.0, targetHeight: 0.78 },
+  'rail-glass': { angle: -0.45, distance: 5.5, height: 1.45, lateral: 0.9, targetHeight: 0.8 },
+  'rail-finish': { angle: 0.72, distance: 4.8, height: 1.38, lateral: 0.84, targetHeight: 0.72 },
+  'rail-mounting': { angle: 1.08, distance: 5.0, height: 1.5, lateral: 0.86, targetHeight: 0.45 },
+  process: { angle: 0.35, distance: 6.5, height: 2.05, lateral: 0.96, targetHeight: 0.8 },
   quote: { angle: 0, distance: 5.2, height: 1.65 },
 };
 
 const COMMERCIAL_STATIONS: Record<string, CameraSpec> = {
   intro: { angle: 0.48, distance: 7.4, height: 2.45, lateral: -0.8, targetHeight: 1.1 },
   gallery: { angle: -0.5, distance: 7.0, height: 2.15, lateral: 1.55, targetHeight: 1.05 },
-  'com-types': { angle: 0.02, distance: 5.0, height: 1.75, lateral: 1.05, targetHeight: 1.0 },
-  'com-glass': { angle: -0.48, distance: 4.3, height: 1.62, lateral: 0.95, targetHeight: 1.02 },
-  'com-framing': { angle: 0.6, distance: 3.7, height: 1.45, lateral: 0.85, targetHeight: 1.0 },
-  'com-scope': { angle: 0.9, distance: 4.7, height: 1.85, lateral: 0.95, targetHeight: 1.12 },
-  process: { angle: 0.28, distance: 5.6, height: 2.25, lateral: 1.05, targetHeight: 1.1 },
+  'com-types': { angle: 0.02, distance: 7.4, height: 1.9, lateral: 0.95, targetHeight: 1.0 },
+  'com-glass': { angle: -0.48, distance: 6.7, height: 1.76, lateral: 0.9, targetHeight: 1.02 },
+  'com-framing': { angle: 0.6, distance: 6.1, height: 1.62, lateral: 0.82, targetHeight: 1.0 },
+  'com-scope': { angle: 0.9, distance: 6.9, height: 1.95, lateral: 0.88, targetHeight: 1.12 },
+  process: { angle: 0.28, distance: 7.0, height: 2.28, lateral: 0.88, targetHeight: 1.1 },
   quote: { angle: 0, distance: 5.4, height: 1.75 },
 };
 
