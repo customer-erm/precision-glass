@@ -21,12 +21,28 @@ function findHandleImage(choice: string): string | null {
   if (lower.includes('ladder')) return find('acc-ladder');
   if (lower.includes('u-handle') || lower.includes('u handle') || lower.includes('uhandle')) return find('acc-uhandle');
   if (lower.includes('knob')) return find('acc-knob');
+  if (lower.includes('towel')) return find('acc-towel');
   if (lower.includes('pull')) return find('acc-pull');
   return null;
 }
 
+function findAccessoryImages(handle: string, accessories: string): Array<{ label: string; src: string }> {
+  const lower = `${handle || ''} ${accessories || ''}`.toLowerCase();
+  const list = images.showers.accessories;
+  const find = (id: string) => list.find((a) => a.id === id)?.src || null;
+  const refs: Array<{ label: string; src: string }> = [];
+  const push = (label: string, id: string) => {
+    const src = find(id);
+    if (src && !refs.some((ref) => ref.src === src)) refs.push({ label, src });
+  };
+  if (lower.includes('towel')) push('towel-bar pull combo / through-glass towel bar', 'acc-towel');
+  if (/robe|hook/.test(lower)) push('through-glass robe hook', 'acc-hook');
+  if (/support|stabil/.test(lower)) push('fixed-panel support / stabilizer bar', 'acc-bar');
+  return refs;
+}
+
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const IMAGE_MODEL = 'gemini-3-pro-image-preview';
+const IMAGE_MODELS = ['gemini-3-pro-image', 'gemini-3.1-flash-image'];
 
 /* ------------------------------------------------------------------ */
 /*  Map an enclosure choice string to its 3D reference image          */
@@ -108,6 +124,11 @@ function buildPrompt(choices: Record<string, string>): string {
   const isArched = enclosureLower.includes('arched');
   const isNeo = enclosureLower.includes('neo');
   const isSteam = enclosureLower.includes('steam') || extrasLower.includes('steam');
+  const isCorner90 = enclosureLower.includes('90') || enclosureLower.includes('corner');
+  const accessoryLower = accessories.toLowerCase();
+  const wantsTowel = accessoryLower.includes('towel') || handleLowerGlobal.includes('towel');
+  const wantsRobe = /robe|hook/.test(accessoryLower);
+  const wantsSupport = /support|stabil/.test(accessoryLower);
 
   const parts: string[] = [];
   parts.push(
@@ -132,6 +153,9 @@ function buildPrompt(choices: Record<string, string>): string {
   if (isNeo) {
     parts.push('CRITICAL — ENCLOSURE TYPE: This is a NEO-ANGLE shower in a corner — three glass panels (two angled side panels + a center door) forming a diamond/pentagonal footprint.');
   }
+  if (isCorner90) {
+    parts.push('CRITICAL - ENCLOSURE TYPE: This is a 90-degree frameless corner shower: fixed glass panels meet at a true right angle with one hinged swing door. Use hinges, wall clips, glass-to-glass clips, and optional fixed-panel support hardware only. Do NOT add a sliding door rail, rolling header bar, bypass track, or roller wheels to a 90-degree corner shower.');
+  }
   if (isSteam) {
     parts.push('Show visible steam/mist inside the shower enclosure, especially near the upper glass and ceiling, but keep the glass edges, seals, handle, and hardware readable.');
     parts.push('CRITICAL — ENCLOSURE TYPE: This is a STEAM SHOWER. The GLASS MUST RUN FROM THE FLOOR ALL THE WAY TO THE CEILING — every panel is full-height, floor to ceiling, with NO gap at the top. A clear transom panel sits above the door carrying the glass up to the ceiling. Compression seals visible around all edges. The enclosure must LOOK fully sealed and steam-ready. Do NOT render the glass stopping partway up the wall — it MUST reach the ceiling.');
@@ -149,7 +173,7 @@ function buildPrompt(choices: Record<string, string>): string {
     } else if (handleLower.includes('knob')) {
       handleDetail = 'a small ROUND KNOB — a single discreet circular doorknob mounted through-hole in the glass. NO bar, NO pull, just a small round knob.';
     } else if (handleLower.includes('towel')) {
-      handleDetail = 'a TOWEL BAR HANDLE COMBO - a short outside pull handle mounted through the glass with matching stand-offs that align to a horizontal towel bar holder on the inside face of the door. Show BOTH sides of the through-glass assembly: outside pull plus inside towel bar.';
+      handleDetail = 'a TOWEL BAR / PULL HANDLE COMBO - a short vertical outside pull handle on the room side, sharing through-glass stand-offs with a horizontal towel bar on the inside face of the door. It uses visible round washers/grommets through the tempered glass, normally three aligned through-holes. It is a door handle/towel holder combo, NOT a grab bar and NOT a separate wall towel bar.';
     } else if (handleLower.includes('pull')) {
       handleDetail = 'a single SHORT VERTICAL TUBULAR PULL HANDLE roughly 8 inches long, mounted through-hole on the door. It is a SHORT pull, NOT a long towel bar, NOT a horizontal bar. Mounted vertically on the glass door.';
     } else {
@@ -163,6 +187,10 @@ function buildPrompt(choices: Record<string, string>): string {
     parts.push(`Additional fitted accessories on the shower in ${hardware} finish (must be visible in the photo): ${accessories}. CRITICAL — all of these accessories mount THROUGH THE GLASS ITSELF, never on the bathroom wall: robe hooks are through-glass (small metal hook screwed through the glass panel with a back washer, hanging off the glass surface), towel bars are mounted through the glass on two stand-off posts that pierce the glass panel, support bars are mounted through the glass at both ends. None of these touch the tile wall — they are all glass-mounted.`);
   }
 
+  if (accessories) {
+    parts.push(`ACCESSORY PLACEMENT OVERRIDE - use this industry-accurate rule if any earlier generic accessory wording conflicts: robe hooks are small through-glass hooks mounted high on a fixed glass panel or safe door area with a single round washer/grommet hole and at least 10 inches of edge clearance. Support/stabilizer bars are slim round or square bars that stabilize a FIXED panel near its top free edge; they run from the fixed glass panel to a tile wall or ceiling bracket and are NOT handles, NOT towel bars, NOT grab bars, NOT roller rails, and NOT full-width headers. Towel-bar combos belong on the active door only as an outside pull plus inside towel rail with through-glass washers/grommets; they are not wall-mounted towel bars and not grab bars. Do not place any add-on where it blocks door swing, valves, showerhead, toilet, vanity, or panel gaps.`);
+  }
+
   if (extras && extras.toLowerCase() !== 'none') {
     parts.push(`Additional features: ${extras}.`);
   }
@@ -174,16 +202,25 @@ function buildPrompt(choices: Record<string, string>): string {
   // Negative constraints: don't add hardware that wasn't explicitly listed.
   const negatives: string[] = [];
   if (!isSlider) {
-    negatives.push('NO horizontal support bars or stabilizer bars across the top of the enclosure');
-    negatives.push('NO header bars or top channels connecting the panels');
+    negatives.push('NO sliding door rail');
+    negatives.push('NO rolling header bar');
+    negatives.push('NO bypass track');
+    negatives.push('NO barn-door roller hardware');
+    negatives.push('NO roller wheels');
+    negatives.push('NO top running track');
   }
   if (isSlider) {
     negatives.push('NO hinges anywhere — this is a slider, not a hinged door');
     negatives.push('NO pivots, NO swing arms');
   }
-  if ((!accessories || !/towel/i.test(accessories)) && !/towel/i.test(handleLowerGlobal)) negatives.push('NO towel bars');
-  if (!accessories || !/robe|hook/i.test(accessories)) negatives.push('NO robe hooks');
-  if (!accessories || !/support/i.test(accessories)) negatives.push('NO support bars of any kind');
+  if (wantsSupport) {
+    negatives.push('NO full-width header bar; any support bar must be a short fixed-panel-to-wall or fixed-panel-to-ceiling stabilizer only');
+    negatives.push('NO support bar attached to a moving door');
+  } else {
+    negatives.push('NO support bars of any kind');
+  }
+  if (!wantsTowel) negatives.push('NO towel bars');
+  if (!wantsRobe) negatives.push('NO robe hooks');
   negatives.push('NO duplicated handles');
   negatives.push('NO floating hinges unattached to a wall, jamb, or glass edge');
   negatives.push('NO extra doors or panels beyond the selected enclosure type');
@@ -209,16 +246,22 @@ export async function generateShowerImage(
   const prompt = buildPrompt(choices);
   const refSrc = findEnclosureImage(choices.enclosure || '');
   const handleSrc = findHandleImage(choices.handle || '');
+  const accessoryRefs = findAccessoryImages(choices.handle || '', choices.accessories || '');
   console.log('[ImageGen] Enclosure ref:', refSrc);
   console.log('[ImageGen] Handle ref:', handleSrc);
+  console.log('[ImageGen] Accessory refs:', accessoryRefs.map((ref) => ref.label));
   console.log('[ImageGen] Prompt:', prompt);
 
-  const [refData, handleData] = await Promise.all([
+  const [refData, handleData, accessoryData] = await Promise.all([
     imageToInlineData(refSrc),
     handleSrc ? imageToInlineData(handleSrc) : Promise.resolve(null),
+    Promise.all(accessoryRefs.map(async (ref) => ({ ...ref, data: await imageToInlineData(ref.src) }))),
   ]);
   if (refData) console.log('[ImageGen] Enclosure ref loaded:', refData.mimeType, refData.data.length);
   if (handleData) console.log('[ImageGen] Handle ref loaded:', handleData.mimeType, handleData.data.length);
+  accessoryData.forEach((ref) => {
+    if (ref.data) console.log('[ImageGen] Accessory ref loaded:', ref.label, ref.data.mimeType, ref.data.data.length);
+  });
 
   // If the customer uploaded a photo of their actual bathroom, we render
   // the shower INTO their real space instead of a stock luxury bathroom.
@@ -246,12 +289,18 @@ export async function generateShowerImage(
     promptParts.push({ text: 'REFERENCE: door handle style — the door must use a handle that looks exactly like this:' });
     promptParts.push({ inlineData: handleData });
   }
+  for (const ref of accessoryData) {
+    if (!ref.data) continue;
+    promptParts.push({ text: `REFERENCE: ${ref.label} hardware - use this only if that accessory was selected, and place it according to the installer rules above:` });
+    promptParts.push({ inlineData: ref.data });
+  }
 
-  try {
-    console.log('[ImageGen] POST → ', IMAGE_MODEL);
+  for (const model of IMAGE_MODELS) {
+    try {
+    console.log('[ImageGen] POST → ', model);
     const tFetch = performance.now();
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${IMAGE_MODEL}:generateContent?key=${API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -272,7 +321,7 @@ export async function generateShowerImage(
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[ImageGen] API error body:', errorText.substring(0, 800));
-      return null;
+      continue;
     }
 
     const data = await response.json();
@@ -284,7 +333,7 @@ export async function generateShowerImage(
     const parts = data?.candidates?.[0]?.content?.parts;
     if (!parts) {
       console.warn('[ImageGen] No parts in response. Full data:', JSON.stringify(data).substring(0, 800));
-      return null;
+      continue;
     }
     console.log('[ImageGen] Parts received:', parts.length, 'shapes:', parts.map((p: any) => Object.keys(p)));
 
@@ -298,9 +347,10 @@ export async function generateShowerImage(
     }
 
     console.warn('[ImageGen] ❌ No image part in response');
-    return null;
+    continue;
   } catch (err) {
-    console.error('[ImageGen] Exception:', err);
-    return null;
+    console.error('[ImageGen] Exception:', model, err);
   }
+  }
+  return null;
 }

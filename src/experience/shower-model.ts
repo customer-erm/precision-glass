@@ -340,6 +340,9 @@ interface PanelRuntime {
   /** Flat-panel dimensions — used by the grid upgrade. */
   w: number;
   h: number;
+  isDoor: boolean;
+  sliding: boolean;
+  hasHandle: boolean;
   /** Applied muntin-bar group when the grid upgrade is active. */
   grid?: THREE.Group;
 }
@@ -436,6 +439,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   let panels: PanelRuntime[] = [];
   const extraPanels: PanelRuntime[] = []; // steam transoms
   let handleHost: THREE.Group | null = null; // attached to the door pivot
+  let accessoryGroups: THREE.Group[] = [];
   let handleKey: HandleKey = 'pull';
   let accessoriesLabel = '';
   let currentKey: EnclosureKey = 'corner90';
@@ -606,7 +610,34 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     }
 
     assembly.add(pivot);
-    return { pivot, glass, glassMat, edges, edgeMat, rotY, w, h: hgt };
+    return {
+      pivot,
+      glass,
+      glassMat,
+      edges,
+      edgeMat,
+      rotY,
+      w,
+      h: hgt,
+      isDoor: !!spec.isDoor,
+      sliding: !!spec.sliding,
+      hasHandle: !!spec.hasHandle,
+    };
+  }
+
+  function disposeGroupGeometries(root: THREE.Object3D): void {
+    root.traverse((object) => {
+      const geometry = (object as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
+      geometry?.dispose();
+    });
+  }
+
+  function clearAccessories(): void {
+    for (const groupRef of accessoryGroups) {
+      groupRef.parent?.remove(groupRef);
+      disposeGroupGeometries(groupRef);
+    }
+    accessoryGroups = [];
   }
 
   function disposeRuntime(p: PanelRuntime): void {
@@ -618,6 +649,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   }
 
   function disposePanels(): void {
+    clearAccessories();
     for (const p of panels) disposeRuntime(p);
     for (const p of extraPanels) disposeRuntime(p);
     hardwareMeshes.forEach((mesh) => mesh.geometry.dispose());
@@ -724,8 +756,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
           { x: 1, y: 1, z: 1, duration: 0.5, ease: 'back.out(2.4)', delay: hwDelay + i * 0.08 });
       });
       buildHandle(handleKey, true, hwDelay + 0.15);
+      buildAccessories(true, hwDelay + 0.25);
     } else {
       buildHandle(handleKey, false);
+      buildAccessories(false);
       panels.forEach((p) => applyGlassKey(p.glassMat, glassKey, false));
       applySolidityNow();
     }
@@ -860,9 +894,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     groupRef.add(bar);
   }
 
-  function addInsideTowelRail(groupRef: THREE.Group, y = -0.18): void {
-    const railW = 0.56;
-    const railX = -0.3;
+  function addInsideTowelRail(groupRef: THREE.Group, y = -0.18, railW = 0.56, railX = -0.3): void {
     const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, railW, 18), metalMat);
     rail.rotation.z = Math.PI / 2;
     rail.position.set(railX, y, -0.075);
@@ -879,56 +911,151 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   }
 
   function addTowelHandleCombo(groupRef: THREE.Group): void {
-    const railW = 0.56;
-    const railX = -0.3;
-    const y = -0.18;
-    addInsideTowelRail(groupRef, y);
-    const outsidePull = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, railW - 0.07, 18), metalMat);
-    outsidePull.rotation.z = Math.PI / 2;
-    outsidePull.position.set(railX, y, 0.075);
-    groupRef.add(outsidePull);
-  }
-
-  function addRobeHook(groupRef: THREE.Group): void {
-    const x = -0.34;
-    const y = 0.34;
-    addThroughGlassPost(groupRef, x, y, 0.012);
-    const hookStem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.011, 0.105, 14), metalMat);
-    hookStem.rotation.x = Math.PI / 2;
-    hookStem.position.set(x, y - 0.018, 0.085);
-    const hookTip = new THREE.Mesh(new THREE.SphereGeometry(0.022, 18, 12), metalMat);
-    hookTip.position.set(x, y - 0.055, 0.13);
-    groupRef.add(hookStem, hookTip);
-  }
-
-  function addSupportBar(groupRef: THREE.Group): void {
-    const support = new THREE.Group();
-    const length = 0.52;
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, length, 18), metalMat);
-    tube.rotation.z = Math.PI / 2;
-    support.rotation.z = -0.48;
-    support.position.set(-0.36, 0.58, -0.09);
-    support.add(tube);
-    for (const x of [-length / 2, length / 2]) {
-      const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.012, 22), metalMat);
-      pad.rotation.x = Math.PI / 2;
-      pad.position.set(x, 0, 0);
-      support.add(pad);
+    const railW = 0.58;
+    const latchX = 0;
+    const farX = -railW;
+    const topY = 0.13;
+    const bottomY = -0.13;
+    for (const [x, y] of [[latchX, topY], [latchX, bottomY], [farX, topY]] as Array<[number, number]>) {
+      addThroughGlassPost(groupRef, x, y, 0.01);
     }
-    groupRef.add(support);
+    const outsidePull = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, topY - bottomY, 18), metalMat);
+    outsidePull.position.set(latchX, (topY + bottomY) / 2, 0.083);
+    const insideRail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, railW, 18), metalMat);
+    insideRail.rotation.z = Math.PI / 2;
+    insideRail.position.set((latchX + farX) / 2, topY, -0.083);
+    for (const x of [latchX, farX]) {
+      const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.058, 16), metalMat);
+      saddle.rotation.x = Math.PI / 2;
+      saddle.position.set(x, topY, -0.05);
+      groupRef.add(saddle);
+    }
+    const lowerCap = new THREE.Mesh(new THREE.SphereGeometry(0.018, 18, 12), metalMat);
+    lowerCap.position.set(latchX, bottomY, 0.083);
+    const upperCap = lowerCap.clone();
+    upperCap.position.y = topY;
+    const farCap = lowerCap.clone();
+    farCap.position.set(farX, topY, -0.083);
+    groupRef.add(outsidePull, insideRail, lowerCap, upperCap, farCap);
   }
 
-  function buildAccessoryGroup(): THREE.Group | null {
-    const v = accessoriesLabel.toLowerCase();
+  function addRobeHook(groupRef: THREE.Group, x: number, y: number): void {
+    addThroughGlassPost(groupRef, x, y, 0.011);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.018, 24), metalMat);
+    base.rotation.x = Math.PI / 2;
+    base.position.set(x, y, 0.074);
+    const hookStem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.105, 14), metalMat);
+    hookStem.rotation.x = Math.PI / 2;
+    hookStem.position.set(x, y - 0.016, 0.122);
+    const hookTip = new THREE.Mesh(new THREE.SphereGeometry(0.019, 18, 12), metalMat);
+    hookTip.position.set(x, y - 0.053, 0.168);
+    groupRef.add(base, hookStem, hookTip);
+  }
+
+  function registerAccessory(panel: PanelRuntime, groupRef: THREE.Group): void {
+    panel.pivot.add(groupRef);
+    accessoryGroups.push(groupRef);
+  }
+
+  function chooseFixedPanel(preferFront = false): PanelRuntime | null {
+    const candidates = panels.filter((p) => !p.isDoor && !p.sliding && p.h > 1.15 && p.w > 0.36);
+    if (!candidates.length) return null;
+    const front = candidates
+      .filter((p) => Math.abs(p.pivot.position.z - F) < 0.08)
+      .sort((a, b) => b.w - a.w)[0];
+    if (preferFront && front) return front;
+    return candidates.sort((a, b) => b.w - a.w)[0];
+  }
+
+  function chooseAccessoryPanel(): PanelRuntime | null {
+    return chooseFixedPanel(true)
+      || panels.find((p) => !p.sliding && p.h > 1.15 && p.w > 0.36)
+      || null;
+  }
+
+  function addTowelRailToPanel(panel: PanelRuntime): void {
     const groupRef = new THREE.Group();
-    if (v.includes('towel') && handleKey !== 'towel') addInsideTowelRail(groupRef);
-    if (v.includes('robe') || v.includes('hook')) addRobeHook(groupRef);
-    if (v.includes('support')) addSupportBar(groupRef);
-    return groupRef.children.length ? groupRef : null;
+    const railW = clamp(panel.w - 0.22, 0.34, 0.62);
+    const y = clamp(1.08, 0.75, panel.h - 0.32);
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, railW, 18), metalMat);
+    rail.rotation.z = Math.PI / 2;
+    rail.position.set(0, y, -0.079);
+    for (const x of [-railW / 2, railW / 2]) {
+      addThroughGlassPost(groupRef, x, y, 0.01);
+      const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.058, 16), metalMat);
+      saddle.rotation.x = Math.PI / 2;
+      saddle.position.set(x, y, -0.05);
+      groupRef.add(saddle);
+    }
+    groupRef.add(rail);
+    registerAccessory(panel, groupRef);
+  }
+
+  function addRobeHookToPanel(panel: PanelRuntime): void {
+    const groupRef = new THREE.Group();
+    const edgeClearance = clamp(panel.w * 0.3, 0.13, 0.25);
+    const x = panel.w > 0.55 ? panel.w / 2 - edgeClearance : 0;
+    const y = clamp(panel.h - 0.48, 1.35, panel.h - 0.22);
+    addRobeHook(groupRef, x, y);
+    registerAccessory(panel, groupRef);
+  }
+
+  function addSupportBarToPanel(panel: PanelRuntime): void {
+    const groupRef = new THREE.Group();
+    const x = clamp(panel.w / 2 - 0.13, -panel.w / 2 + 0.16, panel.w / 2 - 0.1);
+    const y = clamp(panel.h - 0.16, 1.55, panel.h - 0.08);
+    const length = clamp(0.58 + panel.w * 0.08, 0.52, 0.72);
+
+    const glassClamp = new THREE.Mesh(scaledRoundedBox(0.1, 0.058, 0.042, 0.88, 0.9), metalMat);
+    glassClamp.position.set(x, y, -0.038);
+    const clampFace = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.012, 24), metalMat);
+    clampFace.rotation.x = Math.PI / 2;
+    clampFace.position.set(x, y, 0.02);
+    const swivel = new THREE.Mesh(new THREE.SphereGeometry(0.022, 18, 12), metalMat);
+    swivel.position.set(x, y + 0.004, -0.078);
+
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, length, 24), metalMat);
+    tube.rotation.x = Math.PI / 2;
+    tube.position.set(x, y + 0.01, -length / 2 - 0.08);
+    const wallPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.014, 28), metalMat);
+    wallPlate.rotation.x = Math.PI / 2;
+    wallPlate.position.set(x, y + 0.01, -length - 0.16);
+    const wallBoss = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.05, 20), metalMat);
+    wallBoss.rotation.x = Math.PI / 2;
+    wallBoss.position.set(x, y + 0.01, -length - 0.125);
+
+    groupRef.add(glassClamp, clampFace, swivel, tube, wallPlate, wallBoss);
+    registerAccessory(panel, groupRef);
+  }
+
+  function buildAccessories(animate: boolean, delay = 0): void {
+    clearAccessories();
+    const v = accessoriesLabel.toLowerCase();
+    if (!v || /^(n\/a|none|none, thanks)$/i.test(v.trim())) return;
+    const fixedPanel = chooseAccessoryPanel();
+    const supportPanel = chooseFixedPanel(true);
+    const firstIndex = accessoryGroups.length;
+    if (v.includes('towel') && handleKey !== 'towel' && fixedPanel) addTowelRailToPanel(fixedPanel);
+    if ((v.includes('robe') || v.includes('hook')) && fixedPanel) addRobeHookToPanel(fixedPanel);
+    if ((v.includes('support') || v.includes('stabil')) && supportPanel) addSupportBarToPanel(supportPanel);
+    const added = accessoryGroups.slice(firstIndex);
+    if (animate && !prefersReducedMotion()) {
+      added.forEach((groupRef, i) => {
+        gsap.fromTo(groupRef.scale, { x: 0.01, y: 0.01, z: 0.01 }, {
+          x: 1,
+          y: 1,
+          z: 1,
+          duration: 0.55,
+          ease: 'back.out(2)',
+          delay: delay + i * 0.06,
+        });
+      });
+    }
   }
 
   function buildHandle(key: HandleKey, animate: boolean, delay = 0): void {
     if (!handleHost) return;
+    disposeGroupGeometries(handleHost);
     handleHost.clear();
     const grp = new THREE.Group();
 
@@ -961,8 +1088,6 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       grp.add(stem, face);
     }
 
-    const accessories = buildAccessoryGroup();
-    if (accessories) grp.add(accessories);
     handleHost.add(grp);
     if (animate && !prefersReducedMotion()) {
       gsap.fromTo(grp.scale, { x: 0.01, y: 0.01, z: 0.01 }, { x: 1, y: 1, z: 1, duration: 0.6, ease: 'back.out(2.2)', delay });
@@ -1149,11 +1274,12 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     setHandle(label: string): void {
       handleKey = handleKeyFor(label);
       buildHandle(handleKey, true);
+      buildAccessories(true, 0.08);
     },
 
     setAccessories(label: string): void {
       accessoriesLabel = /^(n\/a|none)$/i.test((label || '').trim()) ? '' : label;
-      buildHandle(handleKey, true);
+      buildAccessories(true);
     },
 
     setModelTuning(settings: Partial<ShowerModelTuning>): void {

@@ -96,7 +96,7 @@ export const TOOL_DECLARATIONS = [
         },
         accessories: {
           type: 'string' as const,
-          description: 'Optional add-on accessories the customer chose alongside their handle (e.g. "robe hook, towel bar"). Comma-separated. Use only when advancing past the accessories slide.',
+          description: 'Optional add-on accessories the customer chose alongside their handle (e.g. "robe hook, support bar"). Comma-separated. Towel bar combo is a handle choice, not a separate add-on. Use only when advancing past the accessories slide.',
         },
       },
       required: ['slide_id'],
@@ -112,7 +112,7 @@ export const TOOL_DECLARATIONS = [
         glass: { type: 'string' as const },
         hardware: { type: 'string' as const },
         handle: { type: 'string' as const },
-        accessories: { type: 'string' as const, description: 'Add-on accessories like robe hook, towel bar, support bar — comma-separated' },
+        accessories: { type: 'string' as const, description: 'Add-on accessories like robe hook or fixed-panel support bar. Comma-separated. Towel bar combo should usually be the handle choice.' },
         extras: { type: 'string' as const },
         customer_name: { type: 'string' as const, description: 'Customer name if known' },
         email: { type: 'string' as const, description: 'Customer email if known' },
@@ -229,11 +229,11 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Re
 
   hardware: `Five hardware finishes are fading in beside the model. ONE sentence on what hardware means (the hinges, clips, brackets, rollers, and handles that hold the glass — finished to match the bathroom's faucets and fixtures), then name the five finishes briskly: Polished Chrome (timeless, most popular), Brushed Nickel (warm, hides water spots), Matte Black (bold modern), Polished Brass (classic luxury), Satin Brass (soft gold, on-trend). Verbally mention that additional specialty finishes and hardware styles can be reviewed on request. If they're comparing, call preview_option(category "hardware") to re-plate the model live — one, then the other. Ask which finish complements their bathroom. STOP and wait. Call show_slide("accessories") with their choice.`,
 
-  accessories: `Handle and accessory options are fading in beside the model. Quickly name the HANDLES: Pull (most popular), U-Handle (classic), Ladder Pull (design statement), Knob (minimal), and Towel Bar combo (outside pull with inside towel bar) — then in one sentence the optional add-ons: robe hook and support bar. Ask which handle they'd like AND whether they want any add-ons. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook and support bar"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. If they ask what a handle looks like, call preview_option(category "handle") to swap it onto the 3D model's door. If they ask about robe hooks or support bars, call preview_option(category "accessories") with the add-ons so they appear in addition to the handle. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
+  accessories: `Handle and accessory options are fading in beside the model. Quickly name the HANDLES: Pull (most popular), U-Handle (classic), Ladder Pull (design statement), Knob (minimal), and Towel Bar combo (outside pull with inside towel rail) — then in one sentence the optional add-ons: robe hook and fixed-panel support/stabilizer bar. Ask which handle they'd like AND whether they want any add-ons. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook and support bar"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. If they choose towel bar, save it as the handle choice, not as an accessory. If they ask what a handle looks like, call preview_option(category "handle") to swap it onto the 3D model's door. If they ask about robe hooks or support bars, call preview_option(category "accessories") with the add-ons so they appear in addition to the handle. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
 
   extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. If they ask what one looks like, call preview_option(category "extras") with "Grid Patterns", "Steam Upgrade", or "Grid Patterns + Steam Upgrade" so the model updates immediately. Ask if they're interested in either upgrade or want to move on. WAIT. Then ALWAYS call show_slide("process") with their choice (use "none" if they decline) — NEVER skip the process step, it's where the customer sees their selected shower running and the team's craft.`,
 
-  process: `Five process steps shown. Walk through each with enthusiasm: 1) Proposal Review — package the design and site notes for staff. 2) Precision Measuring — laser templates, every fraction of an inch matters. 3) Glass Ordering — custom cut, polished, and tempered after field measure. 4) Installation Planning — the team confirms scope before scheduling. 5) Enjoy — step into your new shower. Then mention your AI is generating a visualization of their selections. Ask if they have any questions before reviewing their configuration. WAIT. Call present_quote() with all their selections: enclosure, glass, hardware, handle, extras.`,
+  process: `Five process steps shown. Walk through each with enthusiasm: 1) Proposal Review — package the design and site notes for staff. 2) Precision Measuring — laser templates, every fraction of an inch matters. 3) Glass Ordering — custom cut, polished, and tempered after field measure. 4) Installation Planning — the team confirms scope before scheduling. 5) Enjoy — step into your new shower. Then mention your AI is generating a visualization of their selections. Ask if they have any questions before reviewing their configuration. WAIT. Call present_quote() with all their selections: enclosure, glass, hardware, handle, accessories, extras.`,
   },
 
   railings: {
@@ -283,7 +283,7 @@ const SLIDE_QUICK_REPLIES_BY_SERVICE: Record<'showers' | 'railings' | 'commercia
     enclosures: ['Single Door', 'Door + Panel', 'Neo-Angle', '90\u00B0 Corner', 'Frameless Slider', 'Splash Panel', 'Steam Shower'],
     glass: ['Clear Glass', 'Frosted Glass', 'Rain Glass'],
     hardware: ['Polished Chrome', 'Brushed Nickel', 'Matte Black', 'Polished Brass', 'Satin Brass'],
-    accessories: ['Pull Handle', 'U-Handle', 'Ladder Pull', 'Knob', 'Towel Bar', 'None, thanks'],
+    accessories: ['Pull Handle', 'U-Handle', 'Ladder Pull', 'Knob', 'Towel Bar', 'Robe Hook', 'Support Bar', 'None, thanks'],
     extras: ['Grid Patterns', 'Steam Upgrade', 'Both', 'Neither'],
     process: ['No questions, let\u2019s see it', 'What\u2019s the timeline?', 'How does installation work?'],
   },
