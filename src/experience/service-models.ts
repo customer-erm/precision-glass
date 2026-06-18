@@ -69,17 +69,17 @@ function makeGlowRing(color = 0x5fd4ff): { mesh: THREE.Mesh; mat: THREE.MeshBasi
 function makeGlassMaterial(): THREE.MeshPhysicalMaterial {
   const mat = new THREE.MeshPhysicalMaterial({
     color: 0xbce8ff,
-    roughness: 0.04,
+    roughness: 0.16,
     metalness: 0,
     transparent: true,
-    opacity: 0.38,
+    opacity: 0.24,
     side: THREE.DoubleSide,
     depthWrite: false,
-    envMapIntensity: 1.7,
-    clearcoat: 1,
-    clearcoatRoughness: 0.08,
+    envMapIntensity: 0.45,
+    clearcoat: 0.25,
+    clearcoatRoughness: 0.24,
   });
-  mat.transmission = 0.78;
+  mat.transmission = 0.92;
   mat.thickness = 0.06;
   mat.ior = 1.5;
   return mat;
@@ -89,14 +89,14 @@ function applyGlassLook(mat: THREE.MeshPhysicalMaterial, label: string, solidity
   const v = label.toLowerCase();
   const target =
     v.includes('frost') || v.includes('privacy')
-      ? { color: new THREE.Color(0xdfeefa), opacity: 0.6, roughness: 0.52 }
+      ? { color: new THREE.Color(0xdfeefa), opacity: 0.42, roughness: 0.65 }
       : v.includes('tint') || v.includes('bronze') || v.includes('gray') || v.includes('spandrel')
-        ? { color: new THREE.Color(0x7f9aad), opacity: 0.48, roughness: 0.16 }
+        ? { color: new THREE.Color(0x8fb0c4), opacity: 0.34, roughness: 0.28 }
         : v.includes('low') || v.includes('ultra')
-          ? { color: new THREE.Color(0xd8f7ff), opacity: 0.32, roughness: 0.025 }
+          ? { color: new THREE.Color(0xd8f7ff), opacity: 0.22, roughness: 0.14 }
           : v.includes('impact') || v.includes('hurricane') || v.includes('laminated')
-            ? { color: new THREE.Color(0xa9ddff), opacity: 0.44, roughness: 0.08 }
-            : { color: new THREE.Color(0xbce8ff), opacity: 0.38, roughness: 0.04 };
+            ? { color: new THREE.Color(0xb7e3ff), opacity: 0.3, roughness: 0.2 }
+            : { color: new THREE.Color(0xc7efff), opacity: 0.24, roughness: 0.16 };
   const opacity = target.opacity * (0.45 + solidity * 0.55);
   if (animate && !prefersReducedMotion()) {
     gsap.to(mat.color, { r: target.color.r, g: target.color.g, b: target.color.b, duration: 0.85, ease: 'power2.inOut' });
@@ -176,10 +176,6 @@ export function createRailingRig(): RailingRig {
     group.add(strip);
   }
 
-  const { mesh: ring, mat: ringMat } = makeGlowRing();
-  ring.scale.set(1.12, 0.55, 1);
-  group.add(ring);
-
   const assembly = new THREE.Group();
   group.add(assembly);
 
@@ -194,10 +190,6 @@ export function createRailingRig(): RailingRig {
   let glassLabel = 'Clear Tempered';
   let solidity = 0.18;
   let elapsed = 0;
-
-  function glassOpacity(): number {
-    return 0.45 + solidity * 0.55;
-  }
 
   function addPanel(x: number, w: number): void {
     const pane = new THREE.Mesh(new THREE.BoxGeometry(w, 1.08, 0.026), glassMat);
@@ -358,8 +350,7 @@ export function createRailingRig(): RailingRig {
     },
     pulse(): void {
       if (prefersReducedMotion()) return;
-      gsap.fromTo(ringMat, { opacity: 0.95 }, { opacity: 0.45 + glassOpacity() * 0.2, duration: 0.85, ease: 'power2.out' });
-      gsap.fromTo(ring.scale, { x: 1.22, y: 0.64 }, { x: 1.12, y: 0.55, duration: 0.8, ease: 'power3.out' });
+      gsap.fromTo(assembly.scale, { x: 1.025, y: 1.02, z: 1.025 }, { x: 1, y: 1, z: 1, duration: 0.75, ease: 'power3.out' });
     },
     setProcess(on: boolean): void {
       processGroup.visible = on && !prefersReducedMotion();
@@ -367,7 +358,6 @@ export function createRailingRig(): RailingRig {
     idle(dt: number): void {
       elapsed += dt;
       group.rotation.y = Math.sin(elapsed * 0.12) * 0.055;
-      ring.rotation.z = elapsed * 0.06;
       if (processGroup.visible) {
         processGroup.position.y = Math.sin(elapsed * 2.4) * 0.025;
       }
@@ -377,7 +367,6 @@ export function createRailingRig(): RailingRig {
       disposeGroup(processGroup);
       deck.geometry.dispose(); deckMat.dispose();
       tileMat.dispose();
-      ring.geometry.dispose(); ringMat.dispose();
       metalMat.dispose(); glassMat.dispose();
     },
   };

@@ -708,6 +708,9 @@ function buildQuoteSummarySlide(): HTMLElement {
         </svg>
         <h3>Proposal Prepared</h3>
         <p>Your design brief is ready for staff review. Pricing and timing stay with the human team.</p>
+        <button class="ss-home-reset-btn" id="quote-home-btn" type="button">
+          <span>Reset / Home</span>
+        </button>
       </div>
       <div class="ss-quote-sent-stage ss-quote-sent-stage-actions" id="qs-sent-stage-actions">
         <h3>Save Your Brief</h3>
@@ -723,7 +726,7 @@ function buildQuoteSummarySlide(): HTMLElement {
           </button>
           <button class="ss-action-btn ss-action-primary" id="quote-restart-btn" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-            <span>Start Over</span>
+            <span>Reset / Home</span>
           </button>
         </div>
       </div>
@@ -971,10 +974,9 @@ export function showQuoteSent(): void {
     overlay.classList.add('show-actions');
   }, 3200);
 
-  // Wire up Start Over + Download buttons (idempotent: cloning replaces listeners)
-  const restartBtn = document.getElementById('quote-restart-btn');
-  if (restartBtn) {
-    restartBtn.addEventListener('click', () => window.location.reload(), { once: true });
+  // Wire up Reset/Home + Download buttons.
+  for (const resetBtn of document.querySelectorAll<HTMLElement>('#quote-home-btn, #quote-restart-btn')) {
+    resetBtn.addEventListener('click', () => window.location.reload(), { once: true });
   }
   const proposalBtn = document.getElementById('qs-proposal-btn');
   if (proposalBtn) {
