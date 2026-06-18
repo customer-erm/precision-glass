@@ -5,6 +5,9 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import {
   createShowerRig,
   DEFAULT_SHOWER_TUNING,
+  readSavedShowerDesigns,
+  SHOWER_DESIGNS_STORAGE_KEY,
+  type SavedShowerDesign,
   type ShowerModelTuning,
   type ShowerRig,
 } from '../experience/shower-model';
@@ -45,11 +48,28 @@ const CONTROL_GROUPS: Array<{
   {
     title: 'Slider Rail',
     controls: [
+      { key: 'sliderFixedPanelZ', label: 'Fixed glass plane', min: 0.56, max: 0.82, step: 0.002, unit: 'm' },
+      { key: 'sliderDoorPanelZ', label: 'Sliding glass plane', min: 0.58, max: 0.88, step: 0.002, unit: 'm' },
+      { key: 'sliderFixedEndX', label: 'Fixed panel end', min: -0.25, max: 0.35, step: 0.005, unit: 'm' },
+      { key: 'sliderDoorStartX', label: 'Door start', min: -0.3, max: 0.2, step: 0.005, unit: 'm' },
+      { key: 'sliderDoorEndX', label: 'Door end', min: 0.38, max: 0.82, step: 0.005, unit: 'm' },
+      { key: 'railCenterX', label: 'Rail center', min: -0.2, max: 0.2, step: 0.005, unit: 'm' },
+      { key: 'railLength', label: 'Rail length', min: 1.1, max: 1.8, step: 0.005, unit: 'm' },
       { key: 'railDiameter', label: 'Rail diameter', min: 0.012, max: 0.052, step: 0.001, unit: 'm' },
       { key: 'railYOffset', label: 'Rail height', min: -0.16, max: 0.04, step: 0.002, unit: 'm' },
       { key: 'railProjection', label: 'Rail projection', min: 0.04, max: 0.22, step: 0.002, unit: 'm' },
+      { key: 'wallBracketScale', label: 'Wall bracket size', min: 0.35, max: 1.35, step: 0.01 },
+      { key: 'hangerScale', label: 'Hanger size', min: 0.35, max: 1.35, step: 0.01 },
+      { key: 'hangerDrop', label: 'Hanger drop', min: 0.045, max: 0.22, step: 0.002, unit: 'm' },
+      { key: 'hangerProjection', label: 'Hanger projection', min: -0.04, max: 0.12, step: 0.002, unit: 'm' },
+      { key: 'rollerStartX', label: 'First roller position', min: -0.1, max: 0.28, step: 0.005, unit: 'm' },
       { key: 'rollerScale', label: 'Roller size', min: 0.45, max: 1.35, step: 0.01 },
       { key: 'rollerSpread', label: 'Roller spacing', min: 0.22, max: 0.62, step: 0.01, unit: 'm' },
+      { key: 'rollerProjection', label: 'Roller projection', min: -0.02, max: 0.14, step: 0.002, unit: 'm' },
+      { key: 'rollerYOffset', label: 'Roller height offset', min: -0.035, max: 0.04, step: 0.002, unit: 'm' },
+      { key: 'floorGuideScale', label: 'Floor guide size', min: 0.35, max: 1.35, step: 0.01 },
+      { key: 'floorGuideX', label: 'Floor guide position', min: -0.1, max: 0.42, step: 0.005, unit: 'm' },
+      { key: 'floorGuideProjection', label: 'Floor guide projection', min: -0.06, max: 0.08, step: 0.002, unit: 'm' },
     ],
   },
   {
@@ -97,6 +117,29 @@ function loadState(): StudioState {
 
 function saveState(state: StudioState): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function writeSavedDesigns(designs: SavedShowerDesign[]): void {
+  localStorage.setItem(SHOWER_DESIGNS_STORAGE_KEY, JSON.stringify(designs));
+}
+
+function saveDesignToSystem(state: StudioState): SavedShowerDesign {
+  const name = window.prompt('Name this shower design', state.enclosure) || state.enclosure;
+  const design: SavedShowerDesign = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name,
+    enclosure: state.enclosure,
+    glass: state.glass,
+    finish: state.finish,
+    handle: state.handle,
+    extras: state.extras,
+    tuning: { ...state.tuning },
+    updatedAt: new Date().toISOString(),
+  };
+  const designs = readSavedShowerDesigns().filter((item) => item.enclosure !== state.enclosure);
+  designs.push(design);
+  writeSavedDesigns(designs);
+  return design;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -164,6 +207,42 @@ function applyState(rig: ShowerRig, state: StudioState): void {
 
 function updateJson(out: HTMLElement, state: StudioState): void {
   out.textContent = JSON.stringify(state, null, 2);
+}
+
+function renderSavedDesigns(list: HTMLElement): void {
+  const designs = readSavedShowerDesigns();
+  list.replaceChildren();
+  if (!designs.length) {
+    list.append(el('p', { textContent: 'No saved shower designs yet.' }));
+    return;
+  }
+  for (const design of designs.slice().reverse()) {
+    const row = el('div', { className: 'studio-saved-row' });
+    const meta = el('div');
+    meta.append(
+      el('strong', { textContent: design.name }),
+      el('span', { textContent: `${design.enclosure} - ${new Date(design.updatedAt).toLocaleString()}` }),
+    );
+    const load = el('button', { type: 'button', textContent: 'Load' });
+    load.addEventListener('click', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        enclosure: design.enclosure,
+        glass: design.glass,
+        finish: design.finish,
+        handle: design.handle,
+        extras: design.extras,
+        tuning: design.tuning,
+      }));
+      window.location.reload();
+    });
+    const remove = el('button', { type: 'button', textContent: 'Delete' });
+    remove.addEventListener('click', () => {
+      writeSavedDesigns(readSavedShowerDesigns().filter((item) => item.id !== design.id));
+      renderSavedDesigns(list);
+    });
+    row.append(meta, load, remove);
+    list.append(row);
+  }
 }
 
 export function mountShowerModelStudio(host: HTMLElement): void {
@@ -247,6 +326,14 @@ export function mountShowerModelStudio(host: HTMLElement): void {
   }
 
   const actions = el('div', { className: 'studio-actions' });
+  const save = el('button', { type: 'button', textContent: 'Save to system' });
+  const savedList = el('div', { className: 'studio-saved-list' });
+  save.addEventListener('click', () => {
+    saveDesignToSystem(state);
+    renderSavedDesigns(savedList);
+    save.textContent = 'Saved';
+    setTimeout(() => { save.textContent = 'Save to system'; }, 1100);
+  });
   const reset = el('button', { type: 'button', textContent: 'Reset tuning' });
   reset.addEventListener('click', () => {
     state.tuning = { ...DEFAULT_SHOWER_TUNING };
@@ -259,8 +346,11 @@ export function mountShowerModelStudio(host: HTMLElement): void {
     copy.textContent = 'Copied';
     setTimeout(() => { copy.textContent = 'Copy preset JSON'; }, 1100);
   });
-  actions.append(reset, copy);
-  panel.append(actions, json);
+  actions.append(save, reset, copy);
+  const savedSection = el('section', { className: 'studio-section studio-saved-section' });
+  savedSection.append(el('h2', { textContent: 'Saved tour designs' }), savedList);
+  renderSavedDesigns(savedList);
+  panel.append(actions, savedSection, json);
 
   root.append(header, stageShell, panel);
   host.append(root);

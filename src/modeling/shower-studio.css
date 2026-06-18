@@ -162,7 +162,7 @@
 
 .studio-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -180,6 +180,59 @@
 .studio-actions button:hover {
   background: rgba(242, 213, 155, 0.16);
   border-color: rgba(242, 213, 155, 0.45);
+}
+
+.studio-saved-list {
+  display: grid;
+  gap: 9px;
+}
+
+.studio-saved-list p {
+  margin: 0;
+  color: rgba(240, 247, 255, 0.58);
+  font-size: 0.78rem;
+}
+
+.studio-saved-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.studio-saved-row strong,
+.studio-saved-row span {
+  display: block;
+}
+
+.studio-saved-row strong {
+  color: #f7fbff;
+  font-size: 0.82rem;
+}
+
+.studio-saved-row span {
+  margin-top: 2px;
+  color: rgba(240, 247, 255, 0.58);
+  font-size: 0.72rem;
+}
+
+.studio-saved-row button {
+  min-height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  color: #f7fbff;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  font-size: 0.74rem;
+}
+
+.studio-saved-row button:hover {
+  background: rgba(242, 213, 155, 0.14);
+  border-color: rgba(242, 213, 155, 0.4);
 }
 
 .studio-json {

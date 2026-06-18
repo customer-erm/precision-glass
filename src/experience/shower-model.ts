@@ -23,27 +23,75 @@ export interface ShowerModelTuning {
   clipDepth: number;
   clipBevel: number;
   hingeScale: number;
+  sliderFixedPanelZ: number;
+  sliderDoorPanelZ: number;
+  sliderFixedEndX: number;
+  sliderDoorStartX: number;
+  sliderDoorEndX: number;
+  railCenterX: number;
+  railLength: number;
   railDiameter: number;
   railYOffset: number;
   railProjection: number;
+  wallBracketScale: number;
+  hangerScale: number;
+  hangerDrop: number;
+  hangerProjection: number;
+  rollerStartX: number;
   rollerScale: number;
   rollerSpread: number;
+  rollerProjection: number;
+  rollerYOffset: number;
+  floorGuideScale: number;
+  floorGuideX: number;
+  floorGuideProjection: number;
   metalRoughnessScale: number;
   metalEnv: number;
   glassOpacityScale: number;
   glassEnv: number;
 }
 
+export interface SavedShowerDesign {
+  id: string;
+  name: string;
+  enclosure: string;
+  glass: string;
+  finish: string;
+  handle: string;
+  extras: string;
+  tuning: ShowerModelTuning;
+  updatedAt: string;
+}
+
+export const SHOWER_DESIGNS_STORAGE_KEY = 'pg:shower-model-designs';
+
 export const DEFAULT_SHOWER_TUNING: ShowerModelTuning = {
   clipScale: 0.72,
   clipDepth: 0.56,
   clipBevel: 0.008,
   hingeScale: 0.78,
+  sliderFixedPanelZ: 0.66,
+  sliderDoorPanelZ: 0.74,
+  sliderFixedEndX: 0.06,
+  sliderDoorStartX: -0.06,
+  sliderDoorEndX: 0.7,
+  railCenterX: 0,
+  railLength: 1.52,
   railDiameter: 0.026,
   railYOffset: -0.08,
-  railProjection: 0.115,
+  railProjection: 0.05,
+  wallBracketScale: 0.72,
+  hangerScale: 0.72,
+  hangerDrop: 0.105,
+  hangerProjection: 0.018,
+  rollerStartX: 0.05,
   rollerScale: 0.82,
   rollerSpread: 0.43,
+  rollerProjection: 0.032,
+  rollerYOffset: 0.006,
+  floorGuideScale: 0.72,
+  floorGuideX: 0.16,
+  floorGuideProjection: 0,
   metalRoughnessScale: 0.72,
   metalEnv: 1.65,
   glassOpacityScale: 0.9,
@@ -52,6 +100,18 @@ export const DEFAULT_SHOWER_TUNING: ShowerModelTuning = {
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
+}
+
+export function readSavedShowerDesigns(): SavedShowerDesign[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(SHOWER_DESIGNS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed as SavedShowerDesign[] : [];
+  } catch {
+    return [];
+  }
 }
 
 export interface ShowerRig {
@@ -567,51 +627,67 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function addSliderHardware(): void {
     const railY = BASE_Y + GLASS_H + tuning.railYOffset;
-    const railZ = F + tuning.railProjection;
+    const railZ = tuning.sliderDoorPanelZ + tuning.railProjection;
     const wheelRadius = 0.064 * tuning.rollerScale;
     const wheelDepth = 0.026 * tuning.clipDepth;
-    const rail = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(tuning.railDiameter, tuning.railDiameter, 1.62, 32), metalMat));
+    const rail = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(tuning.railDiameter, tuning.railDiameter, tuning.railLength, 32), metalMat));
     rail.rotation.z = Math.PI / 2;
-    rail.position.set(0, railY, railZ);
+    rail.position.set(tuning.railCenterX, railY, railZ);
     assembly.add(rail);
 
-    for (const x of [-0.74, 0.74]) {
-      const wallBracket = trackHardware(new THREE.Mesh(scaledRoundedBox(0.085, 0.085, 0.062, tuning.clipScale, tuning.clipDepth), metalMat));
-      wallBracket.position.set(x, railY, railZ - 0.03);
+    for (const x of [tuning.railCenterX - tuning.railLength / 2, tuning.railCenterX + tuning.railLength / 2]) {
+      const wallBracket = trackHardware(new THREE.Mesh(scaledRoundedBox(0.085, 0.085, 0.062, tuning.wallBracketScale, tuning.clipDepth), metalMat));
+      wallBracket.position.set(x, railY, railZ - 0.014);
       assembly.add(wallBracket);
-      const cap = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.043 * tuning.clipScale, 0.043 * tuning.clipScale, 0.018 * tuning.clipDepth, 26), metalMat));
+      const cap = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.043 * tuning.wallBracketScale, 0.043 * tuning.wallBracketScale, 0.018 * tuning.clipDepth, 26), metalMat));
       cap.rotation.x = Math.PI / 2;
-      cap.position.set(x, railY, railZ + 0.018);
+      cap.position.set(x, railY, railZ + 0.012);
       assembly.add(cap);
     }
 
-    for (const x of [0.04, 0.04 + tuning.rollerSpread]) {
-      const hanger = trackHardware(new THREE.Mesh(scaledRoundedBox(0.04, 0.18, 0.03, tuning.clipScale, tuning.clipDepth), metalMat));
-      hanger.position.set(x, railY - 0.105, railZ + 0.052);
+    for (const x of [tuning.rollerStartX, tuning.rollerStartX + tuning.rollerSpread]) {
+      const hanger = trackHardware(new THREE.Mesh(scaledRoundedBox(0.04, 0.18, 0.03, tuning.hangerScale, tuning.clipDepth), metalMat));
+      hanger.position.set(x, railY - tuning.hangerDrop, railZ + tuning.hangerProjection);
       assembly.add(hanger);
 
-      const bracket = trackHardware(new THREE.Mesh(scaledRoundedBox(0.11, 0.038, 0.035, tuning.clipScale, tuning.clipDepth), metalMat));
-      bracket.position.set(x, railY - 0.025, railZ + 0.05);
+      const bracket = trackHardware(new THREE.Mesh(scaledRoundedBox(0.11, 0.038, 0.035, tuning.hangerScale, tuning.clipDepth), metalMat));
+      bracket.position.set(x, railY - tuning.hangerDrop * 0.28, railZ + tuning.hangerProjection);
       assembly.add(bracket);
 
       const wheel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelDepth, 40), metalMat));
       wheel.rotation.x = Math.PI / 2;
-      wheel.position.set(x, railY + 0.006, railZ + 0.076);
+      wheel.position.set(x, railY + tuning.rollerYOffset, railZ + tuning.rollerProjection);
       assembly.add(wheel);
 
-      const axle = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.01 * tuning.clipScale, 0.01 * tuning.clipScale, 0.067 * tuning.clipDepth, 14), metalMat));
+      const axle = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.01 * tuning.hangerScale, 0.01 * tuning.hangerScale, 0.067 * tuning.clipDepth, 14), metalMat));
       axle.rotation.x = Math.PI / 2;
-      axle.position.set(x, railY, railZ + 0.078);
+      axle.position.set(x, railY, railZ + tuning.rollerProjection + 0.002);
       assembly.add(axle);
 
       const rim = trackHardware(new THREE.Mesh(new THREE.TorusGeometry(wheelRadius * 1.03, 0.006 * tuning.rollerScale, 12, 40), metalMat));
-      rim.position.set(x, railY + 0.006, railZ + 0.092);
+      rim.position.set(x, railY + tuning.rollerYOffset, railZ + tuning.rollerProjection + 0.014);
       assembly.add(rim);
     }
 
-    const floorGuide = trackHardware(new THREE.Mesh(scaledRoundedBox(0.095, 0.055, 0.05, tuning.clipScale, tuning.clipDepth), metalMat));
-    floorGuide.position.set(0.16, BASE_Y + 0.028, railZ - 0.01);
+    const floorGuide = trackHardware(new THREE.Mesh(scaledRoundedBox(0.095, 0.055, 0.05, tuning.floorGuideScale, tuning.clipDepth), metalMat));
+    floorGuide.position.set(tuning.floorGuideX, BASE_Y + 0.028, tuning.sliderDoorPanelZ + tuning.floorGuideProjection);
     assembly.add(floorGuide);
+  }
+
+  function tuneSliderPanel(spec: PanelSpec, index: number): PanelSpec {
+    if (currentKey !== 'slider') return spec;
+    if (index === 0) {
+      return {
+        ...spec,
+        from: [L, tuning.sliderFixedPanelZ],
+        to: [tuning.sliderFixedEndX, tuning.sliderFixedPanelZ],
+      };
+    }
+    return {
+      ...spec,
+      from: [tuning.sliderDoorStartX, tuning.sliderDoorPanelZ],
+      to: [tuning.sliderDoorEndX, tuning.sliderDoorPanelZ],
+    };
   }
 
   function buildEnclosure(key: EnclosureKey, animate: boolean): void {
@@ -619,7 +695,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     disposePanels();
     const layout = LAYOUTS[key];
     rightWall.visible = !!layout.alcoveRightWall;
-    for (const spec of layout.panels) panels.push(addPanel(spec));
+    layout.panels.forEach((spec, i) => panels.push(addPanel(tuneSliderPanel(spec, i))));
 
     if (layout.headerBar) addSliderHardware();
 
@@ -873,11 +949,28 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       clipDepth: clamp(next.clipDepth ?? tuning.clipDepth, 0.25, 1.35),
       clipBevel: clamp(next.clipBevel ?? tuning.clipBevel, 0.001, 0.025),
       hingeScale: clamp(next.hingeScale ?? tuning.hingeScale, 0.35, 1.5),
+      sliderFixedPanelZ: clamp(next.sliderFixedPanelZ ?? tuning.sliderFixedPanelZ, 0.56, 0.82),
+      sliderDoorPanelZ: clamp(next.sliderDoorPanelZ ?? tuning.sliderDoorPanelZ, 0.58, 0.88),
+      sliderFixedEndX: clamp(next.sliderFixedEndX ?? tuning.sliderFixedEndX, -0.25, 0.35),
+      sliderDoorStartX: clamp(next.sliderDoorStartX ?? tuning.sliderDoorStartX, -0.3, 0.2),
+      sliderDoorEndX: clamp(next.sliderDoorEndX ?? tuning.sliderDoorEndX, 0.38, 0.82),
+      railCenterX: clamp(next.railCenterX ?? tuning.railCenterX, -0.2, 0.2),
+      railLength: clamp(next.railLength ?? tuning.railLength, 1.1, 1.8),
       railDiameter: clamp(next.railDiameter ?? tuning.railDiameter, 0.012, 0.06),
       railYOffset: clamp(next.railYOffset ?? tuning.railYOffset, -0.18, 0.08),
       railProjection: clamp(next.railProjection ?? tuning.railProjection, 0.02, 0.24),
+      wallBracketScale: clamp(next.wallBracketScale ?? tuning.wallBracketScale, 0.35, 1.4),
+      hangerScale: clamp(next.hangerScale ?? tuning.hangerScale, 0.35, 1.4),
+      hangerDrop: clamp(next.hangerDrop ?? tuning.hangerDrop, 0.045, 0.22),
+      hangerProjection: clamp(next.hangerProjection ?? tuning.hangerProjection, -0.04, 0.12),
+      rollerStartX: clamp(next.rollerStartX ?? tuning.rollerStartX, -0.1, 0.28),
       rollerScale: clamp(next.rollerScale ?? tuning.rollerScale, 0.45, 1.45),
       rollerSpread: clamp(next.rollerSpread ?? tuning.rollerSpread, 0.22, 0.62),
+      rollerProjection: clamp(next.rollerProjection ?? tuning.rollerProjection, -0.02, 0.14),
+      rollerYOffset: clamp(next.rollerYOffset ?? tuning.rollerYOffset, -0.035, 0.04),
+      floorGuideScale: clamp(next.floorGuideScale ?? tuning.floorGuideScale, 0.35, 1.4),
+      floorGuideX: clamp(next.floorGuideX ?? tuning.floorGuideX, -0.1, 0.42),
+      floorGuideProjection: clamp(next.floorGuideProjection ?? tuning.floorGuideProjection, -0.06, 0.08),
       metalRoughnessScale: clamp(next.metalRoughnessScale ?? tuning.metalRoughnessScale, 0.25, 2.2),
       metalEnv: clamp(next.metalEnv ?? tuning.metalEnv, 0.3, 3.4),
       glassOpacityScale: clamp(next.glassOpacityScale ?? tuning.glassOpacityScale, 0.35, 1.6),
@@ -885,8 +978,24 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     };
   }
 
+  function savedTuningForLabel(label: string): Partial<ShowerModelTuning> | null {
+    const key = enclosureKeyFor(label);
+    const match = [...readSavedShowerDesigns()]
+      .reverse()
+      .find((design) => enclosureKeyFor(design.enclosure) === key);
+    return match?.tuning || null;
+  }
+
+  function applySavedTuningForLabel(label: string): void {
+    const saved = savedTuningForLabel(label);
+    if (!saved) return;
+    tuning = normalizeTuning(saved);
+    applyMetalNow();
+  }
+
   /* ---- Public API ---- */
 
+  applySavedTuningForLabel('90 Corner');
   buildEnclosure('corner90', false); // slick two-pane corner as the opening hologram
 
   return {
@@ -894,6 +1003,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
     setEnclosure(label: string): void {
       currentLabel = label;
+      applySavedTuningForLabel(label);
       buildEnclosure(enclosureKeyFor(label), true);
     },
 
