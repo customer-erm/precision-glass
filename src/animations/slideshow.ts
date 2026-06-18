@@ -292,7 +292,8 @@ function buildAccessoriesSlide(): HTMLElement {
   const items = ['acc-pull', 'acc-uhandle', 'acc-ladder', 'acc-knob', 'acc-towel', 'acc-hook', 'acc-bar'];
   const grid = h('div', { className: 'ss-acc-grid' });
   images.showers.accessories.filter(a => items.includes(a.id)).forEach((item) => {
-    const card = h('div', { className: 'ss-acc-card slide-el' });
+    const kind = item.id === 'acc-hook' || item.id === 'acc-bar' ? 'addon' : 'handle';
+    const card = h('div', { className: 'ss-acc-card slide-el', 'data-accessory-kind': kind });
     card.appendChild(h('img', { src: item.src, alt: item.label }));
     const info = h('div', { className: 'ss-card-info' });
     info.appendChild(h('h4', { textContent: item.label }));

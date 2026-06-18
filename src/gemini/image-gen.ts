@@ -99,13 +99,15 @@ function buildPrompt(choices: Record<string, string>): string {
   const handle = (choices.handle || '').trim();
   const accessories = (choices.accessories || '').trim();
   const extras = (choices.extras || '').trim();
+  const extrasLower = extras.toLowerCase();
+  const handleLowerGlobal = handle.toLowerCase();
   const doorPlacement = (choices.doorPlacement || '').trim();
   const enclosureLower = (choices.enclosure || '').toLowerCase();
   const isWalkIn = enclosureLower.includes('splash') || enclosureLower.includes('walk');
   const isSlider = enclosureLower.includes('slider') || enclosureLower.includes('slide') || enclosureLower.includes('bypass');
   const isArched = enclosureLower.includes('arched');
   const isNeo = enclosureLower.includes('neo');
-  const isSteam = enclosureLower.includes('steam');
+  const isSteam = enclosureLower.includes('steam') || extrasLower.includes('steam');
 
   const parts: string[] = [];
   parts.push(
@@ -131,6 +133,7 @@ function buildPrompt(choices: Record<string, string>): string {
     parts.push('CRITICAL — ENCLOSURE TYPE: This is a NEO-ANGLE shower in a corner — three glass panels (two angled side panels + a center door) forming a diamond/pentagonal footprint.');
   }
   if (isSteam) {
+    parts.push('Show visible steam/mist inside the shower enclosure, especially near the upper glass and ceiling, but keep the glass edges, seals, handle, and hardware readable.');
     parts.push('CRITICAL — ENCLOSURE TYPE: This is a STEAM SHOWER. The GLASS MUST RUN FROM THE FLOOR ALL THE WAY TO THE CEILING — every panel is full-height, floor to ceiling, with NO gap at the top. A clear transom panel sits above the door carrying the glass up to the ceiling. Compression seals visible around all edges. The enclosure must LOOK fully sealed and steam-ready. Do NOT render the glass stopping partway up the wall — it MUST reach the ceiling.');
   }
 
@@ -145,6 +148,8 @@ function buildPrompt(choices: Record<string, string>): string {
       handleDetail = 'a U-SHAPED handle — a U-bracket pull mounted on the glass surface with two short stand-off attachment points and a single horizontal grip bar between them. NOT a vertical bar. NOT a towel bar. The shape is a clear U.';
     } else if (handleLower.includes('knob')) {
       handleDetail = 'a small ROUND KNOB — a single discreet circular doorknob mounted through-hole in the glass. NO bar, NO pull, just a small round knob.';
+    } else if (handleLower.includes('towel')) {
+      handleDetail = 'a TOWEL BAR HANDLE COMBO - a short outside pull handle mounted through the glass with matching stand-offs that align to a horizontal towel bar holder on the inside face of the door. Show BOTH sides of the through-glass assembly: outside pull plus inside towel bar.';
     } else if (handleLower.includes('pull')) {
       handleDetail = 'a single SHORT VERTICAL TUBULAR PULL HANDLE roughly 8 inches long, mounted through-hole on the door. It is a SHORT pull, NOT a long towel bar, NOT a horizontal bar. Mounted vertically on the glass door.';
     } else {
@@ -176,7 +181,7 @@ function buildPrompt(choices: Record<string, string>): string {
     negatives.push('NO hinges anywhere — this is a slider, not a hinged door');
     negatives.push('NO pivots, NO swing arms');
   }
-  if (!accessories || !/towel/i.test(accessories)) negatives.push('NO towel bars');
+  if ((!accessories || !/towel/i.test(accessories)) && !/towel/i.test(handleLowerGlobal)) negatives.push('NO towel bars');
   if (!accessories || !/robe|hook/i.test(accessories)) negatives.push('NO robe hooks');
   if (!accessories || !/support/i.test(accessories)) negatives.push('NO support bars of any kind');
   negatives.push('NO duplicated handles');

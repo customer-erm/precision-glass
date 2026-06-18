@@ -163,13 +163,13 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: 'preview_option',
-    description: 'Live-preview an option on the on-screen 3D model while you talk. Showers: enclosure/glass/hardware/handle/extras. Railings: rail-type/rail-glass/rail-finish/rail-mounting. Commercial: com-type/com-glass/com-framing/com-scope. It does NOT record a selection and does NOT advance the tour.',
+    description: 'Live-preview an option on the on-screen 3D model while you talk. Showers: enclosure/glass/hardware/handle/accessories/extras. Railings: rail-type/rail-glass/rail-finish/rail-mounting. Commercial: com-type/com-glass/com-framing/com-scope. It does NOT record a selection and does NOT advance the tour.',
     parameters: {
       type: 'object' as const,
       properties: {
         category: {
           type: 'string' as const,
-          enum: ['enclosure', 'glass', 'hardware', 'handle', 'extras', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'],
+          enum: ['enclosure', 'glass', 'hardware', 'handle', 'accessories', 'extras', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'],
         },
         value: {
           type: 'string' as const,
@@ -229,7 +229,7 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Re
 
   hardware: `Five hardware finishes are fading in beside the model. ONE sentence on what hardware means (the hinges, clips, brackets, rollers, and handles that hold the glass — finished to match the bathroom's faucets and fixtures), then name the five finishes briskly: Polished Chrome (timeless, most popular), Brushed Nickel (warm, hides water spots), Matte Black (bold modern), Polished Brass (classic luxury), Satin Brass (soft gold, on-trend). Verbally mention that additional specialty finishes and hardware styles can be reviewed on request. If they're comparing, call preview_option(category "hardware") to re-plate the model live — one, then the other. Ask which finish complements their bathroom. STOP and wait. Call show_slide("accessories") with their choice.`,
 
-  accessories: `Handle and accessory options are fading in beside the model. Quickly name the four HANDLES: Pull (most popular), U-Handle (classic), Ladder Pull (design statement), Knob (minimal) — then in one sentence the optional add-ons: towel bar, robe hook, support bar. Ask which handle they'd like AND whether they want any add-ons. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. If they ask what a handle looks like, call preview_option(category "handle") to swap it onto the 3D model's door. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
+  accessories: `Handle and accessory options are fading in beside the model. Quickly name the HANDLES: Pull (most popular), U-Handle (classic), Ladder Pull (design statement), Knob (minimal), and Towel Bar combo (outside pull with inside towel bar) — then in one sentence the optional add-ons: robe hook and support bar. Ask which handle they'd like AND whether they want any add-ons. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook and support bar"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. If they ask what a handle looks like, call preview_option(category "handle") to swap it onto the 3D model's door. If they ask about robe hooks or support bars, call preview_option(category "accessories") with the add-ons so they appear in addition to the handle. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
 
   extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. If they ask what one looks like, call preview_option(category "extras") with "Grid Patterns", "Steam Upgrade", or "Grid Patterns + Steam Upgrade" so the model updates immediately. Ask if they're interested in either upgrade or want to move on. WAIT. Then ALWAYS call show_slide("process") with their choice (use "none" if they decline) — NEVER skip the process step, it's where the customer sees their selected shower running and the team's craft.`,
 
@@ -501,7 +501,7 @@ export async function handleToolCall(
       if (args.handle) quoteChoices['handle'] = args.handle;
       if (args.accessories) quoteChoices['accessories'] = args.accessories;
       if (args.extras) quoteChoices['extras'] = args.extras;
-      for (const k of ['enclosure', 'glass', 'hardware', 'handle', 'extras'] as const) {
+      for (const k of ['enclosure', 'glass', 'hardware', 'handle', 'accessories', 'extras'] as const) {
         if (quoteChoices[k]) emitChoice(k, quoteChoices[k]);
       }
       if (args.customer_name) quoteChoices['name'] = args.customer_name;
@@ -664,7 +664,7 @@ DO THE FOLLOWING IN ORDER:
       if (!isCinematic()) {
         return { success: false, message: instr('The live 3D preview is not available right now. Describe the option in words instead and continue the conversation.') };
       }
-      if (!['enclosure', 'glass', 'hardware', 'handle', 'extras', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'].includes(category) || !value) {
+      if (!['enclosure', 'glass', 'hardware', 'handle', 'accessories', 'extras', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'].includes(category) || !value) {
         return { success: false, message: instr('Invalid preview call. Use a supported category for the active service, with a value.') };
       }
       emitPreview(category, value);

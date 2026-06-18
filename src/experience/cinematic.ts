@@ -214,6 +214,7 @@ function applyChoice(category: string, value: string): void {
         if (!/^(n\/a|none)$/i.test(value.trim())) rig.setHandle(value);
         handled = true;
         break;
+      case 'accessories': rig.setAccessories(value); handled = true; break;
       case 'extras': rig.setExtras(value); handled = true; break;
       default: break;
     }
@@ -276,6 +277,7 @@ function applyModelPreview(category: string, value: string): void {
       case 'glass': rig.setGlass(value); break;
       case 'hardware': rig.setHardware(value); break;
       case 'handle': rig.setHandle(value); break;
+      case 'accessories': rig.setAccessories(value); break;
       case 'extras': rig.setExtras(value); break;
       default: break;
     }

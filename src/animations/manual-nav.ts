@@ -42,6 +42,35 @@ const SLIDE_ORDER_BY_SERVICE: Record<string, string[]> = {
 
 const browseChoices: Record<string, string> = {};
 
+function optionLabel(card: HTMLElement | null): string {
+  return card?.getAttribute('data-label') || card?.textContent?.trim() || '';
+}
+
+function isAccessoryAddon(card: HTMLElement, label = optionLabel(card)): boolean {
+  const kind = card.getAttribute('data-accessory-kind');
+  if (kind) return kind === 'addon';
+  return /robe|hook|support/i.test(label);
+}
+
+function selectedAccessoryAddons(slideEl: HTMLElement): string {
+  return Array.from(slideEl.querySelectorAll<HTMLElement>('.browse-option.selected'))
+    .filter((card) => isAccessoryAddon(card))
+    .map((card) => optionLabel(card))
+    .filter(Boolean)
+    .join(', ');
+}
+
+function selectedExtrasValue(slideEl: HTMLElement): string {
+  const labels = Array.from(slideEl.querySelectorAll<HTMLElement>('.browse-option.selected'))
+    .map((card) => optionLabel(card).toLowerCase());
+  const grid = labels.some((label) => label.includes('grid'));
+  const steam = labels.some((label) => label.includes('steam'));
+  if (grid && steam) return 'Grid Patterns + Steam Upgrade';
+  if (grid) return 'Grid Patterns';
+  if (steam) return 'Steam Upgrade';
+  return 'none';
+}
+
 function choiceCategoryForSlide(slideId: string): string | null {
   // When ADVANCING to this slide, the user's choice on the PREVIOUS slide
   // should be saved under which category?
@@ -239,14 +268,33 @@ async function goNext(): Promise<void> {
 
   // Save any selected card as the choice for the NEXT slide's category
   const nextId = order[Math.min(idx + 1, order.length - 1)];
-  const category = choiceCategoryForSlide(nextId);
-  if (category) {
-    const selected = document.querySelector(`#slide-${cur} .browse-option.selected`) as HTMLElement | null;
-    if (selected) {
-      const choice = selected.getAttribute('data-label') || selected.textContent?.trim() || '';
-      if (choice) {
-        browseChoices[category] = choice;
-        emitChoice(category, choice);
+  const slideEl = document.getElementById(`slide-${cur}`);
+  if (currentService() === 'showers' && cur === 'accessories' && slideEl) {
+    const handleCard = slideEl.querySelector<HTMLElement>('.browse-option.selected[data-accessory-kind="handle"]')
+      || Array.from(slideEl.querySelectorAll<HTMLElement>('.browse-option.selected')).find((card) => !isAccessoryAddon(card))
+      || null;
+    const handle = optionLabel(handleCard) || browseChoices['handle'];
+    const accessories = selectedAccessoryAddons(slideEl);
+    if (handle) {
+      browseChoices['handle'] = handle;
+      emitChoice('handle', handle);
+    }
+    browseChoices['accessories'] = accessories;
+    emitChoice('accessories', accessories || 'none');
+  } else if (currentService() === 'showers' && cur === 'extras' && slideEl) {
+    const extras = selectedExtrasValue(slideEl);
+    browseChoices['extras'] = extras;
+    emitChoice('extras', extras);
+  } else {
+    const category = choiceCategoryForSlide(nextId);
+    if (category) {
+      const selected = document.querySelector(`#slide-${cur} .browse-option.selected`) as HTMLElement | null;
+      if (selected) {
+        const choice = optionLabel(selected);
+        if (choice) {
+          browseChoices[category] = choice;
+          emitChoice(category, choice);
+        }
       }
     }
   }
@@ -344,6 +392,40 @@ function wireSlideInteraction(): void {
     }
 
     card.addEventListener('click', () => {
+      const clickedLabel = card.getAttribute('data-label') || '';
+
+      if (cur === 'accessories') {
+        if (isAccessoryAddon(card, clickedLabel)) {
+          card.classList.toggle('selected');
+          const accessories = selectedAccessoryAddons(slideEl);
+          browseChoices['accessories'] = accessories;
+          emitChoice('accessories', accessories || 'none');
+          emitPreview('accessories', accessories || 'none');
+        } else {
+          slideEl.querySelectorAll<HTMLElement>('.browse-option.selected').forEach((e) => {
+            if (!isAccessoryAddon(e)) e.classList.remove('selected');
+          });
+          card.classList.add('selected');
+          browseChoices['handle'] = clickedLabel;
+          emitChoice('handle', clickedLabel);
+          emitPreview('handle', clickedLabel);
+        }
+        const next = document.getElementById('manual-nav-next');
+        if (next) next.classList.add('pulse-ready');
+        return;
+      }
+
+      if (cur === 'extras') {
+        card.classList.toggle('selected');
+        const extras = selectedExtrasValue(slideEl);
+        browseChoices['extras'] = extras;
+        emitChoice('extras', extras);
+        emitPreview('extras', extras);
+        const next = document.getElementById('manual-nav-next');
+        if (next) next.classList.add('pulse-ready');
+        return;
+      }
+
       slideEl.querySelectorAll('.browse-option.selected').forEach((e) => e.classList.remove('selected'));
       card.classList.add('selected');
       console.log('[Manual] Selected on', cur, '→', card.getAttribute('data-label'));
@@ -447,8 +529,7 @@ function openBuyerGuideModal(label: string): void {
       (c) => (c.getAttribute('data-label') || '').toLowerCase() === pickLabel.toLowerCase(),
     );
     if (matchCard) {
-      slide.querySelectorAll('.browse-option.selected').forEach((e) => e.classList.remove('selected'));
-      matchCard.classList.add('selected');
+      matchCard.click();
     }
   });
 
