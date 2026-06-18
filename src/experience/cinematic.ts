@@ -165,6 +165,13 @@ function adoptOrCreateStage(host: HTMLElement, createStage: (c: HTMLElement) => 
   return createStage(host);
 }
 
+function showStageCanvas(dim = false): void {
+  if (!stage?.canvas) return;
+  stage.canvas.style.visibility = 'visible';
+  stage.canvas.style.transition = 'none';
+  stage.canvas.style.opacity = dim ? '0.3' : '1';
+}
+
 function mountStage(): void {
   if (stage || stageLoading) return;
   stageLoading = true;
@@ -174,6 +181,7 @@ function mountStage(): void {
       if (!host) { stageLoading = false; return; }
       stage = adoptOrCreateStage(host, createStage);
       stage.setService(activeServiceLocal);
+      showStageCanvas(false);
       host.classList.add('stage-ready');
       // Cinematic arrival: drift in from far out, then settle on the queued station
       const target = pendingSpec ?? stationFor(activeServiceLocal, 'intro', 0);
@@ -399,15 +407,18 @@ export async function showSlide(slideId: string): Promise<void> {
       pushedThrough = true;
       await stage.pushThroughGlass();
       host.classList.add('stage-dim');
+      showStageCanvas(true);
     } else if (!isQuoteFinale) {
       if (pushedThrough) {
         // Came back from the quote slide — restore the orbit
         pushedThrough = false;
         host.classList.remove('stage-dim');
       }
+      showStageCanvas(false);
       stage.moveCamera(stationFor(activeServiceLocal, slideId, index), 1.7);
     } else {
       host.classList.add('stage-dim');
+      showStageCanvas(true);
     }
   } else {
     pendingSpec = stationFor(activeServiceLocal, slideId, index);

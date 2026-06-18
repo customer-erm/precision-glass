@@ -1,7 +1,7 @@
 /**
  * Materialize — the shared animation vocabulary of the cinematic experience.
- * Content doesn't slide in; it *assembles*: text decodes like a drafting
- * plotter, cards resolve from blur with depth, exits dissolve forward.
+ * Content doesn't slide in; it *assembles*: cards resolve from blur with
+ * depth, headings settle cleanly, exits dissolve forward.
  * All entrances respect prefers-reduced-motion (simple fades).
  */
 import { gsap } from '../animations/engine';
@@ -12,42 +12,23 @@ const CARD_SELECTOR = [
   '.ss-extra-card', '.ss-process-step', '.ss-info-bullet', '.ss-quote-step',
 ].join(',');
 
-const DECODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%+*/';
-
 /* ------------------------------------------------------------------ */
-/*  Text decode — characters resolve left-to-right from plotter noise   */
+/*  Text restore — headings always settle to their exact source copy     */
 /* ------------------------------------------------------------------ */
 
 const originalText = new WeakMap<HTMLElement, string>();
 const decodeTweens = new WeakMap<HTMLElement, gsap.core.Tween>();
 
 export function decodeText(el: HTMLElement, duration = 0.9): void {
+  void duration;
   if (prefersReducedMotion()) return;
-  const text = originalText.get(el) ?? el.textContent ?? '';
+  const text = originalText.get(el) ?? el.dataset.cineText ?? el.textContent ?? '';
   if (!text.trim()) return;
   originalText.set(el, text);
+  el.dataset.cineText = text;
   decodeTweens.get(el)?.kill();
-
-  const proxy = { progress: 0 };
-  const tween = gsap.to(proxy, {
-    progress: 1,
-    duration,
-    ease: 'power2.out',
-    onUpdate: () => {
-      const resolved = Math.floor(proxy.progress * text.length);
-      let out = text.slice(0, resolved);
-      for (let i = resolved; i < text.length; i++) {
-        const ch = text[i];
-        out += ch === ' ' ? ' ' : DECODE_CHARS[Math.floor(Math.random() * DECODE_CHARS.length)];
-      }
-      el.textContent = out;
-    },
-    onComplete: () => {
-      el.textContent = text;
-      decodeTweens.delete(el);
-    },
-  });
-  decodeTweens.set(el, tween);
+  el.textContent = text;
+  decodeTweens.delete(el);
 }
 
 /* ------------------------------------------------------------------ */
@@ -113,7 +94,16 @@ export function materializeSlide(slide: HTMLElement, opts?: { stagger?: number }
     0.05,
   );
 
-  // Decode the headline text as it lands
+  tl.set(pieces, { opacity: 1, y: 0, scale: 1, rotationX: 0, clearProps: 'filter,transform' }, '>');
+
+  const settleMs = Math.ceil((0.95 + pieces.length * stagger) * 1000) + 250;
+  window.setTimeout(() => {
+    if (!slide.classList.contains('active')) return;
+    gsap.set(pieces, { opacity: 1, y: 0, scale: 1, rotationX: 0, clearProps: 'filter,transform' });
+  }, settleMs);
+
+  // Restore the headline text as it lands. This used to scramble characters,
+  // but reliability matters more here than a decorative decode effect.
   slide.querySelectorAll<HTMLElement>('.slide-heading, .slide-title, .slide-label').forEach((el, i) => {
     tl.add(() => decodeText(el, el.classList.contains('slide-label') ? 0.5 : 0.9), 0.1 + i * 0.08);
   });

@@ -17,10 +17,10 @@
   transition: opacity 0.9s ease;
 }
 .tour-slideshow.cinematic.stage-ready #stage-canvas {
-  opacity: 1;
+  opacity: 1 !important;
 }
 .tour-slideshow.cinematic.stage-dim #stage-canvas {
-  opacity: 0.3;
+  opacity: 0.3 !important;
   transition: opacity 1.1s ease;
 }
 
