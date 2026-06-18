@@ -63,7 +63,9 @@ export function createStage(initialContainer: HTMLElement): Stage {
   let container = initialContainer;
   const lowPower = isLowPowerDevice();
 
-  const renderer = new THREE.WebGLRenderer({ antialias: !lowPower, alpha: false });
+  // preserveDrawingBuffer lets us snapshot the live 3D render (canvas.toDataURL)
+  // for the printable proposal at any time, not just within a single frame.
+  const renderer = new THREE.WebGLRenderer({ antialias: !lowPower, alpha: false, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.3 : 1.75));
   renderer.setSize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;

@@ -1028,6 +1028,30 @@ function proposalRows(fields: Array<[string, string]>): string {
     .join('');
 }
 
+// Snapshot the live WebGL stage (the parametric 3D design) as a compact JPEG
+// data URL for the proposal. Returns '' if the canvas isn't capturable.
+function captureStageRender(): string {
+  const src = document.getElementById('stage-canvas') as HTMLCanvasElement | null;
+  if (!src || !src.width || !src.height) return '';
+  try {
+    const maxW = 900;
+    const scale = Math.min(1, maxW / src.width);
+    const w = Math.round(src.width * scale);
+    const hgt = Math.round(src.height * scale);
+    const tmp = document.createElement('canvas');
+    tmp.width = w;
+    tmp.height = hgt;
+    const ctx = tmp.getContext('2d');
+    if (!ctx) return '';
+    ctx.drawImage(src, 0, 0, w, hgt);
+    const url = tmp.toDataURL('image/jpeg', 0.9);
+    return url.length > 5000 ? url : '';
+  } catch (err) {
+    console.warn('[Proposal] 3D render capture failed', err);
+    return '';
+  }
+}
+
 function openPrintableProposal(): void {
   const win = window.open('', '_blank', 'width=920,height=1100');
   if (!win) {
@@ -1040,6 +1064,11 @@ function openPrintableProposal(): void {
   const imageMarkup = image?.src && image.classList.contains('loaded')
     ? `<img class="rendering" src="${escapeReportText(image.src)}" alt="${escapeReportText(imageAlt)}">`
     : '<div class="rendering-placeholder">Project reference pending staff review</div>';
+
+  const renderUrl = captureStageRender();
+  const renderMarkup = renderUrl
+    ? `<h2>3D Design Render</h2><img class="rendering" src="${renderUrl}" alt="3D design render">`
+    : '';
 
   const selectionRows = proposalRows([
     [activeService === 'commercial' ? 'Project type' : activeService === 'railings' ? 'Rail system' : 'Enclosure', 'qs-enclosure'],
@@ -1097,7 +1126,11 @@ function openPrintableProposal(): void {
         <h2>Customer Details</h2>
         <table>${contactRows || '<tr><td>No contact details captured yet.</td></tr>'}</table>
       </section>
-      <section>${imageMarkup}</section>
+      <section>
+        ${renderMarkup}
+        <h2${renderMarkup ? ' style="margin-top:20px;"' : ''}>AI Visualization</h2>
+        ${imageMarkup}
+      </section>
     </div>
     <div class="note">Staff should verify field measurements, site conditions, code requirements, anchoring or framing details, access, hardware placement, and final scope before quoting or scheduling.</div>
   </main>

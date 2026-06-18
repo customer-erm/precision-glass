@@ -447,6 +447,9 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     clearcoat: 0.6,
     clearcoatRoughness: 0.18,
   });
+  // Decorative grid muntins are ALWAYS matte black — independent of the chosen
+  // hardware finish (chrome handles still get black grids).
+  const gridMat = new THREE.MeshStandardMaterial({ color: 0x121315, roughness: 0.62, metalness: 0.4, envMapIntensity: 0.8 });
   const HEAD_X = -0.35, HEAD_Y = BASE_Y + 1.96;
   // Wall flange where the arm penetrates the back wall
   const wallFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.04, 0.022, 28), metalMat);
@@ -515,8 +518,8 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     });
     if (!opts.cheapGlass) {
       m.transmission = 0.92;
-      m.thickness = 0.06;
-      m.ior = 1.5;
+      m.thickness = 0;   // no volumetric refraction → clean, natural see-through
+      m.ior = 1.45;
     }
     return m;
   }
@@ -535,9 +538,12 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     m.roughnessMap = isRain ? rainTex : null;
     // Rain glass is patterned/obscuring — pull transmission down so the surface
     // reads as textured glass rather than a clear pane. Frosted/clear keep theirs.
+    // thickness=0 on clear/frosted removes the volumetric refraction that was
+    // making the background look inverted/lensed through panes with no wall
+    // behind them — now they read as a natural see-through into the dark room.
     if (!opts.cheapGlass) {
       m.transmission = isRain ? 0.55 : key === 'frosted' ? 0.78 : 0.92;
-      m.thickness = isRain ? 0.11 : 0.06;
+      m.thickness = isRain ? 0.04 : 0;
     }
     m.envMapIntensity = tuning.glassEnv;
     m.needsUpdate = true;
@@ -864,12 +870,12 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       const bar = 0.014;
       const isTransom = extraPanels.includes(p) || p.h < 0.7;
       const addHorizontal = (y: number, thick = bar, inset = 0): void => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.04, p.w - inset * 2), thick, depth), metalMat);
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.04, p.w - inset * 2), thick, depth), gridMat);
         mesh.position.set(0, y, 0.013);
         grid.add(mesh);
       };
       const addVertical = (x: number, thick = bar, inset = 0): void => {
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(thick, Math.max(0.04, p.h - inset * 2), depth), metalMat);
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(thick, Math.max(0.04, p.h - inset * 2), depth), gridMat);
         mesh.position.set(x, p.h / 2, 0.013);
         grid.add(mesh);
       };
@@ -1016,72 +1022,64 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     }
   }
 
-  // Towel-bar pull combo: an outside vertical grab section on the latch side and
-  // a full-width towel bar on the inside, sharing through-glass mounts.
-  function addTowelHandleCombo(groupRef: THREE.Group): void {
-    const railW = 0.56;
-    const latchX = 0;
-    const farX = -railW;
-    const topY = 0.14;
-    const bottomY = -0.14;
-    const standZ = 0.08;
+  // Towel-bar pull combo, modelled as ONE continuous smooth tube: it starts
+  // flush at the glass (towel-bar far end), runs along the inside as the towel
+  // bar, arcs up and over through the glass at the latch, drops down the outside
+  // as the grab pull, and curls back flush to the glass at the bottom. No corner
+  // joints or exposed bolts — both ground ends sit flush against the glass.
+  // Scaled to the door width so it never overhangs (e.g. the narrow neo door).
+  function addTowelHandleCombo(groupRef: THREE.Group, doorW: number): void {
+    const railW = clamp(doorW - 0.2, 0.22, 0.48); // inside towel-bar reach toward the hinge
+    const h = 0.3;                                  // outside grab-pull height
+    const sz = 0.075;                               // bar offset from the glass
     const r = 0.0125;
+    const topY = h / 2, botY = -h / 2;
+    const farX = -railW;
 
-    // Outside vertical grab bar (latch side), rounded ends
-    const pull = metalBar(topY - bottomY + r * 2, r);
-    pull.position.set(latchX, (topY + bottomY) / 2, standZ);
-    groupRef.add(pull);
-
-    // Inside horizontal towel bar along the top, latch → far
-    const bar = metalBar(railW + r * 2, r);
-    bar.rotation.z = Math.PI / 2;
-    bar.position.set((latchX + farX) / 2, topY, -standZ);
-    groupRef.add(bar);
-
-    // Unique through-glass posts
-    for (const [x, y] of [[latchX, topY], [latchX, bottomY], [farX, topY]] as Array<[number, number]>) {
-      addThroughGlassPost(groupRef, x, y, 0.01);
-    }
-    // Standoffs out to each bar on the correct face
-    const standoffs: Array<[number, number, number]> = [
-      [latchX, topY, standZ], [latchX, bottomY, standZ],   // outside pull
-      [latchX, topY, -standZ], [farX, topY, -standZ],       // inside towel bar
+    const pts = [
+      new THREE.Vector3(farX, topY, 0.003),          // towel far end — flush at glass
+      new THREE.Vector3(farX + 0.018, topY, -sz * 0.6),
+      new THREE.Vector3(farX * 0.5, topY, -sz),      // towel bar, inside face
+      new THREE.Vector3(-0.035, topY, -sz),
+      new THREE.Vector3(0, topY + 0.05, -sz * 0.45), // arc up & over the top…
+      new THREE.Vector3(0, topY + 0.066, 0),         // …crossing the glass plane
+      new THREE.Vector3(0, topY + 0.05, sz * 0.45),
+      new THREE.Vector3(0, topY, sz),                // grab pull, outside face
+      new THREE.Vector3(0, botY, sz),
+      new THREE.Vector3(0, botY - 0.032, sz * 0.55), // gentle return hook…
+      new THREE.Vector3(0, botY - 0.044, 0.003),     // …flush at glass
     ];
-    for (const [x, y, z] of standoffs) {
-      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, Math.abs(z) - 0.012, 18), metalMat);
-      s.rotation.x = Math.PI / 2;
-      s.position.set(x, y, z / 2);
-      groupRef.add(s);
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 96, r, 18, false), metalMat);
+    groupRef.add(tube);
+
+    // Slim flush flanges where the tube meets the glass — finished, not poking.
+    for (const [fx, fy] of [[farX, topY], [0, botY - 0.044]] as Array<[number, number]>) {
+      groupRef.add(mountCollar(fx, fy, 0.006, r * 1.5, 0.01));
     }
   }
 
-  // Modern through-glass robe hook: round backplate + dome cap, with a single
-  // smoothly-curved hook arm and a ball finial.
+  // Compact through-glass robe hook: thin flush backplate (nothing protrudes on
+  // the inside), with a small UPWARD-curving hook arm and a ball finial.
   function addRobeHook(groupRef: THREE.Group, x: number, y: number): void {
-    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.12, 14), metalMat);
-    bolt.rotation.x = Math.PI / 2;
-    bolt.position.set(x, y, 0);
-    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.028, 0.016, 32), metalMat);
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.022, 0.012, 28), metalMat);
     plate.rotation.x = Math.PI / 2;
-    plate.position.set(x, y, 0.012);
-    const dome = new THREE.Mesh(
-      new THREE.SphereGeometry(0.024, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2),
-      metalMat,
-    );
-    dome.rotation.x = Math.PI / 2;
-    dome.position.set(x, y, 0.02);
+    plate.position.set(x, y, 0.006);
+    // Flush interior cap — sits against the back of the glass, no protrusion.
+    const backCap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.005, 24), metalMat);
+    backCap.rotation.x = Math.PI / 2;
+    backCap.position.set(x, y, -0.0025);
 
     const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(x, y, 0.028),
-      new THREE.Vector3(x, y + 0.004, 0.092),
-      new THREE.Vector3(x, y - 0.03, 0.128),
-      new THREE.Vector3(x, y - 0.072, 0.108),
-      new THREE.Vector3(x, y - 0.08, 0.07),
+      new THREE.Vector3(x, y, 0.015),
+      new THREE.Vector3(x, y - 0.004, 0.04),
+      new THREE.Vector3(x, y + 0.008, 0.052),  // curl upward
+      new THREE.Vector3(x, y + 0.024, 0.045),
     ]);
-    const hook = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, 0.009, 16, false), metalMat);
-    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.0125, 18, 14), metalMat);
-    finial.position.set(x, y - 0.08, 0.07);
-    groupRef.add(bolt, plate, dome, hook, finial);
+    const hook = new THREE.Mesh(new THREE.TubeGeometry(curve, 22, 0.0065, 14, false), metalMat);
+    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.0088, 16, 12), metalMat);
+    finial.position.set(x, y + 0.024, 0.045);
+    groupRef.add(plate, backCap, hook, finial);
   }
 
   function registerAccessory(panel: PanelRuntime, groupRef: THREE.Group): void {
@@ -1197,7 +1195,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         grp.add(mountCollar(0, y, 0.012, 0.02, 0.018));
       }
     } else if (key === 'towel') {
-      addTowelHandleCombo(grp);
+      addTowelHandleCombo(grp, panels.find((p) => p.hasHandle)?.w ?? 0.7);
     } else { // knob — turned backplate, standoff, and a rounded mushroom knob
       grp.add(mountCollar(0, 0, 0.012, 0.026, 0.016));
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.045, 18), metalMat);
@@ -1461,7 +1459,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       backWall.geometry.dispose(); leftWall.geometry.dispose(); rightWall.geometry.dispose();
       tileMat.dispose(); shellMat.dispose();
       floor.geometry.dispose(); floorMat.dispose();
-      metalMat.dispose();
+      metalMat.dispose(); gridMat.dispose();
       dropGeo.dispose(); dropMat.dispose(); steamTex.dispose();
       rainTex.dispose(); tileTex.dispose();
     },
