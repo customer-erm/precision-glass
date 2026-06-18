@@ -49,7 +49,7 @@ function optionLabel(card: HTMLElement | null): string {
 function isAccessoryAddon(card: HTMLElement, label = optionLabel(card)): boolean {
   const kind = card.getAttribute('data-accessory-kind');
   if (kind) return kind === 'addon';
-  return /robe|hook|support/i.test(label);
+  return /robe|hook/i.test(label);
 }
 
 function selectedAccessoryAddons(slideEl: HTMLElement): string {

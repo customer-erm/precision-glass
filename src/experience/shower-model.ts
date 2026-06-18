@@ -284,20 +284,43 @@ function makeTileTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-function makeRainBumpTexture(): THREE.CanvasTexture {
+// "Rain"/reeded glass: vertical flutes (thin lines) for a clean architectural
+// read, plus a finer droplet cascade for organic sparkle. Returned as a single
+// grayscale map used BOTH as a bumpMap (relief) and a roughnessMap (so the
+// flutes catch the light as visible streaks even through the glass transmission).
+function makeRainTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = c.height = 512;
   const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#808080';
+  ctx.fillStyle = '#7d7d7d';
   ctx.fillRect(0, 0, 512, 512);
-  // Dense elongated droplets with hard highlights — reads as real rain glass
-  for (let i = 0; i < 2200; i++) {
+
+  // Vertical reeded flutes — each flute a dark valley → bright crest → dark
+  // valley gradient. These are the "thin lines" that make the texture read.
+  const flutes = 18;
+  const fw = 512 / flutes;
+  for (let i = 0; i < flutes; i++) {
+    const x = i * fw;
+    const g = ctx.createLinearGradient(x, 0, x + fw, 0);
+    g.addColorStop(0.0, 'rgba(46,46,46,0.85)');
+    g.addColorStop(0.5, 'rgba(232,232,232,0.95)');
+    g.addColorStop(1.0, 'rgba(46,46,46,0.85)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x, 0, fw, 512);
+    // crisp specular highlight line down the crest of each flute
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillRect(x + fw * 0.5 - 0.6, 0, 1.2, 512);
+  }
+
+  // Wavering droplet cascade riding over the flutes — keeps it from looking
+  // mechanical and sells the "rain" name.
+  for (let i = 0; i < 1300; i++) {
     const x = Math.random() * 512, y = Math.random() * 512;
-    const r = 2.5 + Math.random() * 8, len = r * (2.5 + Math.random() * 4);
+    const r = 2 + Math.random() * 6, len = r * (2.5 + Math.random() * 3.5);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    const bright = 185 + Math.floor(Math.random() * 70);
-    g.addColorStop(0, `rgb(${bright},${bright},${bright})`);
-    g.addColorStop(0.55, `rgb(${bright - 70},${bright - 70},${bright - 70})`);
+    const bright = 200 + Math.floor(Math.random() * 55);
+    g.addColorStop(0, `rgba(${bright},${bright},${bright},0.7)`);
+    g.addColorStop(0.6, `rgba(${bright - 60},${bright - 60},${bright - 60},0.35)`);
     g.addColorStop(1, 'rgba(128,128,128,0)');
     ctx.fillStyle = g;
     ctx.save();
@@ -308,7 +331,8 @@ function makeRainBumpTexture(): THREE.CanvasTexture {
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(1.4, 1.4);
+  tex.anisotropy = 8;
+  tex.repeat.set(2.4, 2.4);
   return tex;
 }
 
@@ -354,7 +378,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   let glassKey: GlassKey = 'clear';
   let tuning: ShowerModelTuning = { ...DEFAULT_SHOWER_TUNING };
   let currentFinish = finishFor('chrome');
-  const rainBump = makeRainBumpTexture();
+  const rainTex = makeRainTexture();
   const tileTex = makeTileTexture();
 
   /* ---- Pedestal + walls ---- */
@@ -412,25 +436,44 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   floor.position.y = BASE_Y - 0.001;
   group.add(floor);
 
-  // Showerhead — arm comes out of the BACK wall, head hanging at its end
-  const metalMat = new THREE.MeshStandardMaterial({
+  // Showerhead — arm comes out of the BACK wall, head hanging at its end.
+  // Physical material with a light clearcoat gives every metal part a real
+  // plated/lacquered sheen across chrome, nickel, brass and matte black.
+  const metalMat = new THREE.MeshPhysicalMaterial({
     color: currentFinish.color,
     metalness: 1,
     roughness: currentFinish.roughness * tuning.metalRoughnessScale,
     envMapIntensity: tuning.metalEnv,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.18,
   });
-  const armGeo = new THREE.CylinderGeometry(0.013, 0.013, 0.3, 12);
-  const arm = new THREE.Mesh(armGeo, metalMat);
+  const HEAD_X = -0.35, HEAD_Y = BASE_Y + 1.96;
+  // Wall flange where the arm penetrates the back wall
+  const wallFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.04, 0.022, 28), metalMat);
+  wallFlange.rotation.x = Math.PI / 2;
+  wallFlange.position.set(HEAD_X, HEAD_Y, -0.72);
+  group.add(wallFlange);
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.3, 20), metalMat);
   arm.rotation.x = Math.PI / 2;
-  arm.position.set(-0.35, BASE_Y + 1.96, -0.59); // spans wall (z=-0.74) → z=-0.44
+  arm.position.set(HEAD_X, HEAD_Y, -0.59); // spans wall (z=-0.74) → z=-0.44
   group.add(arm);
-  const headJoint = new THREE.Mesh(new THREE.SphereGeometry(0.022, 12, 10), metalMat);
-  headJoint.position.set(-0.35, BASE_Y + 1.96, -0.45);
+  const headJoint = new THREE.Mesh(new THREE.SphereGeometry(0.024, 20, 16), metalMat);
+  headJoint.position.set(HEAD_X, HEAD_Y, -0.45);
   group.add(headJoint);
-  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.105, 0.02, 24), metalMat);
-  head.position.set(-0.35, BASE_Y + 1.92, -0.44);
+  // Round rain head: a shallow body, a turned outer rim, and a recessed
+  // spray face plate.
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.108, 0.024, 40), metalMat);
+  head.position.set(HEAD_X, BASE_Y + 1.92, -0.44);
   head.rotation.x = 0.1;
   group.add(head);
+  const headRim = new THREE.Mesh(new THREE.TorusGeometry(0.103, 0.011, 16, 48), metalMat);
+  headRim.position.set(HEAD_X, BASE_Y + 1.915, -0.438);
+  headRim.rotation.x = Math.PI / 2 + 0.1;
+  group.add(headRim);
+  const headFace = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.092, 0.006, 40), metalMat);
+  headFace.position.set(HEAD_X, BASE_Y + 1.908, -0.439);
+  headFace.rotation.x = 0.1;
+  group.add(headFace);
 
   /* ---- Glass assembly (rebuilt per enclosure) ---- */
 
@@ -482,10 +525,20 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     const target = key === 'frosted'
       ? { roughness: 0.55, opacity: 0.58, color: new THREE.Color(0xdeeefc) }
       : key === 'rain'
-        ? { roughness: 0.16, opacity: 0.46, color: new THREE.Color(0xc9e8ff) }
+        ? { roughness: 0.42, opacity: 0.52, color: new THREE.Color(0xcdeaff) }
         : { roughness: 0.03, opacity: 0.34, color: new THREE.Color(0xb9e2ff) };
-    m.bumpMap = key === 'rain' ? rainBump : null;
-    m.bumpScale = key === 'rain' ? 5.5 : 0;
+    const isRain = key === 'rain';
+    // Drive the flutes through BOTH relief (bump) and shading (roughness) so
+    // the texture is unmistakably visible even with glass transmission on.
+    m.bumpMap = isRain ? rainTex : null;
+    m.bumpScale = isRain ? 1.4 : 0;
+    m.roughnessMap = isRain ? rainTex : null;
+    // Rain glass is patterned/obscuring — pull transmission down so the surface
+    // reads as textured glass rather than a clear pane. Frosted/clear keep theirs.
+    if (!opts.cheapGlass) {
+      m.transmission = isRain ? 0.55 : key === 'frosted' ? 0.78 : 0.92;
+      m.thickness = isRain ? 0.11 : 0.06;
+    }
     m.envMapIntensity = tuning.glassEnv;
     m.needsUpdate = true;
     if (animate && !prefersReducedMotion()) {
@@ -554,6 +607,32 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     pivot.add(clip);
   }
 
+  // Frameless pivot hinge: a leaf clamping the door glass, a wall-side leaf, and
+  // a turned pivot barrel with end caps between them — the real anatomy.
+  function addDoorHinge(pivot: THREE.Group, hy: number, w: number): void {
+    const s = tuning.hingeScale;
+    const edgeX = -w / 2;
+    const barrelR = 0.018 * s;
+
+    const glassLeaf = trackHardware(new THREE.Mesh(scaledRoundedBox(0.072, 0.108, 0.05, s, tuning.clipDepth), metalMat));
+    glassLeaf.position.set(edgeX + 0.04, hy, 0);
+    pivot.add(glassLeaf);
+
+    const wallLeaf = trackHardware(new THREE.Mesh(scaledRoundedBox(0.05, 0.108, 0.05, s, tuning.clipDepth), metalMat));
+    wallLeaf.position.set(edgeX - 0.03, hy, 0);
+    pivot.add(wallLeaf);
+
+    const barrel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR, 0.122 * s, 24), metalMat));
+    barrel.position.set(edgeX, hy, 0);
+    pivot.add(barrel);
+
+    for (const cy of [0.066 * s, -0.066 * s]) {
+      const cap = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR * 1.12, barrelR * 1.12, 0.012, 24), metalMat));
+      cap.position.set(edgeX, hy + cy, 0);
+      pivot.add(cap);
+    }
+  }
+
   function addPanel(spec: PanelSpec): PanelRuntime {
     const [x1, z1] = spec.from;
     const [x2, z2] = spec.to;
@@ -584,11 +663,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     pivot.add(glass, edges);
 
     if (spec.isDoor) {
-      for (const hy of [0.45, 1.5]) {
-        const hinge = trackHardware(new THREE.Mesh(scaledRoundedBox(0.055, 0.09, 0.045, tuning.hingeScale, tuning.clipDepth), metalMat));
-        hinge.position.set(-w / 2 + 0.028, hy, 0);
-        pivot.add(hinge);
-      }
+      for (const hy of [0.45, 1.5]) addDoorHinge(pivot, hy, w);
     } else if (!spec.baseY && !spec.sliding) {
       // Fixed panels: individual clips where glass meets wall/floor, rather
       // than continuous channels or full-height framing.
@@ -872,84 +947,141 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   /* ---- Handles ---- */
 
+  /* A solid metal bar with rounded ends (capsule). `length` is end-to-end. */
+  function metalBar(length: number, radius: number): THREE.Mesh {
+    const cyl = Math.max(0.001, length - radius * 2);
+    return new THREE.Mesh(new THREE.CapsuleGeometry(radius, cyl, 6, 24), metalMat);
+  }
+
+  /* A machined escutcheon collar (slightly tapered disc) facing along +/-z. */
+  function mountCollar(x: number, y: number, z: number, radius: number, thick = 0.014): THREE.Mesh {
+    const outer = z >= 0 ? radius : radius * 1.05; // inside collar a touch larger
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.86, outer, thick, 28), metalMat);
+    collar.rotation.x = Math.PI / 2;
+    collar.position.set(x, y, z);
+    return collar;
+  }
+
+  // Through-glass mount: a clean bolt with a tapered escutcheon collar on each
+  // face of the glass — the building block for towel bars, robe hooks, combos.
   function addThroughGlassPost(groupRef: THREE.Group, x: number, y: number, radius = 0.011): void {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.12, 16), metalMat);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.14, 20), metalMat);
     post.rotation.x = Math.PI / 2;
     post.position.set(x, y, 0);
-    const frontWasher = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.9, radius * 1.9, 0.01, 20), metalMat);
-    frontWasher.rotation.x = Math.PI / 2;
-    frontWasher.position.set(x, y, 0.065);
-    const backWasher = frontWasher.clone();
-    backWasher.position.z = -0.065;
-    groupRef.add(post, frontWasher, backWasher);
+    groupRef.add(
+      post,
+      mountCollar(x, y, 0.062, radius * 2.0),
+      mountCollar(x, y, -0.062, radius * 2.0),
+    );
   }
 
-  function addOutsideVerticalPull(groupRef: THREE.Group, height = 0.42): void {
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, height, 16), metalMat);
-    bar.position.z = 0.055;
-    const top = height / 2 - 0.04;
-    const bottom = -height / 2 + 0.04;
-    addThroughGlassPost(groupRef, 0, top);
-    addThroughGlassPost(groupRef, 0, bottom);
+  // Tubular pull: a rounded-end grab bar standing off the glass on two posts,
+  // each capped by an escutcheon outside and a hex nut inside.
+  function addOutsideVerticalPull(groupRef: THREE.Group, height = 0.46): void {
+    const radius = 0.0135;
+    const standZ = 0.085;            // bar centre offset from the glass
+    const top = height / 2 - 0.05;
+    const bottom = -height / 2 + 0.05;
+
+    const bar = metalBar(height, radius);
+    bar.position.z = standZ;
     groupRef.add(bar);
-  }
 
-  function addInsideTowelRail(groupRef: THREE.Group, y = -0.18, railW = 0.56, railX = -0.3): void {
-    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, railW, 18), metalMat);
-    rail.rotation.z = Math.PI / 2;
-    rail.position.set(railX, y, -0.075);
-    const left = railX - railW / 2 + 0.035;
-    const right = railX + railW / 2 - 0.035;
-    for (const x of [left, right]) {
-      addThroughGlassPost(groupRef, x, y, 0.01);
-      const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.06, 16), metalMat);
-      saddle.rotation.x = Math.PI / 2;
-      saddle.position.set(x, y, -0.045);
-      groupRef.add(saddle);
+    for (const y of [top, bottom]) {
+      const escut = mountCollar(0, y, 0.012, radius * 1.7, 0.02);
+      const standoff = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.72, radius * 0.72, standZ - 0.012, 20), metalMat);
+      standoff.rotation.x = Math.PI / 2;
+      standoff.position.set(0, y, standZ / 2);
+      const nut = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.25, radius * 1.25, 0.014, 6), metalMat);
+      nut.rotation.x = Math.PI / 2;
+      nut.position.set(0, y, -0.014);
+      groupRef.add(escut, standoff, nut);
     }
-    groupRef.add(rail);
   }
 
+  // A horizontal towel bar on the inside face: a rounded-end rail on two
+  // standoff posts. Reused by both the combo handle and the accessory rail.
+  function addTowelBar(groupRef: THREE.Group, y: number, railW: number, centerX = 0, faceZ = -0.082): void {
+    const r = 0.012;
+    const bar = metalBar(railW + r * 2, r);
+    bar.rotation.z = Math.PI / 2;
+    bar.position.set(centerX, y, faceZ);
+    groupRef.add(bar);
+    for (const x of [centerX - railW / 2, centerX + railW / 2]) {
+      addThroughGlassPost(groupRef, x, y, 0.01);
+      const standoff = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, Math.abs(faceZ) - 0.012, 18), metalMat);
+      standoff.rotation.x = Math.PI / 2;
+      standoff.position.set(x, y, faceZ / 2);
+      groupRef.add(standoff);
+    }
+  }
+
+  // Towel-bar pull combo: an outside vertical grab section on the latch side and
+  // a full-width towel bar on the inside, sharing through-glass mounts.
   function addTowelHandleCombo(groupRef: THREE.Group): void {
-    const railW = 0.58;
+    const railW = 0.56;
     const latchX = 0;
     const farX = -railW;
-    const topY = 0.13;
-    const bottomY = -0.13;
+    const topY = 0.14;
+    const bottomY = -0.14;
+    const standZ = 0.08;
+    const r = 0.0125;
+
+    // Outside vertical grab bar (latch side), rounded ends
+    const pull = metalBar(topY - bottomY + r * 2, r);
+    pull.position.set(latchX, (topY + bottomY) / 2, standZ);
+    groupRef.add(pull);
+
+    // Inside horizontal towel bar along the top, latch → far
+    const bar = metalBar(railW + r * 2, r);
+    bar.rotation.z = Math.PI / 2;
+    bar.position.set((latchX + farX) / 2, topY, -standZ);
+    groupRef.add(bar);
+
+    // Unique through-glass posts
     for (const [x, y] of [[latchX, topY], [latchX, bottomY], [farX, topY]] as Array<[number, number]>) {
       addThroughGlassPost(groupRef, x, y, 0.01);
     }
-    const outsidePull = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.013, topY - bottomY, 18), metalMat);
-    outsidePull.position.set(latchX, (topY + bottomY) / 2, 0.083);
-    const insideRail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, railW, 18), metalMat);
-    insideRail.rotation.z = Math.PI / 2;
-    insideRail.position.set((latchX + farX) / 2, topY, -0.083);
-    for (const x of [latchX, farX]) {
-      const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.058, 16), metalMat);
-      saddle.rotation.x = Math.PI / 2;
-      saddle.position.set(x, topY, -0.05);
-      groupRef.add(saddle);
+    // Standoffs out to each bar on the correct face
+    const standoffs: Array<[number, number, number]> = [
+      [latchX, topY, standZ], [latchX, bottomY, standZ],   // outside pull
+      [latchX, topY, -standZ], [farX, topY, -standZ],       // inside towel bar
+    ];
+    for (const [x, y, z] of standoffs) {
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, Math.abs(z) - 0.012, 18), metalMat);
+      s.rotation.x = Math.PI / 2;
+      s.position.set(x, y, z / 2);
+      groupRef.add(s);
     }
-    const lowerCap = new THREE.Mesh(new THREE.SphereGeometry(0.018, 18, 12), metalMat);
-    lowerCap.position.set(latchX, bottomY, 0.083);
-    const upperCap = lowerCap.clone();
-    upperCap.position.y = topY;
-    const farCap = lowerCap.clone();
-    farCap.position.set(farX, topY, -0.083);
-    groupRef.add(outsidePull, insideRail, lowerCap, upperCap, farCap);
   }
 
+  // Modern through-glass robe hook: round backplate + dome cap, with a single
+  // smoothly-curved hook arm and a ball finial.
   function addRobeHook(groupRef: THREE.Group, x: number, y: number): void {
-    addThroughGlassPost(groupRef, x, y, 0.011);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.018, 24), metalMat);
-    base.rotation.x = Math.PI / 2;
-    base.position.set(x, y, 0.074);
-    const hookStem = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.01, 0.105, 14), metalMat);
-    hookStem.rotation.x = Math.PI / 2;
-    hookStem.position.set(x, y - 0.016, 0.122);
-    const hookTip = new THREE.Mesh(new THREE.SphereGeometry(0.019, 18, 12), metalMat);
-    hookTip.position.set(x, y - 0.053, 0.168);
-    groupRef.add(base, hookStem, hookTip);
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.12, 14), metalMat);
+    bolt.rotation.x = Math.PI / 2;
+    bolt.position.set(x, y, 0);
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.028, 0.016, 32), metalMat);
+    plate.rotation.x = Math.PI / 2;
+    plate.position.set(x, y, 0.012);
+    const dome = new THREE.Mesh(
+      new THREE.SphereGeometry(0.024, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+      metalMat,
+    );
+    dome.rotation.x = Math.PI / 2;
+    dome.position.set(x, y, 0.02);
+
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(x, y, 0.028),
+      new THREE.Vector3(x, y + 0.004, 0.092),
+      new THREE.Vector3(x, y - 0.03, 0.128),
+      new THREE.Vector3(x, y - 0.072, 0.108),
+      new THREE.Vector3(x, y - 0.08, 0.07),
+    ]);
+    const hook = new THREE.Mesh(new THREE.TubeGeometry(curve, 28, 0.009, 16, false), metalMat);
+    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.0125, 18, 14), metalMat);
+    finial.position.set(x, y - 0.08, 0.07);
+    groupRef.add(bolt, plate, dome, hook, finial);
   }
 
   function registerAccessory(panel: PanelRuntime, groupRef: THREE.Group): void {
@@ -977,17 +1109,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     const groupRef = new THREE.Group();
     const railW = clamp(panel.w - 0.22, 0.34, 0.62);
     const y = clamp(1.08, 0.75, panel.h - 0.32);
-    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, railW, 18), metalMat);
-    rail.rotation.z = Math.PI / 2;
-    rail.position.set(0, y, -0.079);
-    for (const x of [-railW / 2, railW / 2]) {
-      addThroughGlassPost(groupRef, x, y, 0.01);
-      const saddle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.058, 16), metalMat);
-      saddle.rotation.x = Math.PI / 2;
-      saddle.position.set(x, y, -0.05);
-      groupRef.add(saddle);
-    }
-    groupRef.add(rail);
+    addTowelBar(groupRef, y, railW);
     registerAccessory(panel, groupRef);
   }
 
@@ -1000,44 +1122,14 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     registerAccessory(panel, groupRef);
   }
 
-  function addSupportBarToPanel(panel: PanelRuntime): void {
-    const groupRef = new THREE.Group();
-    const x = clamp(panel.w / 2 - 0.13, -panel.w / 2 + 0.16, panel.w / 2 - 0.1);
-    const y = clamp(panel.h - 0.16, 1.55, panel.h - 0.08);
-    const length = clamp(0.58 + panel.w * 0.08, 0.52, 0.72);
-
-    const glassClamp = new THREE.Mesh(scaledRoundedBox(0.1, 0.058, 0.042, 0.88, 0.9), metalMat);
-    glassClamp.position.set(x, y, -0.038);
-    const clampFace = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.012, 24), metalMat);
-    clampFace.rotation.x = Math.PI / 2;
-    clampFace.position.set(x, y, 0.02);
-    const swivel = new THREE.Mesh(new THREE.SphereGeometry(0.022, 18, 12), metalMat);
-    swivel.position.set(x, y + 0.004, -0.078);
-
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, length, 24), metalMat);
-    tube.rotation.x = Math.PI / 2;
-    tube.position.set(x, y + 0.01, -length / 2 - 0.08);
-    const wallPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.014, 28), metalMat);
-    wallPlate.rotation.x = Math.PI / 2;
-    wallPlate.position.set(x, y + 0.01, -length - 0.16);
-    const wallBoss = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.05, 20), metalMat);
-    wallBoss.rotation.x = Math.PI / 2;
-    wallBoss.position.set(x, y + 0.01, -length - 0.125);
-
-    groupRef.add(glassClamp, clampFace, swivel, tube, wallPlate, wallBoss);
-    registerAccessory(panel, groupRef);
-  }
-
   function buildAccessories(animate: boolean, delay = 0): void {
     clearAccessories();
     const v = accessoriesLabel.toLowerCase();
     if (!v || /^(n\/a|none|none, thanks)$/i.test(v.trim())) return;
     const fixedPanel = chooseAccessoryPanel();
-    const supportPanel = chooseFixedPanel(true);
     const firstIndex = accessoryGroups.length;
     if (v.includes('towel') && handleKey !== 'towel' && fixedPanel) addTowelRailToPanel(fixedPanel);
     if ((v.includes('robe') || v.includes('hook')) && fixedPanel) addRobeHookToPanel(fixedPanel);
-    if ((v.includes('support') || v.includes('stabil')) && supportPanel) addSupportBarToPanel(supportPanel);
     const added = accessoryGroups.slice(firstIndex);
     if (animate && !prefersReducedMotion()) {
       added.forEach((groupRef, i) => {
@@ -1059,33 +1151,62 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     handleHost.clear();
     const grp = new THREE.Group();
 
-    const standoff = () => new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.05, 10), metalMat);
+    // Escutcheon + standoff pair that mounts a bar to the glass at (x,y).
+    const addMount = (x: number, y: number, z: number, postR = 0.008): void => {
+      grp.add(mountCollar(x, y, 0.012, 0.02, 0.018));
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, z - 0.012, 18), metalMat);
+      post.rotation.x = Math.PI / 2;
+      post.position.set(x, y, z / 2);
+      grp.add(post);
+    };
 
     if (key === 'pull') {
       addOutsideVerticalPull(grp);
     } else if (key === 'ladder') {
-      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.56, 14), metalMat);
-      bar.position.z = 0.06;
-      grp.add(bar);
-      for (const y of [0.24, 0, -0.24]) {
-        const rung = standoff(); rung.rotation.x = Math.PI / 2; rung.position.set(0, y, 0.03);
+      // Two vertical rails with horizontal rungs between them — a statement pull.
+      const railHalf = 0.05;
+      const H = 0.5;
+      const standZ = 0.072;
+      const r = 0.011;
+      for (const x of [-railHalf, railHalf]) {
+        const rail = metalBar(H, r);
+        rail.position.set(x, 0, standZ);
+        grp.add(rail);
+        addMount(x, H / 2 - 0.05, standZ);
+        addMount(x, -H / 2 + 0.05, standZ);
+      }
+      for (const y of [0.18, 0, -0.18]) {
+        const rung = metalBar(railHalf * 2, 0.0095);
+        rung.rotation.z = Math.PI / 2;
+        rung.position.set(0, y, standZ);
         grp.add(rung);
       }
     } else if (key === 'u-handle') {
-      const front = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.3, 12), metalMat);
-      front.position.z = 0.045;
-      const back = front.clone(); back.position.z = -0.045;
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.1, 10), metalMat);
-      top.rotation.x = Math.PI / 2; top.position.y = 0.15;
-      const bot = top.clone(); bot.position.y = -0.15;
-      grp.add(front, back, top, bot);
+      // Squared D-handle: a front grab bar on two legs returning to the glass.
+      const H = 0.28;
+      const standZ = 0.075;
+      const r = 0.012;
+      const front = metalBar(H, r);
+      front.position.z = standZ;
+      grp.add(front);
+      for (const y of [H / 2 - 0.03, -H / 2 + 0.03]) {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(r, r, standZ - 0.012, 18), metalMat);
+        leg.rotation.x = Math.PI / 2;
+        leg.position.set(0, y, standZ / 2);
+        grp.add(leg);
+        grp.add(mountCollar(0, y, 0.012, 0.02, 0.018));
+      }
     } else if (key === 'towel') {
       addTowelHandleCombo(grp);
-    } else { // knob
-      const stem = standoff(); stem.rotation.x = Math.PI / 2; stem.position.z = 0.03;
-      const face = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.016, 22), metalMat);
-      face.rotation.x = Math.PI / 2; face.position.z = 0.062;
-      grp.add(stem, face);
+    } else { // knob — turned backplate, standoff, and a rounded mushroom knob
+      grp.add(mountCollar(0, 0, 0.012, 0.026, 0.016));
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.045, 18), metalMat);
+      stem.rotation.x = Math.PI / 2;
+      stem.position.z = 0.034;
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.026, 28, 20), metalMat);
+      knob.scale.set(1, 1, 0.78);
+      knob.position.z = 0.07;
+      grp.add(stem, knob);
     }
 
     handleHost.add(grp);
@@ -1342,7 +1463,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       floor.geometry.dispose(); floorMat.dispose();
       metalMat.dispose();
       dropGeo.dispose(); dropMat.dispose(); steamTex.dispose();
-      rainBump.dispose(); tileTex.dispose();
+      rainTex.dispose(); tileTex.dispose();
     },
   };
 }

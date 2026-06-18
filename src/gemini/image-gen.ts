@@ -37,7 +37,6 @@ function findAccessoryImages(handle: string, accessories: string): Array<{ label
   };
   if (lower.includes('towel')) push('towel-bar pull combo / through-glass towel bar', 'acc-towel');
   if (/robe|hook/.test(lower)) push('through-glass robe hook', 'acc-hook');
-  if (/support|stabil/.test(lower)) push('fixed-panel support / stabilizer bar', 'acc-bar');
   return refs;
 }
 
@@ -128,7 +127,6 @@ function buildPrompt(choices: Record<string, string>): string {
   const accessoryLower = accessories.toLowerCase();
   const wantsTowel = accessoryLower.includes('towel') || handleLowerGlobal.includes('towel');
   const wantsRobe = /robe|hook/.test(accessoryLower);
-  const wantsSupport = /support|stabil/.test(accessoryLower);
 
   const parts: string[] = [];
   parts.push(
@@ -213,12 +211,7 @@ function buildPrompt(choices: Record<string, string>): string {
     negatives.push('NO hinges anywhere — this is a slider, not a hinged door');
     negatives.push('NO pivots, NO swing arms');
   }
-  if (wantsSupport) {
-    negatives.push('NO full-width header bar; any support bar must be a short fixed-panel-to-wall or fixed-panel-to-ceiling stabilizer only');
-    negatives.push('NO support bar attached to a moving door');
-  } else {
-    negatives.push('NO support bars of any kind');
-  }
+  negatives.push('NO support bars or fixed-panel stabilizer bars of any kind');
   if (!wantsTowel) negatives.push('NO towel bars');
   if (!wantsRobe) negatives.push('NO robe hooks');
   negatives.push('NO duplicated handles');

@@ -289,10 +289,10 @@ function buildAccessoriesSlide(): HTMLElement {
   const slide = makeSlide('accessories');
   const content = h('div', { className: 'slide-content' });
   content.appendChild(makeHeader('HANDLES & ACCESSORIES', 'Choose Your Style', 'Solid brass \u00B7 Lifetime warranty \u00B7 All finishes'));
-  const items = ['acc-pull', 'acc-uhandle', 'acc-ladder', 'acc-knob', 'acc-towel', 'acc-hook', 'acc-bar'];
+  const items = ['acc-pull', 'acc-uhandle', 'acc-ladder', 'acc-knob', 'acc-towel', 'acc-hook'];
   const grid = h('div', { className: 'ss-acc-grid' });
   images.showers.accessories.filter(a => items.includes(a.id)).forEach((item) => {
-    const kind = item.id === 'acc-hook' || item.id === 'acc-bar' ? 'addon' : 'handle';
+    const kind = item.id === 'acc-hook' ? 'addon' : 'handle';
     const card = h('div', { className: 'ss-acc-card slide-el', 'data-accessory-kind': kind });
     card.appendChild(h('img', { src: item.src, alt: item.label }));
     const info = h('div', { className: 'ss-card-info' });
@@ -484,7 +484,7 @@ function thumbForStep(key: string, value: string): string | null {
     return find(images.showers.accessories, [['ladder', 'Ladder Pulls'], ['u-handle', 'U-Handles'], ['u handle', 'U-Handles'], ['knob', 'Knobs'], ['pull', 'Pull Handles']]);
   }
   if (key === 'accessories') {
-    return find(images.showers.accessories, [['towel', 'Towel Bars'], ['hook', 'Robe Hooks'], ['robe', 'Robe Hooks'], ['support', 'Support Bars'], ['bar', 'Support Bars'], ['grid', 'Grid Patterns']]);
+    return find(images.showers.accessories, [['towel', 'Towel Bars'], ['hook', 'Robe Hooks'], ['robe', 'Robe Hooks'], ['grid', 'Grid Patterns']]);
   }
   if (key === 'extras') {
     return find(images.showers.accessories, [['grid', 'Grid Patterns']]) || find(images.showers.enclosures, [['steam', 'Steam Shower']]);
