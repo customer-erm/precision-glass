@@ -1,0 +1,217 @@
+.shower-studio-body {
+  overflow: hidden;
+  background: #090d12;
+}
+
+.shower-studio {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  grid-template-rows: 72px minmax(0, 1fr);
+  background:
+    radial-gradient(circle at 28% 16%, rgba(105, 154, 180, 0.18), transparent 34%),
+    linear-gradient(135deg, #0a0f15 0%, #101319 46%, #17151a 100%);
+  color: #f7fbff;
+  font-family: var(--font-body);
+}
+
+.studio-topbar {
+  grid-column: 1 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 26px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(8, 12, 18, 0.72);
+  backdrop-filter: blur(18px);
+}
+
+.studio-topbar strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 1.18rem;
+  line-height: 1.1;
+}
+
+.studio-topbar span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(238, 246, 255, 0.68);
+  font-size: 0.82rem;
+}
+
+.studio-home {
+  color: #f7fbff;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 0.84rem;
+}
+
+.studio-stage-shell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-viewport {
+  position: absolute;
+  inset: 0;
+}
+
+.studio-viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.studio-hint {
+  position: absolute;
+  left: 24px;
+  bottom: 22px;
+  color: rgba(240, 247, 255, 0.78);
+  background: rgba(7, 10, 14, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 8px 13px;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.studio-panel {
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(14, 17, 22, 0.82);
+  backdrop-filter: blur(20px);
+  padding: 18px;
+}
+
+.studio-panel-title {
+  margin-bottom: 18px;
+}
+
+.studio-panel-title strong {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 1.02rem;
+}
+
+.studio-panel-title span {
+  display: block;
+  margin-top: 4px;
+  color: rgba(238, 246, 255, 0.64);
+  font-size: 0.8rem;
+}
+
+.studio-section {
+  padding: 14px 0 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.studio-section h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: #91cce7;
+}
+
+.studio-field,
+.studio-range {
+  display: block;
+  margin-bottom: 11px;
+}
+
+.studio-field > span,
+.studio-range-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  color: rgba(240, 247, 255, 0.78);
+  font-size: 0.8rem;
+}
+
+.studio-range output {
+  color: #f2d59b;
+  font-variant-numeric: tabular-nums;
+}
+
+.studio-field select {
+  width: 100%;
+  min-height: 38px;
+  color: #f7fbff;
+  background: rgba(255, 255, 255, 0.075);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  padding: 7px 9px;
+  outline: none;
+}
+
+.studio-range input {
+  width: 100%;
+  accent-color: #f2d59b;
+}
+
+.studio-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.studio-actions button {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  color: #f7fbff;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.studio-actions button:hover {
+  background: rgba(242, 213, 155, 0.16);
+  border-color: rgba(242, 213, 155, 0.45);
+}
+
+.studio-json {
+  margin: 16px 0 0;
+  max-height: 260px;
+  overflow: auto;
+  color: rgba(244, 248, 252, 0.78);
+  background: rgba(0, 0, 0, 0.26);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  padding: 12px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 920px) {
+  .shower-studio {
+    grid-template-columns: 1fr;
+    grid-template-rows: 68px minmax(420px, 55vh) auto;
+    overflow: auto;
+  }
+
+  .studio-topbar {
+    grid-column: 1;
+  }
+
+  .studio-stage-shell {
+    min-height: 420px;
+  }
+
+  .studio-panel {
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}

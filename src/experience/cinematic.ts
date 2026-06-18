@@ -120,6 +120,7 @@ let prewarmHost: HTMLElement | null = null;
  */
 function prewarmStage(): void {
   if (prewarmed || stage || stageLoading) return;
+  if (new URLSearchParams(window.location.search).get('studio') === 'shower') return;
   import('./flag').then(({ isCinematic }) => {
     if (!isCinematic()) return;
     import('./stage').then(({ createStage }) => {

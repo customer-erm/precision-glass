@@ -15,7 +15,6 @@ import type { GeminiLiveClient } from './gemini/client';
 import { setState } from './utils/state';
 import type { AgentState, InteractionMode } from './utils/state';
 import { loadUser, registerVisit, saveUser } from './utils/user-storage';
-import { startBrowseTour } from './animations/manual-nav';
 
 // --- Register visit count on page load ---
 registerVisit();
@@ -27,6 +26,7 @@ window.scrollTo(0, 0);
 
 // --- Build DOM ---
 const app = document.getElementById('app')!;
+const wantsShowerStudio = new URLSearchParams(window.location.search).get('studio') === 'shower';
 const bgEl = buildBackground();
 const nav = buildNav();
 const hero = buildHero();
@@ -59,10 +59,17 @@ app.appendChild(contactModal);
 app.appendChild(photoPrompt);
 app.appendChild(contentModal);
 
-// --- Landing animation ---
-requestAnimationFrame(() => {
-  playLandingAnimation();
-});
+if (wantsShowerStudio) {
+  app.replaceChildren();
+  void import('./modeling/shower-studio').then(({ mountShowerModelStudio }) => {
+    mountShowerModelStudio(app);
+  });
+} else {
+  // --- Landing animation ---
+  requestAnimationFrame(() => {
+    playLandingAnimation();
+  });
+}
 
 // --- Nav scroll behavior ---
 window.addEventListener('scroll', () => {
@@ -245,6 +252,7 @@ document.addEventListener('click', async (e) => {
     if (service) {
       setState({ currentMode: 'browse' });
       saveUser({ preferredMode: 'browse' });
+      const { startBrowseTour } = await import('./animations/manual-nav');
       await startBrowseTour(service);
     }
     return;
