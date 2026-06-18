@@ -252,7 +252,7 @@ function buildEnclosuresSlide(): HTMLElement {
 function buildGlassSlide(): HTMLElement {
   const slide = makeSlide('glass');
   const content = h('div', { className: 'slide-content' });
-  content.appendChild(makeHeader('GLASS OPTIONS', 'Select Your Glass'));
+  content.appendChild(makeHeader('GLASS OPTIONS', 'Select Your Glass', 'Common choices shown - additional glass styles on request'));
   const grid = h('div', { className: 'ss-glass-grid' });
   images.showers.glass.forEach((item) => {
     const card = h('div', { className: 'ss-glass-card slide-el' });
@@ -271,7 +271,7 @@ function buildGlassSlide(): HTMLElement {
 function buildHardwareSlide(): HTMLElement {
   const slide = makeSlide('hardware');
   const content = h('div', { className: 'slide-content' });
-  content.appendChild(makeHeader('HARDWARE FINISHES', 'Choose Your Finish'));
+  content.appendChild(makeHeader('HARDWARE FINISHES', 'Choose Your Finish', 'More hardware styles and specialty finishes available on request'));
   const grid = h('div', { className: 'ss-hw-grid' });
   images.showers.hardware.filter(i => i.id !== 'hw-other').forEach((item) => {
     const card = h('div', { className: 'ss-hw-card slide-el' });

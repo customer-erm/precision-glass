@@ -232,7 +232,7 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'showers-glass',
       progressStep: 6,
       progressTotal: 10,
-      agent: (ctx) => `Perfect - ${ctx.choices.enclosure}. Now the glass: clear shows off tile and stone, frosted adds privacy, and rain glass softens the view with texture. Which draws you in?`,
+      agent: (ctx) => `Perfect - ${ctx.choices.enclosure}. Now the glass: clear shows off tile and stone, frosted adds privacy, and rain glass softens the view with texture. These are the common picks; additional glass styles and privacy patterns can be reviewed on request. Which draws you in?`,
       chips: [
         { label: 'Clear', hint: 'Bestseller', primary: true, action: { kind: 'advance', next: 'showers-hardware', choiceCategory: 'glass', choice: 'Clear Glass' } },
         { label: 'Frosted', hint: 'Privacy', action: { kind: 'advance', next: 'showers-hardware', choiceCategory: 'glass', choice: 'Frosted Glass' } },
@@ -243,7 +243,7 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'showers-hardware',
       progressStep: 7,
       progressTotal: 10,
-      agent: 'Five hardware finishes to pick from. Think of this as hinges, clips, brackets, and handle finish all matching the rest of the bathroom. What would complement your space?',
+      agent: 'Five hardware finishes to pick from. Think of this as hinges, clips, brackets, rollers, and handle finish all matching the rest of the bathroom. Additional hardware styles and specialty finishes can be reviewed on request. What would complement your space?',
       chips: [
         { label: 'Polished Chrome', hint: 'Most popular', primary: true, action: { kind: 'advance', next: 'showers-handle', choiceCategory: 'hardware', choice: 'Polished Chrome' } },
         { label: 'Brushed Nickel', hint: 'Hides spots', action: { kind: 'advance', next: 'showers-handle', choiceCategory: 'hardware', choice: 'Brushed Nickel' } },
@@ -274,7 +274,7 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'showers-extras',
       progressStep: 9,
       progressTotal: 10,
-      agent: 'Last visual pick - any upgrades? Grid patterns add architectural character. Steam upgrade means a more sealed design, so the proposal will flag that for staff review.',
+      agent: 'Last visual pick - any upgrades? Grid patterns add architectural character, and steam means a more sealed design. Pick one and I will show it on the model before the running-shower frame.',
       chips: [
         { label: 'Skip upgrades', primary: true, action: { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: 'none' } },
         { label: 'Add Grid Patterns', action: { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: 'Grid Patterns' } },

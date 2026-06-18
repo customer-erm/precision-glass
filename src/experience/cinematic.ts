@@ -275,6 +275,7 @@ function applyModelPreview(category: string, value: string): void {
       case 'glass': rig.setGlass(value); break;
       case 'hardware': rig.setHardware(value); break;
       case 'handle': rig.setHandle(value); break;
+      case 'extras': rig.setExtras(value); break;
       default: break;
     }
   } else if (activeServiceLocal === 'railings') {

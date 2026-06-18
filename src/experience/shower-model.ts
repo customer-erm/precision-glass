@@ -106,6 +106,7 @@ interface PanelSpec {
   height?: number;
   baseY?: number;
   isDoor?: boolean;       // gets hinges
+  sliding?: boolean;      // gets top rollers instead of wall hinges
   hasHandle?: boolean;
   arched?: boolean;
 }
@@ -129,7 +130,7 @@ const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
   ] },
   // Neo-angle (per DreamLine Prism / Delta 38x38 geometry): a square corner
   // footprint with the outer corner cut at 45° — two fixed side panels run
-  // PARALLEL to the walls (held in U-channels), and the door spans the
+  // PARALLEL to the walls (held with discrete clips), and the door spans the
   // diagonal cut. Pentagon plan: wall, wall, fixed, 45° door, fixed.
   neo: { panels: [
     { from: [L, 0.26], to: [-0.17, 0.26] },                          // left fixed ∥ back wall
@@ -138,7 +139,7 @@ const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
   ] },
   slider: { headerBar: true, panels: [
     { from: [L, 0.66], to: [0.06, 0.66] },
-    { from: [-0.06, 0.74], to: [R, 0.74], isDoor: true, hasHandle: true },
+    { from: [-0.06, 0.74], to: [R, 0.74], sliding: true, hasHandle: true },
   ] },
   arched: { panels: [
     { from: [L, F], to: [-0.05, F] },
@@ -332,10 +333,15 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   let currentLabel = '90 corner';
   let gridOn = false;
   let steamOn = false;
-  const hingeMeshes: THREE.Mesh[] = [];
+  const hardwareMeshes: THREE.Mesh[] = [];
 
   function allGlass(): PanelRuntime[] {
     return panels.concat(extraPanels);
+  }
+
+  function trackHardware(mesh: THREE.Mesh): THREE.Mesh {
+    hardwareMeshes.push(mesh);
+    return mesh;
   }
 
   function makeGlassMaterial(): THREE.MeshPhysicalMaterial {
@@ -401,6 +407,22 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     return geo;
   }
 
+  function addPatchClamp(pivot: THREE.Group, x: number, y: number, z = 0.032): void {
+    const plate = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.058, 0.034), metalMat));
+    plate.position.set(x, y, z);
+    pivot.add(plate);
+
+    const cap = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.038, 0.04), metalMat));
+    cap.position.set(x, y, -z);
+    pivot.add(cap);
+  }
+
+  function addFloorClip(pivot: THREE.Group, x: number): void {
+    const clip = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.07, 0.042), metalMat));
+    clip.position.set(x, 0.035, 0.026);
+    pivot.add(clip);
+  }
+
   function addPanel(spec: PanelSpec): PanelRuntime {
     const [x1, z1] = spec.from;
     const [x2, z2] = spec.to;
@@ -432,23 +454,22 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
     if (spec.isDoor) {
       for (const hy of [0.45, 1.5]) {
-        const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.09, 0.045), metalMat);
+        const hinge = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.09, 0.045), metalMat));
         hinge.position.set(-w / 2 + 0.028, hy, 0);
         pivot.add(hinge);
-        hingeMeshes.push(hinge);
       }
-    } else if (!spec.baseY) {
-      // Fixed panels: U-channel where a vertical edge meets a wall — the
-      // detail that makes a frameless install read as professionally set.
+    } else if (!spec.baseY && !spec.sliding) {
+      // Fixed panels: individual clips where glass meets wall/floor, rather
+      // than continuous channels or full-height framing.
       const nearWall = (x: number, z: number) =>
         Math.abs(x - L) < 0.06 || Math.abs(z - L) < 0.06;
       for (const [end, sign] of [[spec.from, -1], [spec.to, 1]] as Array<[[number, number], number]>) {
+        const localX = sign * (w / 2 - 0.035);
         if (nearWall(end[0], end[1])) {
-          const channel = new THREE.Mesh(new THREE.BoxGeometry(0.028, hgt, 0.034), metalMat);
-          channel.position.set(sign * (w / 2 - 0.012), hgt / 2, 0);
-          pivot.add(channel);
-          hingeMeshes.push(channel);
+          addPatchClamp(pivot, localX, Math.min(hgt - 0.22, 1.52));
+          addPatchClamp(pivot, localX, Math.max(0.22, hgt * 0.28));
         }
+        addFloorClip(pivot, localX);
       }
     }
     if (spec.hasHandle) {
@@ -472,11 +493,62 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   function disposePanels(): void {
     for (const p of panels) disposeRuntime(p);
     for (const p of extraPanels) disposeRuntime(p);
-    hingeMeshes.length = 0;
+    hardwareMeshes.forEach((mesh) => mesh.geometry.dispose());
+    hardwareMeshes.length = 0;
     handleHost = null;
     assembly.clear();
     panels = [];
     extraPanels.length = 0;
+  }
+
+  function addSliderHardware(): void {
+    const railY = BASE_Y + GLASS_H - 0.1;
+    const railZ = 0.86;
+    const rail = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.62, 24), metalMat));
+    rail.rotation.z = Math.PI / 2;
+    rail.position.set(0, railY, railZ);
+    assembly.add(rail);
+    const railSleeve = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.045, 0.045), metalMat));
+    railSleeve.position.set(0, railY, railZ);
+    assembly.add(railSleeve);
+
+    for (const x of [-0.74, 0.74]) {
+      const wallBracket = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.062), metalMat));
+      wallBracket.position.set(x, railY, railZ - 0.03);
+      assembly.add(wallBracket);
+      const cap = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.022, 22), metalMat));
+      cap.rotation.x = Math.PI / 2;
+      cap.position.set(x, railY, railZ + 0.018);
+      assembly.add(cap);
+    }
+
+    for (const x of [0.04, 0.48]) {
+      const hanger = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.03), metalMat));
+      hanger.position.set(x, railY - 0.105, railZ + 0.052);
+      assembly.add(hanger);
+
+      const bracket = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.038, 0.035), metalMat));
+      bracket.position.set(x, railY - 0.025, railZ + 0.05);
+      assembly.add(bracket);
+
+      const wheel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.064, 0.064, 0.026, 36), metalMat));
+      wheel.rotation.x = Math.PI / 2;
+      wheel.position.set(x, railY + 0.006, railZ + 0.076);
+      assembly.add(wheel);
+
+      const axle = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.075, 12), metalMat));
+      axle.rotation.x = Math.PI / 2;
+      axle.position.set(x, railY, railZ + 0.078);
+      assembly.add(axle);
+
+      const rim = trackHardware(new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.007, 12, 36), metalMat));
+      rim.position.set(x, railY + 0.006, railZ + 0.092);
+      assembly.add(rim);
+    }
+
+    const floorGuide = trackHardware(new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.055, 0.05), metalMat));
+    floorGuide.position.set(0.16, BASE_Y + 0.028, railZ - 0.01);
+    assembly.add(floorGuide);
   }
 
   function buildEnclosure(key: EnclosureKey, animate: boolean): void {
@@ -486,12 +558,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     rightWall.visible = !!layout.alcoveRightWall;
     for (const spec of layout.panels) panels.push(addPanel(spec));
 
-    if (layout.headerBar) {
-      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.44, 12), metalMat);
-      bar.rotation.z = Math.PI / 2;
-      bar.position.set(0, BASE_Y + GLASS_H + 0.08, F);
-      assembly.add(bar);
-    }
+    if (layout.headerBar) addSliderHardware();
 
     // Materialize: each panel's edges rise from the floor while the pane
     // swings into its structural angle, then the glass glazes in with a
@@ -510,7 +577,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         gsap.fromTo(p.glassMat, { envMapIntensity: 3.4 }, { envMapIntensity: 1.4, duration: 1.5, ease: 'power2.out', delay: d + 0.35 });
       });
       const hwDelay = panels.length * 0.16 + 0.45;
-      hingeMeshes.forEach((hm, i) => {
+      hardwareMeshes.forEach((hm, i) => {
         gsap.fromTo(hm.scale, { x: 0.01, y: 0.01, z: 0.01 },
           { x: 1, y: 1, z: 1, duration: 0.5, ease: 'back.out(2.4)', delay: hwDelay + i * 0.08 });
       });
@@ -528,7 +595,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   /* ---- Upgrades: grid muntins + steam transom package ---- */
 
   function clearGrids(): void {
-    for (const p of panels) {
+    for (const p of allGlass()) {
       if (p.grid) {
         p.pivot.remove(p.grid);
         p.grid.traverse((o) => { (o as THREE.Mesh).geometry?.dispose?.(); });
@@ -538,7 +605,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   }
 
   function applyGrid(animate: boolean): void {
-    for (const p of panels) {
+    for (const p of allGlass()) {
       if (p.grid || p.w <= 0.2) continue; // skip narrow slivers
       const grid = new THREE.Group();
       const depth = 0.022;
@@ -547,8 +614,9 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         bar.position.set(p.w * fx, p.h / 2, 0);
         grid.add(bar);
       }
-      for (const fy of [0.25, 0.5, 0.75]) {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(p.w - 0.03, 0.016, depth), metalMat);
+      for (const fy of [0.035, 0.25, 0.5, 0.75, 0.965]) {
+        const isBorder = fy < 0.05 || fy > 0.95;
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(p.w - 0.03, isBorder ? 0.022 : 0.016, depth), metalMat);
         bar.position.set(0, p.h * fy, 0);
         grid.add(bar);
       }
@@ -574,11 +642,14 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     const savedHandleHost = handleHost; // addPanel must not steal the door's handle anchor
     for (const spec of layout.panels) {
       if (spec.baseY) continue; // transoms only over floor-standing panels
+      const basePanelH = spec.height ?? GLASS_H;
+      const transomGap = 0.02;
+      const transomH = Math.max(0.18, WALL_H - basePanelH - transomGap);
       const transom = addPanel({
         from: spec.from,
         to: spec.to,
-        baseY: BASE_Y + (spec.height ?? GLASS_H) + 0.02,
-        height: 0.3,
+        baseY: BASE_Y + basePanelH + transomGap,
+        height: transomH,
       });
       applyGlassKey(transom.glassMat, glassKey, false);
       transom.edgeMat.opacity = edgeOpacity();
@@ -599,6 +670,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     if (gridOn && compat.grid) applyGrid(animate); else clearGrids();
     // A steam-type enclosure already carries its transom — don't double it
     if (steamOn && compat.steam && currentKey !== 'steam') applySteam(animate); else clearSteam();
+    if (gridOn && compat.grid) applyGrid(animate);
   }
 
   /* ---- Handles ---- */

@@ -163,17 +163,17 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: 'preview_option',
-    description: 'Live-preview an option on the on-screen 3D model while you talk. Showers: enclosure/glass/hardware/handle. Railings: rail-type/rail-glass/rail-finish/rail-mounting. Commercial: com-type/com-glass/com-framing/com-scope. It does NOT record a selection and does NOT advance the tour.',
+    description: 'Live-preview an option on the on-screen 3D model while you talk. Showers: enclosure/glass/hardware/handle/extras. Railings: rail-type/rail-glass/rail-finish/rail-mounting. Commercial: com-type/com-glass/com-framing/com-scope. It does NOT record a selection and does NOT advance the tour.',
     parameters: {
       type: 'object' as const,
       properties: {
         category: {
           type: 'string' as const,
-          enum: ['enclosure', 'glass', 'hardware', 'handle', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'],
+          enum: ['enclosure', 'glass', 'hardware', 'handle', 'extras', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'],
         },
         value: {
           type: 'string' as const,
-          description: 'The option to preview, e.g. "Frosted Glass", "Matte Black", "Frameless Slider", "Ladder Pull"',
+          description: 'The option to preview, e.g. "Frosted Glass", "Matte Black", "Frameless Slider", "Ladder Pull", "Grid Patterns", "Steam Upgrade"',
         },
       },
       required: ['category', 'value'],
@@ -225,13 +225,13 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Re
 
   enclosures: `The enclosure styles are fading in one by one beside the 3D model — pace your description to roughly match (one style at a time, top to bottom): Single Door (clean alcove door), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle), Frameless Slider (no swing room needed), Splash Panel (open walk-in, just a fixed panel), and Steam Shower (sealed floor-to-ceiling). Mention the most popular are Single Door and Door + Panel, and that arched tops and fully custom layouts are available too — just ask. Do not offer curved glass in this flow for now. If they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
-  glass: `Three glass types shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. If they ask what one looks like, call preview_option(category "glass") — the 3D model's glass morphs live, which is a great "watch this" moment. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
+  glass: `Three common glass types are shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. Verbally mention that other glass styles and privacy patterns can be discussed on request. If they ask what one looks like, call preview_option(category "glass") — the 3D model's glass morphs live, which is a great "watch this" moment. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
 
-  hardware: `Five hardware finishes are fading in beside the model. ONE sentence on what hardware means (the hinges, clips, and handles that hold the glass — finished to match the bathroom's faucets and fixtures), then name the five finishes briskly: Polished Chrome (timeless, most popular), Brushed Nickel (warm, hides water spots), Matte Black (bold modern), Polished Brass (classic luxury), Satin Brass (soft gold, on-trend). If they're comparing, call preview_option(category "hardware") to re-plate the model live — one, then the other. Ask which finish complements their bathroom. STOP and wait. Call show_slide("accessories") with their choice.`,
+  hardware: `Five hardware finishes are fading in beside the model. ONE sentence on what hardware means (the hinges, clips, brackets, rollers, and handles that hold the glass — finished to match the bathroom's faucets and fixtures), then name the five finishes briskly: Polished Chrome (timeless, most popular), Brushed Nickel (warm, hides water spots), Matte Black (bold modern), Polished Brass (classic luxury), Satin Brass (soft gold, on-trend). Verbally mention that additional specialty finishes and hardware styles can be reviewed on request. If they're comparing, call preview_option(category "hardware") to re-plate the model live — one, then the other. Ask which finish complements their bathroom. STOP and wait. Call show_slide("accessories") with their choice.`,
 
   accessories: `Handle and accessory options are fading in beside the model. Quickly name the four HANDLES: Pull (most popular), U-Handle (classic), Ladder Pull (design statement), Knob (minimal) — then in one sentence the optional add-ons: towel bar, robe hook, support bar. Ask which handle they'd like AND whether they want any add-ons. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. If they ask what a handle looks like, call preview_option(category "handle") to swap it onto the 3D model's door. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
 
-  extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. Ask if they're interested in either upgrade or want to move on. WAIT. Then ALWAYS call show_slide("process") with their choice (use "none" if they decline) — NEVER skip the process step, it's where the customer sees their shower running and the team's craft.`,
+  extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. If they ask what one looks like, call preview_option(category "extras") with "Grid Patterns", "Steam Upgrade", or "Grid Patterns + Steam Upgrade" so the model updates immediately. Ask if they're interested in either upgrade or want to move on. WAIT. Then ALWAYS call show_slide("process") with their choice (use "none" if they decline) — NEVER skip the process step, it's where the customer sees their selected shower running and the team's craft.`,
 
   process: `Five process steps shown. Walk through each with enthusiasm: 1) Proposal Review — package the design and site notes for staff. 2) Precision Measuring — laser templates, every fraction of an inch matters. 3) Glass Ordering — custom cut, polished, and tempered after field measure. 4) Installation Planning — the team confirms scope before scheduling. 5) Enjoy — step into your new shower. Then mention your AI is generating a visualization of their selections. Ask if they have any questions before reviewing their configuration. WAIT. Call present_quote() with all their selections: enclosure, glass, hardware, handle, extras.`,
   },
@@ -406,6 +406,7 @@ export async function handleToolCall(
       }
       // Save choice from current slide
       let extrasSanitizedNote = '';
+      let shouldPauseForUpgradePreview = false;
       if (args.choice) {
         const category = choiceCategoryForSlide(args.slide_id);
         if (category) {
@@ -427,6 +428,9 @@ export async function handleToolCall(
           }
           quoteChoices[category] = value;
           emitChoice(category, value);
+          shouldPauseForUpgradePreview = category === 'extras'
+            && args.slide_id === 'process'
+            && !/^(none|n\/a)$/i.test(value.trim());
           console.log('[Quote] Saved:', category, '=', value);
         }
       }
@@ -449,6 +453,9 @@ export async function handleToolCall(
         closeContentModal();
       } catch {
         // Best-effort cleanup only.
+      }
+      if (shouldPauseForUpgradePreview && targetSlide === 'process') {
+        await new Promise((resolve) => setTimeout(resolve, 650));
       }
       await showSlide(targetSlide);
       // Reassign so downstream logic uses the resolved slide
@@ -657,7 +664,7 @@ DO THE FOLLOWING IN ORDER:
       if (!isCinematic()) {
         return { success: false, message: instr('The live 3D preview is not available right now. Describe the option in words instead and continue the conversation.') };
       }
-      if (!['enclosure', 'glass', 'hardware', 'handle', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'].includes(category) || !value) {
+      if (!['enclosure', 'glass', 'hardware', 'handle', 'extras', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'].includes(category) || !value) {
         return { success: false, message: instr('Invalid preview call. Use a supported category for the active service, with a value.') };
       }
       emitPreview(category, value);

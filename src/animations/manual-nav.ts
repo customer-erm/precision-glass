@@ -83,6 +83,7 @@ export async function startBrowseTour(
   if (existing && getActiveService() === service) {
     const target = startAtSlideId || 'intro';
     await showSlide(target);
+    injectManualNavBar();
     wireSlideInteraction();
     setTimeout(wireSlideInteraction, 400);
     setTimeout(wireSlideInteraction, 900);
@@ -350,6 +351,7 @@ function wireSlideInteraction(): void {
       const previewLabel = card.getAttribute('data-label') || '';
       const previewCategory: Record<string, string> = {
         enclosures: 'enclosure', glass: 'glass', hardware: 'hardware', accessories: 'handle',
+        extras: 'extras',
         'rail-types': 'rail-type', 'rail-glass': 'rail-glass', 'rail-finish': 'rail-finish', 'rail-mounting': 'rail-mounting',
         'com-types': 'com-type', 'com-glass': 'com-glass', 'com-framing': 'com-framing', 'com-scope': 'com-scope',
       };
