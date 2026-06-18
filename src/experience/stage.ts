@@ -13,6 +13,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { gsap } from '../animations/engine';
 import { isLowPowerDevice, prefersReducedMotion } from './flag';
 import { createShowerRig, type ShowerRig } from './shower-model';
+import { createCommercialRig, createRailingRig, type CommercialRig, type RailingRig } from './service-models';
+import type { ServiceType } from '../animations/slideshow';
 
 export interface CameraSpec {
   /** Orbit angle around the pedestal in radians (0 = straight on). */
@@ -30,6 +32,9 @@ export interface CameraSpec {
 export interface Stage {
   canvas: HTMLCanvasElement;
   shower: ShowerRig;
+  railings: RailingRig;
+  commercial: CommercialRig;
+  setService(service: ServiceType): void;
   moveCamera(spec: CameraSpec, duration?: number): void;
   /** Finale: dolly straight through the glass. Resolves at the moment of pass-through. */
   pushThroughGlass(): Promise<void>;
@@ -154,10 +159,21 @@ export function createStage(initialContainer: HTMLElement): Stage {
   spot.target.position.set(0, 1.1, 0);
   scene.add(spot, spot.target);
 
-  /* ---- Shower rig on its pedestal ---- */
+  /* ---- Product rigs on the shared pedestal ---- */
 
   const shower = createShowerRig({ cheapGlass: lowPower });
+  const railings = createRailingRig();
+  const commercial = createCommercialRig();
   scene.add(shower.group);
+  scene.add(railings.group);
+  scene.add(commercial.group);
+
+  function setService(service: ServiceType): void {
+    shower.group.visible = service === 'showers';
+    railings.group.visible = service === 'railings';
+    commercial.group.visible = service === 'commercial';
+  }
+  setService('showers');
 
   /* ---- Render loop ---- */
 
@@ -183,7 +199,9 @@ export function createStage(initialContainer: HTMLElement): Stage {
     const t = clock.elapsedTime;
     particles.rotation.y += dt * 0.012;
     glow.material.opacity = 0.42 + Math.sin(t * 0.6) * 0.08;
-    shower.idle(dt);
+    if (shower.group.visible) shower.idle(dt);
+    if (railings.group.visible) railings.idle(dt);
+    if (commercial.group.visible) commercial.idle(dt);
     if (userDriving && !cameraTweening) controls.update();
     else camera.lookAt(lookTarget);
     renderer.render(scene, camera);
@@ -247,6 +265,8 @@ export function createStage(initialContainer: HTMLElement): Stage {
     window.removeEventListener('resize', resize);
     controls.dispose();
     shower.dispose();
+    railings.dispose();
+    commercial.dispose();
     particleGeo.dispose();
     glowTex.dispose();
     scene.environment?.dispose();
@@ -257,6 +277,9 @@ export function createStage(initialContainer: HTMLElement): Stage {
   return {
     canvas: renderer.domElement,
     shower,
+    railings,
+    commercial,
+    setService,
     moveCamera,
     pushThroughGlass,
     adopt,

@@ -73,6 +73,11 @@ Reference the model naturally and sparingly ("you can see it taking shape on scr
  * Call this at connection time (not module load) so it reflects the latest
  * localStorage state.
  */
+const MULTI_SERVICE_MODEL_ADDENDUM = `
+
+=== MULTI-SERVICE 3D MODEL UPDATE ===
+Railings and commercial now have live 3D concept models too. Railings preview categories are rail-type, rail-glass, rail-finish, and rail-mounting. Commercial preview categories are com-type, com-glass, com-framing, and com-scope. Use preview_option sparingly when the customer asks to compare options; final selections still advance through show_slide. These are educational quote-intake models, not final engineering drawings, prices, or installation schedules.`;
+
 export function buildSystemPrompt(options?: { mode?: 'voice' | 'chat' }): string {
   const user = loadUser();
   const isReturning = !!(user && user.visitCount > 0 && user.name);
@@ -91,7 +96,7 @@ You are chatting with the customer via TEXT, not voice.
 
   if (isReturning && user) {
     const summary = summarizeUser(user);
-    return `${BASE_SYSTEM_PROMPT}${modeAddendum}
+    return `${BASE_SYSTEM_PROMPT}${MULTI_SERVICE_MODEL_ADDENDUM}${modeAddendum}
 
 === KNOWN RETURNING CUSTOMER — IMPORTANT ===
 This is a returning customer. You already know the following about them:
@@ -105,7 +110,7 @@ HOW TO HANDLE THIS:
 - You may still follow the rule to wait until the customer actually speaks/types — but when they do, use their name naturally from the very first sentence.`;
   }
 
-  return BASE_SYSTEM_PROMPT + modeAddendum;
+  return BASE_SYSTEM_PROMPT + MULTI_SERVICE_MODEL_ADDENDUM + modeAddendum;
 }
 
 /** Back-compat export — still works for any consumer that imports it by name. */

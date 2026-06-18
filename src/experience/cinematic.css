@@ -106,6 +106,7 @@ body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
 .tour-slideshow.cinematic .ss-hw-card,
 .tour-slideshow.cinematic .ss-acc-card,
 .tour-slideshow.cinematic .ss-extra-card,
+.tour-slideshow.cinematic .ss-info-bullet,
 .tour-slideshow.cinematic .ss-process-step {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -164,25 +165,54 @@ body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
 .cinematic .cine-side .ss-hw-grid,
 .cinematic .cine-side .ss-acc-grid,
 .cinematic .cine-side .ss-extras-grid,
+.cinematic .cine-side .ss-info-layout,
+.cinematic .cine-side .ss-info-bullets,
 .cinematic .cine-side .ss-process-strip {
   display: flex;
   flex-direction: column;
   gap: 10px;
   max-width: none;
 }
+.cinematic .cine-side .ss-info-img {
+  display: none;
+}
+.cinematic .cine-side .ss-info-layout {
+  width: 100%;
+  gap: 10px;
+}
 
 /* Cards become horizontal rows: large portrait thumb left, copy right */
 .cinematic .cine-side .ss-enc-card,
 .cinematic .cine-side .ss-glass-card,
 .cinematic .cine-side .ss-acc-card,
-.cinematic .cine-side .ss-extra-card {
+.cinematic .cine-side .ss-extra-card,
+.cinematic .cine-side .ss-info-bullet {
   display: flex;
   flex-direction: row;
   align-items: center;
   text-align: left;
-  padding: 0;
-  min-height: 128px;
+  min-height: 112px;
 }
+.cinematic .cine-side .ss-info-bullet {
+  padding: 14px 16px 14px 18px;
+  border-left-color: rgba(125, 211, 252, 0.78);
+}
+.cinematic .cine-side .ss-info-bullet h4 {
+  font-size: 0.95rem;
+  margin: 0 0 4px;
+}
+.cinematic .cine-side .ss-info-bullet p {
+  font-size: 0.74rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cinematic .cine-side .ss-enc-card,
+.cinematic .cine-side .ss-glass-card,
+.cinematic .cine-side .ss-acc-card,
+.cinematic .cine-side .ss-extra-card { padding: 0; min-height: 128px; }
 .cinematic .cine-side .ss-enc-card img,
 .cinematic .cine-side .ss-glass-card img,
 .cinematic .cine-side .ss-acc-card img,

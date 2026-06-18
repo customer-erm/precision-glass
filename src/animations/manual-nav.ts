@@ -16,6 +16,7 @@ import {
   endSlideshow,
   showQuoteSent,
   createSlideshow,
+  markQuoteRenderReady,
 } from '../experience/facade';
 import { emitChoice, emitPreview } from '../experience/events';
 import { playTransformAnimation } from './transform';
@@ -44,21 +45,29 @@ const browseChoices: Record<string, string> = {};
 function choiceCategoryForSlide(slideId: string): string | null {
   // When ADVANCING to this slide, the user's choice on the PREVIOUS slide
   // should be saved under which category?
-  const map: Record<string, string> = {
-    glass: 'enclosure',
-    hardware: 'glass',
-    accessories: 'hardware',
-    extras: 'handle',
-    process: 'extras',
-    quote: 'extras',
-    'rail-glass': 'rail-type',
-    'rail-finish': 'rail-glass',
-    'rail-mounting': 'rail-finish',
-    'com-glass': 'com-type',
-    'com-framing': 'com-glass',
-    'com-scope': 'com-framing',
+  const byService: Record<string, Record<string, string>> = {
+    showers: {
+      glass: 'enclosure',
+      hardware: 'glass',
+      accessories: 'hardware',
+      extras: 'handle',
+      process: 'extras',
+      quote: 'extras',
+    },
+    railings: {
+      'rail-glass': 'rail-type',
+      'rail-finish': 'rail-glass',
+      'rail-mounting': 'rail-finish',
+      process: 'rail-mounting',
+    },
+    commercial: {
+      'com-glass': 'com-type',
+      'com-framing': 'com-glass',
+      'com-scope': 'com-framing',
+      process: 'com-scope',
+    },
   };
-  return map[slideId] || null;
+  return byService[currentService()]?.[slideId] || null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -303,6 +312,7 @@ function wireSlideInteraction(): void {
     '.ss-rail-card',
     '.ss-com-card',
     '.ss-info-item',
+    '.ss-info-bullet',
   ];
   const cards = slideEl.querySelectorAll<HTMLElement>(cardSelectors.join(','));
   console.log(`[Manual] wireSlideInteraction slide=${cur} cards=${cards.length}`);
@@ -340,6 +350,8 @@ function wireSlideInteraction(): void {
       const previewLabel = card.getAttribute('data-label') || '';
       const previewCategory: Record<string, string> = {
         enclosures: 'enclosure', glass: 'glass', hardware: 'hardware', accessories: 'handle',
+        'rail-types': 'rail-type', 'rail-glass': 'rail-glass', 'rail-finish': 'rail-finish', 'rail-mounting': 'rail-mounting',
+        'com-types': 'com-type', 'com-glass': 'com-glass', 'com-framing': 'com-framing', 'com-scope': 'com-scope',
       };
       const cat = previewCategory[cur || ''];
       const isHandle = /pull|handle|ladder|knob/i.test(previewLabel);
@@ -465,8 +477,9 @@ function formatBody(s: string): string {
 /* ------------------------------------------------------------------ */
 
 function onEnterQuoteSlide(): void {
-  // Install a "locked" overlay on the AI viz slot so the user understands
-  // they need to submit their details before the visualization generates.
+  const isShower = currentService() === 'showers';
+  // Install a locked overlay on the visual slot so the user understands
+  // they need to submit their details before the final brief is prepared.
   const wrap = document.querySelector('.ss-quote-img-wrap') as HTMLElement | null;
   const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
   if (wrap && !wrap.querySelector('.ss-quote-lock')) {
@@ -475,8 +488,10 @@ function onEnterQuoteSlide(): void {
     lock.className = 'ss-quote-lock';
     lock.innerHTML = `
       <div class="ss-quote-lock-sparkle">\u2728</div>
-      <div class="ss-quote-lock-title">Your AI rendering is ready</div>
-      <div class="ss-quote-lock-desc">One last step - share your contact details and we will unlock a photorealistic preview plus a proposal brief for staff review. Pricing and scheduling stay with the human team.</div>
+      <div class="ss-quote-lock-title">${isShower ? 'Your AI rendering is ready' : 'Your project brief is ready'}</div>
+      <div class="ss-quote-lock-desc">${isShower
+        ? 'One last step - share your contact details and we will unlock a photorealistic preview plus a proposal brief for staff review. Pricing and scheduling stay with the human team.'
+        : 'One last step - share your contact details and we will package these selections into a project brief for staff review. Pricing and scheduling stay with the human team.'}</div>
     `;
     wrap.appendChild(lock);
   }
@@ -577,10 +592,10 @@ async function submitManualQuote(): Promise<void> {
     preferredMode: 'browse',
     lastQuote: {
       service: getState().currentService || undefined,
-      enclosure: browseChoices['enclosure'],
-      glass: browseChoices['glass'],
-      hardware: browseChoices['hardware'],
-      handle: browseChoices['handle'],
+      enclosure: browseChoices['enclosure'] || browseChoices['rail-type'] || browseChoices['com-type'],
+      glass: browseChoices['glass'] || browseChoices['rail-glass'] || browseChoices['com-glass'],
+      hardware: browseChoices['hardware'] || browseChoices['rail-finish'] || browseChoices['com-framing'],
+      handle: browseChoices['handle'] || browseChoices['rail-mounting'] || browseChoices['com-scope'],
       accessories: browseChoices['accessories'],
       extras: browseChoices['extras'],
     },
@@ -602,7 +617,7 @@ async function submitManualQuote(): Promise<void> {
   if (spinner) {
     spinner.style.display = 'flex';
     const label = spinner.querySelector('span');
-    if (label) label.textContent = 'Rendering your custom shower\u2026';
+    if (label) label.textContent = currentService() === 'showers' ? 'Rendering your custom shower\u2026' : 'Preparing your project brief\u2026';
   }
 
   if (currentService() === 'showers') {
@@ -630,8 +645,8 @@ async function submitManualQuote(): Promise<void> {
       });
     }).catch((err) => console.warn('[Browse] Image gen failed:', err));
   } else {
-    // Non-shower services: just hide the spinner (no AI viz for railings/commercial)
-    if (spinner) spinner.style.display = 'none';
+    // Non-shower services: reveal the static project reference (no AI viz).
+    markQuoteRenderReady(currentService() === 'railings' ? '/images/railings/railings-1.webp' : '/images/commercial/commercial-1.webp');
   }
 
   // Show success card + remove nav bar

@@ -39,6 +39,7 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   const ss = document.createElement('div');
   ss.id = 'tour-slideshow';
   ss.className = 'tour-slideshow';
+  ss.dataset.service = service;
 
   ss.appendChild(h('div', { className: 'ss-progress', innerHTML: '<div class="ss-progress-bar" id="ss-progress-bar"></div>' }));
   ss.appendChild(h('div', { className: 'ss-counter', id: 'ss-counter', textContent: '1 / ' + activeSlideOrder.length }));
@@ -340,14 +341,47 @@ function buildExtrasSlide(): HTMLElement {
 function buildProcessSlide(): HTMLElement {
   const slide = makeSlide('process');
   const content = h('div', { className: 'slide-content' });
-  content.appendChild(makeHeader('THE PROCESS', 'From Approval to Enjoyment'));
-  const steps = [
-    { num: '1', title: 'Proposal Review', desc: 'We package your design notes for a specialist to review.', src: images.process[0].src },
-    { num: '2', title: 'Precision Measuring', desc: 'Laser-accurate templates. Every fraction of an inch.', src: images.process[1].src },
-    { num: '3', title: 'Glass Ordering', desc: 'Custom cut, polished, and tempered after field measure.', src: images.process[2].src },
-    { num: '4', title: 'Installation Day', desc: 'Professional installation once scope and schedule are confirmed.', src: images.process[3].src },
-    { num: '5', title: 'Enjoy', desc: 'Step into your new frameless shower.', src: images.showers.hero },
-  ];
+  const processByService: Record<ServiceType, {
+    heading: string;
+    sub?: string;
+    steps: Array<{ num: string; title: string; desc: string; src: string }>;
+  }> = {
+    showers: {
+      heading: 'From Approval to Enjoyment',
+      steps: [
+        { num: '1', title: 'Proposal Review', desc: 'We package your design notes for a specialist to review.', src: images.process[0].src },
+        { num: '2', title: 'Precision Measuring', desc: 'Laser-accurate templates. Every fraction of an inch.', src: images.process[1].src },
+        { num: '3', title: 'Glass Ordering', desc: 'Custom cut, polished, and tempered after field measure.', src: images.process[2].src },
+        { num: '4', title: 'Installation Day', desc: 'Professional installation once scope and schedule are confirmed.', src: images.process[3].src },
+        { num: '5', title: 'Enjoy', desc: 'Step into your new frameless shower.', src: images.showers.hero },
+      ],
+    },
+    railings: {
+      heading: 'From Field Review to Clear Views',
+      sub: 'The team confirms structure, code, anchoring, and finish before quoting or scheduling.',
+      steps: [
+        { num: '1', title: 'Project Intake', desc: 'Capture deck, stair, balcony, pool, or fascia conditions for staff review.', src: images.railings.gallery[0] },
+        { num: '2', title: 'Site Measure', desc: 'Verify spans, substrate, slopes, edge distances, and railing height requirements.', src: images.process[1].src },
+        { num: '3', title: 'Engineering Check', desc: 'Confirm wind load, guardrail code, anchoring, and marine-grade hardware.', src: images.railings.gallery[2] },
+        { num: '4', title: 'Fabrication Plan', desc: 'Glass panels and metal components are specified after field verification.', src: images.process[2].src },
+        { num: '5', title: 'Install Coordination', desc: 'Crew access, core drilling, waterproofing, and final walkthrough are planned.', src: images.railings.hero },
+      ],
+    },
+    commercial: {
+      heading: 'From Scope Review to Punchlist',
+      sub: 'Commercial projects move through code, submittal, fabrication, and installation review.',
+      steps: [
+        { num: '1', title: 'Scope Review', desc: 'Capture drawings, opening sizes, doors, hardware, schedule, and site access.', src: images.commercial.gallery[0] },
+        { num: '2', title: 'Code & Submittals', desc: 'Review energy code, impact requirements, NOAs, permits, and shop drawing needs.', src: images.process[1].src },
+        { num: '3', title: 'System Specification', desc: 'Select glass make-up, aluminum depth, finish, sealants, and hardware package.', src: images.commercial.gallery[2] },
+        { num: '4', title: 'Fabrication Planning', desc: 'Frames, glass, doors, and anchors are ordered after verification.', src: images.process[2].src },
+        { num: '5', title: 'Install & Punchlist', desc: 'Licensed crew coordinates access, protection, final adjustment, and closeout.', src: images.commercial.hero },
+      ],
+    },
+  };
+  const process = processByService[activeService];
+  content.appendChild(makeHeader('THE PROCESS', process.heading, process.sub));
+  const steps = process.steps;
   const grid = h('div', { className: 'ss-process-strip' });
   steps.forEach((step) => {
     const card = h('div', { className: 'ss-process-step slide-el' });
@@ -368,13 +402,31 @@ function buildProcessSlide(): HTMLElement {
 /*  Quote build-sheet: steps, thumbnails, progress, anticipation viz   */
 /* ------------------------------------------------------------------ */
 
-const QUOTE_STEPS: Array<{ key: string; label: string }> = [
-  { key: 'enclosure', label: 'Enclosure' },
-  { key: 'glass', label: 'Glass' },
-  { key: 'hardware', label: 'Hardware finish' },
-  { key: 'handle', label: 'Handle' },
-  { key: 'extras', label: 'Upgrades' },
-];
+const QUOTE_STEPS_BY_SERVICE: Record<ServiceType, Array<{ key: string; label: string }>> = {
+  showers: [
+    { key: 'enclosure', label: 'Enclosure' },
+    { key: 'glass', label: 'Glass' },
+    { key: 'hardware', label: 'Hardware finish' },
+    { key: 'handle', label: 'Handle' },
+    { key: 'extras', label: 'Upgrades' },
+  ],
+  railings: [
+    { key: 'enclosure', label: 'Rail system' },
+    { key: 'glass', label: 'Glass spec' },
+    { key: 'hardware', label: 'Finish' },
+    { key: 'handle', label: 'Mounting' },
+  ],
+  commercial: [
+    { key: 'enclosure', label: 'Project type' },
+    { key: 'glass', label: 'Glass spec' },
+    { key: 'hardware', label: 'Framing' },
+    { key: 'handle', label: 'Scope' },
+  ],
+};
+
+function quoteSteps(): Array<{ key: string; label: string }> {
+  return QUOTE_STEPS_BY_SERVICE[activeService] || QUOTE_STEPS_BY_SERVICE.showers;
+}
 
 const STEP_CHECK_SVG = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>`;
 
@@ -392,6 +444,18 @@ const QUOTE_STATUS_LINES = [
 function thumbForStep(key: string, value: string): string | null {
   const v = (value || '').toLowerCase();
   if (!v || v === 'none' || v === 'n/a' || v === 'pending') return null;
+  if (activeService === 'railings') {
+    if (key === 'enclosure') return images.railings.gallery[1] || images.railings.hero;
+    if (key === 'glass') return images.railings.gallery[2] || images.railings.hero;
+    if (key === 'hardware') return images.railings.gallery[3] || images.railings.hero;
+    if (key === 'handle') return images.railings.gallery[4] || images.railings.hero;
+  }
+  if (activeService === 'commercial') {
+    if (key === 'enclosure') return images.commercial.gallery[0] || images.commercial.hero;
+    if (key === 'glass') return images.commercial.gallery[1] || images.commercial.hero;
+    if (key === 'hardware') return images.commercial.gallery[2] || images.commercial.hero;
+    if (key === 'handle') return images.commercial.gallery[3] || images.commercial.hero;
+  }
   const find = (list: Array<{ label: string; src: string }>, keywords: Array<[string, string]>): string | null => {
     for (const [kw, label] of keywords) {
       if (v.includes(kw)) { const m = list.find((x) => x.label === label); if (m) return m.src; }
@@ -448,8 +512,13 @@ let quoteRevealed = false;
 function setQuoteVizImage(): void {
   const vizImg = document.getElementById('qs-viz-img') as HTMLImageElement | null;
   if (!vizImg || vizImg.src) return; // only set once
-  const photo = getBathroomPhoto();
-  vizImg.src = photo?.dataUrl || images.showers.hero;
+  const photo = activeService === 'showers' ? getBathroomPhoto() : null;
+  const fallback = activeService === 'railings'
+    ? images.railings.hero
+    : activeService === 'commercial'
+      ? images.commercial.hero
+      : images.showers.hero;
+  vizImg.src = photo?.dataUrl || fallback;
 }
 
 function startQuoteStatusCycle(): void {
@@ -479,7 +548,8 @@ export function renderQuoteVisuals(choices: Record<string, string>): void {
   if (!quoteRevealed) startQuoteStatusCycle();
 
   let done = 0;
-  for (const step of QUOTE_STEPS) {
+  const steps = quoteSteps();
+  for (const step of steps) {
     const value = valueForStep(choices, step.key);
     if (!value) continue;
     done++;
@@ -512,7 +582,7 @@ export function renderQuoteVisuals(choices: Record<string, string>): void {
   const countEl = document.getElementById('qs-progress-count');
   const fillEl = document.getElementById('qs-progress-fill');
   if (countEl) countEl.textContent = String(done);
-  if (fillEl) fillEl.style.width = `${Math.round((done / QUOTE_STEPS.length) * 100)}%`;
+  if (fillEl) fillEl.style.width = `${Math.round((done / steps.length) * 100)}%`;
 }
 
 /**
@@ -534,6 +604,19 @@ export function markQuoteRenderReady(url: string): void {
 function buildQuoteSummarySlide(): HTMLElement {
   const slide = makeSlide('quote');
   const content = h('div', { className: 'slide-content slide-center' });
+  const stepsForService = quoteSteps();
+  const serviceTitle = activeService === 'railings'
+    ? 'Your glass railing brief'
+    : activeService === 'commercial'
+      ? 'Your commercial glass brief'
+      : 'Your custom shower';
+  const imageAlt = activeService === 'showers'
+    ? 'Your custom shower visualization'
+    : activeService === 'railings'
+      ? 'Glass railing project reference'
+      : 'Commercial glass project reference';
+  const spinnerText = activeService === 'showers' ? 'Preparing your render...' : 'Preparing your project brief...';
+  const downloadLabel = activeService === 'showers' ? 'Download Rendering' : 'Download Reference';
 
   // Side-by-side layout: build-sheet LEFT, anticipation/reveal RIGHT (stacks on mobile)
   const layout = h('div', { className: 'ss-quote-layout slide-el' });
@@ -543,12 +626,12 @@ function buildQuoteSummarySlide(): HTMLElement {
 
   const header = h('div', { className: 'ss-quote-header' });
   header.appendChild(h('div', { className: 'ss-quote-logo', textContent: 'PRECISION GLASS' }));
-  header.appendChild(h('h3', { textContent: 'Your custom shower' }));
+  header.appendChild(h('h3', { textContent: serviceTitle }));
   const progress = h('div', { className: 'ss-quote-progress' });
   progress.innerHTML = `
     <div class="ss-quote-progress-head">
       <span class="ss-quote-progress-label">Design progress</span>
-      <span class="ss-quote-progress-count"><strong id="qs-progress-count">0</strong> / ${QUOTE_STEPS.length} steps</span>
+      <span class="ss-quote-progress-count"><strong id="qs-progress-count">0</strong> / ${stepsForService.length} steps</span>
     </div>
     <div class="ss-quote-progress-track"><div class="ss-quote-progress-fill" id="qs-progress-fill"></div></div>
   `;
@@ -557,7 +640,7 @@ function buildQuoteSummarySlide(): HTMLElement {
 
   // Step checklist \u2014 each row checks off + reveals a thumbnail as it's chosen
   const steps = h('div', { className: 'ss-quote-steps', id: 'qs-steps' });
-  QUOTE_STEPS.forEach((f, i) => {
+  stepsForService.forEach((f, i) => {
     const row = h('div', { className: 'ss-quote-step', id: `qs-step-${f.key}` });
     row.setAttribute('style', `--step-i:${i}`);
     const thumb = h('div', { className: 'ss-quote-step-thumb' });
@@ -604,9 +687,11 @@ function buildQuoteSummarySlide(): HTMLElement {
   // builds anticipation while the render generates, then the render reveals on top.
   imgWrap.appendChild(h('img', { id: 'qs-viz-img', className: 'ss-quote-viz-bg', alt: '' }));
   imgWrap.appendChild(h('div', { className: 'ss-quote-scan', 'aria-hidden': 'true' }));
-  const img = h('img', { id: 'qs-generated-img', className: 'ss-quote-gen-img', alt: 'Your custom shower visualization' });
+  const img = h('img', { id: 'qs-generated-img', className: 'ss-quote-gen-img', alt: imageAlt });
   const spinner = h('div', { className: 'ss-quote-spinner' });
   spinner.innerHTML = '<div class="ss-spinner"></div><span id="qs-spinner-status">Preparing your render…</span>';
+  const spinnerStatus = spinner.querySelector('#qs-spinner-status');
+  if (spinnerStatus) spinnerStatus.textContent = spinnerText;
   imgWrap.appendChild(img);
   imgWrap.appendChild(spinner);
   layout.appendChild(imgWrap);
@@ -634,7 +719,7 @@ function buildQuoteSummarySlide(): HTMLElement {
           </button>
           <button class="ss-action-btn ss-action-secondary" id="qs-download-btn" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Download Rendering</span>
+            <span>${downloadLabel}</span>
           </button>
           <button class="ss-action-btn ss-action-primary" id="quote-restart-btn" type="button">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
@@ -669,15 +754,15 @@ function buildInfoSlide(opts: {
   const content = h('div', { className: 'slide-content' });
   content.appendChild(makeHeader(opts.label, opts.heading, opts.sub));
 
-  const layout = h('div', { className: 'ss-info-layout slide-el' });
+  const layout = h('div', { className: 'ss-info-layout' });
 
-  const imgWrap = h('div', { className: 'ss-info-img' });
+  const imgWrap = h('div', { className: 'ss-info-img slide-el' });
   imgWrap.appendChild(h('img', { src: opts.imageSrc, alt: opts.heading }));
   layout.appendChild(imgWrap);
 
   const list = h('ul', { className: 'ss-info-bullets' });
   opts.bullets.forEach((b) => {
-    const li = h('li', { className: 'ss-info-bullet' });
+    const li = h('li', { className: 'ss-info-bullet slide-el' });
     li.appendChild(h('h4', { textContent: b.title }));
     li.appendChild(h('p', { textContent: b.desc }));
     list.appendChild(li);
@@ -909,7 +994,11 @@ function downloadVisualization(): void {
   }
   const a = document.createElement('a');
   a.href = img.src;
-  a.download = 'precision-glass-shower-rendering.png';
+  a.download = activeService === 'showers'
+    ? 'precision-glass-shower-rendering.png'
+    : activeService === 'railings'
+      ? 'precision-glass-railing-reference.png'
+      : 'precision-glass-commercial-reference.png';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -944,16 +1033,17 @@ function openPrintableProposal(): void {
   }
 
   const image = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+  const imageAlt = activeService === 'showers' ? 'AI shower rendering' : 'Project reference image';
   const imageMarkup = image?.src && image.classList.contains('loaded')
-    ? `<img class="rendering" src="${escapeReportText(image.src)}" alt="AI shower rendering">`
-    : '<div class="rendering-placeholder">Rendering pending staff review</div>';
+    ? `<img class="rendering" src="${escapeReportText(image.src)}" alt="${escapeReportText(imageAlt)}">`
+    : '<div class="rendering-placeholder">Project reference pending staff review</div>';
 
   const selectionRows = proposalRows([
-    ['Enclosure', 'qs-enclosure'],
+    [activeService === 'commercial' ? 'Project type' : activeService === 'railings' ? 'Rail system' : 'Enclosure', 'qs-enclosure'],
     ['Door guidance', 'qs-doorPlacement'],
     ['Glass', 'qs-glass'],
-    ['Hardware', 'qs-hardware'],
-    ['Handle', 'qs-handle'],
+    [activeService === 'commercial' ? 'Framing' : activeService === 'railings' ? 'Finish' : 'Hardware', 'qs-hardware'],
+    [activeService === 'commercial' ? 'Scope' : activeService === 'railings' ? 'Mounting' : 'Handle', 'qs-handle'],
     ['Add-ons', 'qs-accessories'],
     ['Upgrades', 'qs-extras'],
   ]);
@@ -1006,7 +1096,7 @@ function openPrintableProposal(): void {
       </section>
       <section>${imageMarkup}</section>
     </div>
-    <div class="note">Staff should verify measurements, door swing, hinge side, fixed-panel support, clearance, curb/threshold conditions, hardware placement, and code requirements before quoting or scheduling.</div>
+    <div class="note">Staff should verify field measurements, site conditions, code requirements, anchoring or framing details, access, hardware placement, and final scope before quoting or scheduling.</div>
   </main>
   <script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));</script>
 </body>

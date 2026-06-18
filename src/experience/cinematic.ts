@@ -32,7 +32,11 @@ const ARRIVAL: CameraSpec = { angle: 0.1, distance: 9.5, height: 3.6 };
  * of the frame (the lateral offset pushes it left of center) while the
  * option cards stack in the right third and fade in one by one.
  */
-const SIDE_SLIDES = new Set(['gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process']);
+const SIDE_SLIDES_BY_SERVICE: Record<ServiceType, Set<string>> = {
+  showers: new Set(['gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process']),
+  railings: new Set(['gallery', 'rail-types', 'rail-glass', 'rail-finish', 'rail-mounting', 'process']),
+  commercial: new Set(['gallery', 'com-types', 'com-glass', 'com-framing', 'com-scope', 'process']),
+};
 
 const SHOWER_STATIONS: Record<string, CameraSpec> = {
   intro: { angle: 0.55, distance: 6.8, height: 2.4, lateral: -0.85 }, // copy left, model right
@@ -46,17 +50,43 @@ const SHOWER_STATIONS: Record<string, CameraSpec> = {
   quote: { angle: 0, distance: 4.2, height: 1.3 }, // approach before push-through
 };
 
+const RAILING_STATIONS: Record<string, CameraSpec> = {
+  intro: { angle: 0.52, distance: 7.2, height: 2.35, lateral: -0.75 },
+  gallery: { angle: -0.55, distance: 6.8, height: 2.1, lateral: 1.55 },
+  'rail-types': { angle: 0.05, distance: 4.7, height: 1.55, lateral: 1.1, targetHeight: 0.78 },
+  'rail-glass': { angle: -0.45, distance: 3.9, height: 1.35, lateral: 0.95, targetHeight: 0.8 },
+  'rail-finish': { angle: 0.72, distance: 3.35, height: 1.3, lateral: 0.85, targetHeight: 0.72 },
+  'rail-mounting': { angle: 1.08, distance: 3.7, height: 1.45, lateral: 0.9, targetHeight: 0.45 },
+  process: { angle: 0.35, distance: 5.4, height: 2.0, lateral: 1.05, targetHeight: 0.8 },
+  quote: { angle: 0, distance: 5.2, height: 1.65 },
+};
+
+const COMMERCIAL_STATIONS: Record<string, CameraSpec> = {
+  intro: { angle: 0.48, distance: 7.4, height: 2.45, lateral: -0.8, targetHeight: 1.1 },
+  gallery: { angle: -0.5, distance: 7.0, height: 2.15, lateral: 1.55, targetHeight: 1.05 },
+  'com-types': { angle: 0.02, distance: 5.0, height: 1.75, lateral: 1.05, targetHeight: 1.0 },
+  'com-glass': { angle: -0.48, distance: 4.3, height: 1.62, lateral: 0.95, targetHeight: 1.02 },
+  'com-framing': { angle: 0.6, distance: 3.7, height: 1.45, lateral: 0.85, targetHeight: 1.0 },
+  'com-scope': { angle: 0.9, distance: 4.7, height: 1.85, lateral: 0.95, targetHeight: 1.12 },
+  process: { angle: 0.28, distance: 5.6, height: 2.25, lateral: 1.05, targetHeight: 1.1 },
+  quote: { angle: 0, distance: 5.4, height: 1.75 },
+};
+
 function stationFor(service: ServiceType, slideId: string, index: number): CameraSpec {
-  if (service === 'showers' && SHOWER_STATIONS[slideId]) {
-    const spec = SHOWER_STATIONS[slideId];
+  const stations: Record<ServiceType, Record<string, CameraSpec>> = {
+    showers: SHOWER_STATIONS,
+    railings: RAILING_STATIONS,
+    commercial: COMMERCIAL_STATIONS,
+  };
+  const spec = stations[service]?.[slideId];
+  if (spec) {
     // Mobile split: options live in a bottom sheet, so center the model and
     // aim low — it frames in the open top half of the screen.
-    if (SIDE_SLIDES.has(slideId) && window.innerWidth < 768) {
+    if (SIDE_SLIDES_BY_SERVICE[service]?.has(slideId) && window.innerWidth < 768) {
       return { ...spec, lateral: 0, targetHeight: 0.35, height: spec.height + 0.5, distance: spec.distance + 3.2 };
     }
     return spec;
   }
-  // Railings / commercial: a slow generic orbit through the atmosphere
   return { angle: -0.9 + index * 0.32, distance: 7.5, height: 2.2 + (index % 3) * 0.4 };
 }
 
@@ -143,7 +173,7 @@ function mountStage(): void {
       const host = root();
       if (!host) { stageLoading = false; return; }
       stage = adoptOrCreateStage(host, createStage);
-      stage.shower.group.visible = activeServiceLocal === 'showers';
+      stage.setService(activeServiceLocal);
       host.classList.add('stage-ready');
       // Cinematic arrival: drift in from far out, then settle on the queued station
       const target = pendingSpec ?? stationFor(activeServiceLocal, 'intro', 0);
@@ -163,23 +193,120 @@ function mountStage(): void {
 }
 
 function applyChoice(category: string, value: string): void {
-  if (!stage || activeServiceLocal !== 'showers') return;
-  const rig = stage.shower;
-  switch (category) {
-    case 'enclosure': enclosureChoice = value; rig.setEnclosure(value); break;
-    case 'glass': rig.setGlass(value); break;
-    case 'hardware': rig.setHardware(value); break;
-    case 'handle':
-      if (!/^(n\/a|none)$/i.test(value.trim())) rig.setHandle(value);
-      break;
-    case 'extras': rig.setExtras(value); break;
-    default: break;
+  if (!stage) return;
+  let handled = false;
+  if (activeServiceLocal === 'showers') {
+    const rig = stage.shower;
+    switch (category) {
+      case 'enclosure': enclosureChoice = value; rig.setEnclosure(value); handled = true; break;
+      case 'glass': rig.setGlass(value); handled = true; break;
+      case 'hardware': rig.setHardware(value); handled = true; break;
+      case 'handle':
+        if (!/^(n\/a|none)$/i.test(value.trim())) rig.setHandle(value);
+        handled = true;
+        break;
+      case 'extras': rig.setExtras(value); handled = true; break;
+      default: break;
+    }
+    if (handled) {
+      chosen.add(category);
+      rig.setSolidity(0.15 + chosen.size * 0.17);
+      rig.pulse();
+    }
+    return;
   }
-  if (['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(category)) {
-    chosen.add(category);
-    rig.setSolidity(0.15 + chosen.size * 0.17);
-    rig.pulse();
+
+  if (activeServiceLocal === 'railings') {
+    const rig = stage.railings;
+    switch (category) {
+      case 'rail-type':
+      case 'enclosure': rig.setSystem(value); handled = true; break;
+      case 'rail-glass':
+      case 'glass': rig.setGlass(value); handled = true; break;
+      case 'rail-finish':
+      case 'hardware': rig.setFinish(value); handled = true; break;
+      case 'rail-mounting':
+      case 'handle': rig.setMounting(value); handled = true; break;
+      default: break;
+    }
+    if (handled) {
+      chosen.add(category);
+      rig.setSolidity(0.18 + chosen.size * 0.18);
+      rig.pulse();
+    }
+    return;
   }
+
+  if (activeServiceLocal === 'commercial') {
+    const rig = stage.commercial;
+    switch (category) {
+      case 'com-type':
+      case 'enclosure': rig.setProjectType(value); handled = true; break;
+      case 'com-glass':
+      case 'glass': rig.setGlass(value); handled = true; break;
+      case 'com-framing':
+      case 'hardware': rig.setFraming(value); handled = true; break;
+      case 'com-scope':
+      case 'handle': rig.setScope(value); handled = true; break;
+      default: break;
+    }
+    if (handled) {
+      chosen.add(category);
+      rig.setSolidity(0.18 + chosen.size * 0.18);
+      rig.pulse();
+    }
+  }
+}
+
+function applyModelPreview(category: string, value: string): void {
+  if (!stage) return;
+  if (activeServiceLocal === 'showers') {
+    const rig = stage.shower;
+    switch (category) {
+      case 'enclosure': enclosureChoice = value; rig.setEnclosure(value); break;
+      case 'glass': rig.setGlass(value); break;
+      case 'hardware': rig.setHardware(value); break;
+      case 'handle': rig.setHandle(value); break;
+      default: break;
+    }
+  } else if (activeServiceLocal === 'railings') {
+    const rig = stage.railings;
+    switch (category) {
+      case 'rail-type':
+      case 'enclosure': rig.setSystem(value); break;
+      case 'rail-glass':
+      case 'glass': rig.setGlass(value); break;
+      case 'rail-finish':
+      case 'hardware': rig.setFinish(value); break;
+      case 'rail-mounting':
+      case 'handle': rig.setMounting(value); break;
+      default: break;
+    }
+  } else if (activeServiceLocal === 'commercial') {
+    const rig = stage.commercial;
+    switch (category) {
+      case 'com-type':
+      case 'enclosure': rig.setProjectType(value); break;
+      case 'com-glass':
+      case 'glass': rig.setGlass(value); break;
+      case 'com-framing':
+      case 'hardware': rig.setFraming(value); break;
+      case 'com-scope':
+      case 'handle': rig.setScope(value); break;
+      default: break;
+    }
+  }
+}
+
+function applyProcessState(slideId: string): void {
+  if (!stage) return;
+  stage.shower.setWater(activeServiceLocal === 'showers' && slideId === 'process');
+  stage.railings.setProcess(activeServiceLocal === 'railings' && slideId === 'process');
+  stage.commercial.setProcess(activeServiceLocal === 'commercial' && slideId === 'process');
+}
+
+function isSideSlide(slideId: string): boolean {
+  return !!SIDE_SLIDES_BY_SERVICE[activeServiceLocal]?.has(slideId);
 }
 
 /**
@@ -193,15 +320,7 @@ function applyPreview(category: string, value: string): void {
     if (view) stage.moveCamera(view, 1.4);
     return;
   }
-  if (activeServiceLocal !== 'showers') return;
-  const rig = stage.shower;
-  switch (category) {
-    case 'enclosure': enclosureChoice = value; rig.setEnclosure(value); break;
-    case 'glass': rig.setGlass(value); break;
-    case 'hardware': rig.setHardware(value); break;
-    case 'handle': rig.setHandle(value); break;
-    default: break;
-  }
+  applyModelPreview(category, value);
 }
 
 /* ------------------------------------------------------------------ */
@@ -218,7 +337,8 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   enclosureChoice = '';
   pushedThrough = false;
   const host = root();
-  host?.classList.add('cinematic');
+  host?.classList.add('cinematic', `cine-service-${service}`);
+  if (host) host.dataset.service = service;
   // The tour is a fixed overlay — the page behind must never scroll
   document.body.style.overflow = 'hidden';
 
@@ -298,9 +418,7 @@ export async function showSlide(slideId: string): Promise<void> {
 
   // Shower-in-use mood (water + steam) while the customer pictures living
   // with it — the process slide is the daydream moment.
-  if (stage && activeServiceLocal === 'showers') {
-    stage.shower.setWater(slideId === 'process');
-  }
+  applyProcessState(slideId);
 
   // Upgrades that don't apply to the chosen style are greyed out with a reason
   if (slideId === 'extras' && activeServiceLocal === 'showers') {
@@ -309,7 +427,7 @@ export async function showSlide(slideId: string): Promise<void> {
 
   const target = host.querySelector(`#slide-${slideId}`) as HTMLElement | null;
   if (target) {
-    const isSide = activeServiceLocal === 'showers' && SIDE_SLIDES.has(slideId);
+    const isSide = isSideSlide(slideId);
     target.classList.toggle('cine-side', isSide);
     // Agent-led modes: options roll in one by one while Alex talks them
     // through. Browse mode: snappy, the user drives.

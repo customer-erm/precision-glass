@@ -129,7 +129,7 @@ export function showTopic(args: ShowTopicArgs): void {
       label: (args.captions && args.captions[i]) || '',
     }));
   } else if (args.image_tags && args.image_tags.length) {
-    pics = searchImages(args.image_tags, 6);
+    pics = searchImages([...args.image_tags, args.title], 6);
   } else {
     pics = searchImages([args.title], 6);
   }

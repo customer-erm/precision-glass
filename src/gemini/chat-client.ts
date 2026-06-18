@@ -19,10 +19,25 @@ import { loadUser, saveUser } from '../utils/user-storage';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
 import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPhoto } from '../utils/bathroom-photo';
-import { renderQuoteVisuals, markQuoteRenderReady } from '../experience/facade';
+import { renderQuoteVisuals, markQuoteRenderReady, getActiveService } from '../experience/facade';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
+type ServiceChoice = 'showers' | 'railings' | 'commercial';
+
+function normalizeService(value?: string | null): ServiceChoice | null {
+  return value === 'showers' || value === 'railings' || value === 'commercial' ? value : null;
+}
+
+function activeChatService(choices?: Record<string, string>): ServiceChoice {
+  const domService = typeof document !== 'undefined'
+    ? (document.querySelector('.tour-slideshow') as HTMLElement | null)?.dataset.service
+    : null;
+  return normalizeService(choices?.service)
+    || normalizeService(getActiveService())
+    || normalizeService(domService)
+    || 'showers';
+}
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -76,8 +91,8 @@ interface ChatContext {
 
 const GREETING = (name?: string): string =>
   name
-    ? `Welcome back, ${name}! I'm Alex - ready to keep working on your shower concept?`
-    : `Hey there, I'm Alex, your glass specialist at Precision Glass. I can help you shape a custom shower concept and prepare a visual proposal for our team to review. What should I call you?`;
+    ? `Welcome back, ${name}! I'm Alex - ready to keep working on your glass project?`
+    : `Hey there, I'm Alex, your glass specialist at Precision Glass. I can help you shape the right glass project and prepare a proposal brief for our team to review. What should I call you?`;
 
 function buildSteps(): Record<string, ChatStep> {
   return {
@@ -104,12 +119,12 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'service',
       agent: (ctx) =>
         ctx.choices.name
-          ? `${ctx.choices.name.split(' ')[0]}, let's start with the shower experience. What are you working on?`
-          : `Let's start with the shower experience. What are you working on?`,
+          ? `${ctx.choices.name.split(' ')[0]}, let's start with the right guided experience. What are you working on?`
+          : `Let's start with the right guided experience. What are you working on?`,
       chips: [
         { label: 'Design my shower', hint: 'AI preview + proposal', primary: true, action: { kind: 'select-service', service: 'showers' } },
-        { label: 'Glass railings', hint: 'Roadmap demo', action: { kind: 'select-service', service: 'railings' } },
-        { label: 'Commercial glass', hint: 'Roadmap demo', action: { kind: 'select-service', service: 'commercial' } },
+        { label: 'Glass railings', hint: '3D quote guide', action: { kind: 'select-service', service: 'railings' } },
+        { label: 'Commercial glass', hint: '3D quote guide', action: { kind: 'select-service', service: 'commercial' } },
       ],
     },
 
@@ -294,7 +309,7 @@ function buildSteps(): Record<string, ChatStep> {
       ],
     },
 
-    /* ---------------- Railings / Commercial (simplified) ---------------- */
+    /* ---------------- Railings / Commercial ---------------- */
     'railings-intro': {
       id: 'railings-intro',
       agent: 'Glass railings are our specialty too — engineered, permitted, and installed by our crew. Want to walk through the options?',
@@ -325,11 +340,26 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'railings-finish',
       agent: 'Hardware finish?',
       chips: [
-        { label: 'Stainless', primary: true, action: { kind: 'advance', next: 'railings-contact', choiceCategory: 'rail-finish', choice: 'Stainless' } },
-        { label: 'Matte Black', action: { kind: 'advance', next: 'railings-contact', choiceCategory: 'rail-finish', choice: 'Matte Black' } },
-        { label: 'Bronze', action: { kind: 'advance', next: 'railings-contact', choiceCategory: 'rail-finish', choice: 'Bronze' } },
-        { label: 'Brushed Nickel', action: { kind: 'advance', next: 'railings-contact', choiceCategory: 'rail-finish', choice: 'Brushed Nickel' } },
+        { label: 'Stainless', primary: true, action: { kind: 'advance', next: 'railings-mounting', choiceCategory: 'rail-finish', choice: 'Stainless' } },
+        { label: 'Matte Black', action: { kind: 'advance', next: 'railings-mounting', choiceCategory: 'rail-finish', choice: 'Matte Black' } },
+        { label: 'Bronze', action: { kind: 'advance', next: 'railings-mounting', choiceCategory: 'rail-finish', choice: 'Bronze' } },
+        { label: 'Brushed Nickel', action: { kind: 'advance', next: 'railings-mounting', choiceCategory: 'rail-finish', choice: 'Brushed Nickel' } },
       ],
+    },
+    'railings-mounting': {
+      id: 'railings-mounting',
+      agent: 'Last design choice: how it attaches. Staff will verify substrate, waterproofing, and edge distance before anything is finalized.',
+      chips: [
+        { label: 'Top Mount', primary: true, action: { kind: 'advance', next: 'railings-process', choiceCategory: 'rail-mounting', choice: 'Top Mount' } },
+        { label: 'Side / Fascia Mount', action: { kind: 'advance', next: 'railings-process', choiceCategory: 'rail-mounting', choice: 'Side / Fascia Mount' } },
+        { label: 'Core-Drilled', action: { kind: 'advance', next: 'railings-process', choiceCategory: 'rail-mounting', choice: 'Core-Drilled' } },
+        { label: 'Embedded Shoe', action: { kind: 'advance', next: 'railings-process', choiceCategory: 'rail-mounting', choice: 'Embedded Shoe' } },
+      ],
+    },
+    'railings-process': {
+      id: 'railings-process',
+      agent: 'Here is the process: intake, site measure, code and anchoring review, fabrication plan, then install coordination. Ready to send this to the team?',
+      chips: [{ label: 'Prepare railing quote', primary: true, action: { kind: 'advance', next: 'railings-contact' } }],
     },
     'railings-contact': {
       id: 'railings-contact',
@@ -357,21 +387,36 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'commercial-glass',
       agent: 'Glass spec? South Florida HVHZ needs impact-rated.',
       chips: [
-        { label: 'Clear Insulated', primary: true, action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-glass', choice: 'Clear Insulated (IGU)' } },
-        { label: 'Low-E Coated', action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-glass', choice: 'Low-E Coated' } },
-        { label: 'Hurricane Rated', action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-glass', choice: 'Hurricane / Impact Rated' } },
-        { label: 'Tinted / Spandrel', action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-glass', choice: 'Tinted / Spandrel' } },
+        { label: 'Clear Insulated', primary: true, action: { kind: 'advance', next: 'commercial-framing', choiceCategory: 'com-glass', choice: 'Clear Insulated (IGU)' } },
+        { label: 'Low-E Coated', action: { kind: 'advance', next: 'commercial-framing', choiceCategory: 'com-glass', choice: 'Low-E Coated' } },
+        { label: 'Hurricane Rated', action: { kind: 'advance', next: 'commercial-framing', choiceCategory: 'com-glass', choice: 'Hurricane / Impact Rated' } },
+        { label: 'Tinted / Spandrel', action: { kind: 'advance', next: 'commercial-framing', choiceCategory: 'com-glass', choice: 'Tinted / Spandrel' } },
+      ],
+    },
+    'commercial-framing': {
+      id: 'commercial-framing',
+      agent: 'Next is the framing direction. Staff will confirm frame depth, finish, thermal performance, hardware, and submittal requirements.',
+      chips: [
+        { label: 'Standard Aluminum', primary: true, action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-framing', choice: 'Standard Aluminum' } },
+        { label: 'Thermally Broken', action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-framing', choice: 'Thermally Broken' } },
+        { label: 'Frameless / Minimal', action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-framing', choice: 'Frameless / Minimal' } },
+        { label: 'Stainless / Architectural', action: { kind: 'advance', next: 'commercial-scope', choiceCategory: 'com-framing', choice: 'Stainless / Architectural' } },
       ],
     },
     'commercial-scope': {
       id: 'commercial-scope',
       agent: 'Project scope?',
       chips: [
-        { label: 'Small / Repair', primary: true, action: { kind: 'advance', next: 'commercial-contact', choiceCategory: 'com-scope', choice: 'Small / Repair' } },
-        { label: 'Medium Build-Out', action: { kind: 'advance', next: 'commercial-contact', choiceCategory: 'com-scope', choice: 'Medium Build-Out' } },
-        { label: 'Full Storefront', action: { kind: 'advance', next: 'commercial-contact', choiceCategory: 'com-scope', choice: 'Full Storefront' } },
-        { label: 'Curtain Wall', action: { kind: 'advance', next: 'commercial-contact', choiceCategory: 'com-scope', choice: 'Curtain Wall / Multi-Story' } },
+        { label: 'Small / Repair', primary: true, action: { kind: 'advance', next: 'commercial-process', choiceCategory: 'com-scope', choice: 'Small / Repair' } },
+        { label: 'Medium Build-Out', action: { kind: 'advance', next: 'commercial-process', choiceCategory: 'com-scope', choice: 'Medium Build-Out' } },
+        { label: 'Full Storefront', action: { kind: 'advance', next: 'commercial-process', choiceCategory: 'com-scope', choice: 'Full Storefront' } },
+        { label: 'Curtain Wall', action: { kind: 'advance', next: 'commercial-process', choiceCategory: 'com-scope', choice: 'Curtain Wall / Multi-Story' } },
       ],
+    },
+    'commercial-process': {
+      id: 'commercial-process',
+      agent: 'Here is the project path: scope review, code and submittals, system specification, fabrication planning, then install and punchlist. Ready to send this to the team?',
+      chips: [{ label: 'Prepare commercial quote', primary: true, action: { kind: 'advance', next: 'commercial-contact' } }],
     },
     'commercial-contact': {
       id: 'commercial-contact',
@@ -383,8 +428,15 @@ function buildSteps(): Record<string, ChatStep> {
     /* ---------------- Done ---------------- */
     done: {
       id: 'done',
-      agent: (ctx) =>
-        `All set${ctx.choices.name ? ', ' + ctx.choices.name.split(' ')[0] : ''}. Your shower concept, rendering brief, and project notes are ready for staff review. You can save the proposal from the main screen.`,
+      agent: (ctx) => {
+        const service = activeChatService(ctx.choices);
+        const brief = service === 'showers'
+          ? 'shower concept, rendering brief, and project notes'
+          : service === 'railings'
+            ? 'railing project brief and notes'
+            : 'commercial glass project brief and notes';
+        return `All set${ctx.choices.name ? ', ' + ctx.choices.name.split(' ')[0] : ''}. Your ${brief} are ready for staff review. You can save the proposal from the main screen.`;
+      },
       onEnter: (ctx) => injectSubmittedCard(ctx.choices),
       chips: [{ label: 'Close', action: { kind: 'close' } }],
     },
@@ -732,6 +784,7 @@ export class ChatDriver {
         break;
       }
       case 'select-service': {
+        this.ctx.choices.service = action.service;
         await handleToolCall('select_service', { service: action.service });
         // Let the morph land first; Alex asks about the photo as a step,
         // so the upload card only appears if the customer opts in.
@@ -766,7 +819,7 @@ export class ChatDriver {
         if (action.next === 'showers-contact' || action.next === 'railings-contact' || action.next === 'commercial-contact') {
           setTimeout(() => {
             populateEditorialFromChoices(this.ctx.choices);
-            injectLockOverlay();
+            injectLockOverlay(activeChatService(this.ctx.choices));
           }, 100);
         }
         setTimeout(() => this.goToStep(action.next), 300);
@@ -809,11 +862,11 @@ export class ChatDriver {
           notes: this.ctx.choices.notes,
           preferredMode: 'chat',
           lastQuote: {
-            service: (document.querySelector('.tour-slideshow')?.getAttribute('data-service') as any) || undefined,
-            enclosure: this.ctx.choices.enclosure,
-            glass: this.ctx.choices.glass,
-            hardware: this.ctx.choices.hardware,
-            handle: this.ctx.choices.handle,
+            service: activeChatService(this.ctx.choices),
+            enclosure: this.ctx.choices.enclosure || this.ctx.choices['rail-type'] || this.ctx.choices['com-type'],
+            glass: this.ctx.choices.glass || this.ctx.choices['rail-glass'] || this.ctx.choices['com-glass'],
+            hardware: this.ctx.choices.hardware || this.ctx.choices['rail-finish'] || this.ctx.choices['com-framing'],
+            handle: this.ctx.choices.handle || this.ctx.choices['rail-mounting'] || this.ctx.choices['com-scope'],
             accessories: this.ctx.choices.accessories,
             extras: this.ctx.choices.extras,
             doorPlacement: this.ctx.choices.doorPlacement,
@@ -908,11 +961,15 @@ function stepIdToSlideId(stepId: string): string | null {
     'railings-type': 'rail-types',
     'railings-glass': 'rail-glass',
     'railings-finish': 'rail-finish',
+    'railings-mounting': 'rail-mounting',
+    'railings-process': 'process',
     'railings-contact': 'quote',
     'commercial-intro': 'intro',
     'commercial-type': 'com-types',
     'commercial-glass': 'com-glass',
+    'commercial-framing': 'com-framing',
     'commercial-scope': 'com-scope',
+    'commercial-process': 'process',
     'commercial-contact': 'quote',
   };
   return map[stepId] || null;
@@ -945,36 +1002,39 @@ function populateEditorialFromChoices(choices: Record<string, string>): void {
   renderQuoteVisuals(choices);
 }
 
-function injectLockOverlay(): void {
+function injectLockOverlay(service: ServiceChoice = activeChatService()): void {
   const wrap = document.querySelector('.ss-quote-img-wrap') as HTMLElement | null;
   if (!wrap) return;
   const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
   if (spinner) spinner.style.display = 'none';
   if (wrap.querySelector('.ss-quote-lock')) return;
+  const isShower = service === 'showers';
   const lock = document.createElement('div');
   lock.className = 'ss-quote-lock';
   lock.innerHTML = `
     <div class="ss-quote-lock-sparkle">\u2728</div>
-    <div class="ss-quote-lock-title">Your free AI rendering is ready</div>
-    <div class="ss-quote-lock-desc">One last step \u2014 share your contact details and we\u2019ll unlock a photorealistic AI preview of <strong>your exact configuration</strong>. Yours to keep, no strings.</div>
+    <div class="ss-quote-lock-title">${isShower ? 'Your free AI rendering is ready' : 'Your project brief is ready'}</div>
+    <div class="ss-quote-lock-desc">${isShower
+      ? 'One last step - share your contact details and we will unlock a photorealistic AI preview of <strong>your exact configuration</strong>. Yours to keep, no strings.'
+      : 'One last step - share your contact details and we will package these selections into a project brief for staff review. Pricing and scheduling stay with the human team.'}</div>
   `;
   wrap.appendChild(lock);
 }
 
 function unlockAndGenerateViz(choices: Record<string, string>): void {
+  const service = activeChatService(choices);
   const lock = document.querySelector('.ss-quote-lock') as HTMLElement | null;
   const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
   if (lock) lock.remove();
   if (spinner) {
     spinner.style.display = 'flex';
     const label = spinner.querySelector('span');
-    if (label) label.textContent = 'Rendering your custom shower\u2026';
+    if (label) label.textContent = service === 'showers' ? 'Rendering your custom shower\u2026' : 'Preparing your project brief\u2026';
   }
 
   // Only generate for shower flows
-  const service = document.querySelector('.tour-slideshow')?.getAttribute('data-service');
-  if (service && service !== 'showers') {
-    if (spinner) spinner.style.display = 'none';
+  if (service !== 'showers') {
+    markQuoteRenderReady(service === 'railings' ? '/images/railings/railings-1.webp' : '/images/commercial/commercial-1.webp');
     return;
   }
   generateShowerImage(choices).then((url) => {
@@ -982,7 +1042,7 @@ function unlockAndGenerateViz(choices: Record<string, string>): void {
     markQuoteRenderReady(url);
     // Persist to the customer-generations gallery (fire and forget)
         saveCustomerGeneration(url, {
-      service: (document.querySelector('.tour-slideshow')?.getAttribute('data-service') as any) || 'showers',
+      service,
       enclosure: choices.enclosure,
       glass: choices.glass,
       hardware: choices.hardware,

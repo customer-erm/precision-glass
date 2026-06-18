@@ -1,5 +1,5 @@
 import { playTransformAnimation } from '../animations/transform';
-import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService, renderQuoteVisuals, markQuoteRenderReady } from '../experience/facade';
+import { createSlideshow, showSlide, endSlideshow, showQuoteSent, showBuyerGuidePopup, getActiveService, getCurrentSlideId, renderQuoteVisuals, markQuoteRenderReady } from '../experience/facade';
 import { emitChoice, emitPreview } from '../experience/events';
 import { isCinematic } from '../experience/flag';
 import { extrasCompat } from '../experience/compat';
@@ -24,6 +24,24 @@ let presentQuoteAt = 0;
 // advances).
 let lastShowSlideAt = 0;
 const MIN_SLIDE_INTERVAL_MS = 900;
+const TOUR_OPTION_SLIDES = new Set([
+  'gallery',
+  'enclosures',
+  'glass',
+  'hardware',
+  'accessories',
+  'extras',
+  'process',
+  'quote',
+  'rail-types',
+  'rail-glass',
+  'rail-finish',
+  'rail-mounting',
+  'com-types',
+  'com-glass',
+  'com-framing',
+  'com-scope',
+]);
 
 /**
  * Defensive: the agent may legitimately jump straight into the tour (e.g.
@@ -145,13 +163,13 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: 'preview_option',
-    description: 'Live-preview an option on the on-screen 3D shower model while you talk — the glass morphs, the hardware re-plates, the enclosure reassembles, or the handle swaps in real time. Use this whenever the customer asks what something looks like or is torn between options (preview one, then the other). It does NOT record a selection and does NOT advance the tour — still ask for their final pick and advance with show_slide. Showers tour only.',
+    description: 'Live-preview an option on the on-screen 3D model while you talk. Showers: enclosure/glass/hardware/handle. Railings: rail-type/rail-glass/rail-finish/rail-mounting. Commercial: com-type/com-glass/com-framing/com-scope. It does NOT record a selection and does NOT advance the tour.',
     parameters: {
       type: 'object' as const,
       properties: {
         category: {
           type: 'string' as const,
-          enum: ['enclosure', 'glass', 'hardware', 'handle'],
+          enum: ['enclosure', 'glass', 'hardware', 'handle', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'],
         },
         value: {
           type: 'string' as const,
@@ -163,7 +181,7 @@ export const TOOL_DECLARATIONS = [
   },
   {
     name: 'set_camera_view',
-    description: 'Move the 3D camera around the shower model for emphasis — e.g. "let me get you a closer look at that hardware". Use sparingly. Showers tour only.',
+    description: 'Move the 3D camera around the active model for emphasis — e.g. "let me get you a closer look". Use sparingly.',
     parameters: {
       type: 'object' as const,
       properties: {
@@ -303,14 +321,28 @@ function instr(text: string): string {
 }
 
 function choiceCategoryForSlide(nextSlideId: string): string | null {
-  const map: Record<string, string> = {
-    glass: 'enclosure',
-    hardware: 'glass',
-    accessories: 'hardware',
-    extras: 'handle',
-    process: 'extras',
+  const byService: Record<'showers' | 'railings' | 'commercial', Record<string, string>> = {
+    showers: {
+      glass: 'enclosure',
+      hardware: 'glass',
+      accessories: 'hardware',
+      extras: 'handle',
+      process: 'extras',
+    },
+    railings: {
+      'rail-glass': 'rail-type',
+      'rail-finish': 'rail-glass',
+      'rail-mounting': 'rail-finish',
+      process: 'rail-mounting',
+    },
+    commercial: {
+      'com-glass': 'com-type',
+      'com-framing': 'com-glass',
+      'com-scope': 'com-framing',
+      process: 'com-scope',
+    },
   };
-  return map[nextSlideId] || null;
+  return byService[getActiveService()]?.[nextSlideId] || null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -411,6 +443,12 @@ export async function handleToolCall(
         quoteChoices['handle'] = 'N/A';
         quoteChoices['extras'] = 'N/A';
         targetSlide = 'process';
+      }
+      try {
+        const { closeContentModal } = await import('../sections/content-modal');
+        closeContentModal();
+      } catch {
+        // Best-effort cleanup only.
       }
       await showSlide(targetSlide);
       // Reassign so downstream logic uses the resolved slide
@@ -523,16 +561,19 @@ export async function handleToolCall(
       }
 
       const summary = Object.entries(quoteChoices)
-        .filter(([k]) => ['enclosure', 'glass', 'hardware', 'handle', 'extras'].includes(k))
+        .filter(([k]) => ['enclosure', 'glass', 'hardware', 'handle', 'extras', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'].includes(k))
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ');
 
       const hasName = !!quoteChoices['name'];
       const hasEmail = !!quoteChoices['email'];
+      const visualLine = getActiveService() === 'showers'
+        ? 'An AI visualization is loading on the right.'
+        : 'A project reference image is shown on the right; no AI visualization is needed for this intake.';
 
       return {
         success: true,
-        message: instr(`The quote summary is displayed showing: ${summary}. An AI visualization is loading on the right.
+        message: instr(`The quote summary is displayed showing: ${summary}. ${visualLine}
 
 DO THE FOLLOWING IN ORDER:
 1. Read back their selections enthusiastically — tell them their choices look amazing together.
@@ -550,6 +591,13 @@ DO THE FOLLOWING IN ORDER:
     }
 
     case 'show_topic': {
+      const activeSlide = getCurrentSlideId();
+      if (document.getElementById('tour-slideshow') && activeSlide && TOUR_OPTION_SLIDES.has(activeSlide)) {
+        return {
+          success: false,
+          message: instr(`Do not open a content modal during the active guided tour. The customer is on "${activeSlide}" and likely just needs this option handled in-flow. If they selected an option, record it with show_slide. If they asked a question, answer briefly out loud and keep them on the current options.`),
+        };
+      }
       // Dynamically pull the content-modal module (it's already loaded in main)
       const { showTopic } = await import('../sections/content-modal');
       const title = String(args.title || '').trim() || 'Here you go';
@@ -606,11 +654,11 @@ DO THE FOLLOWING IN ORDER:
     case 'preview_option': {
       const category = String(args.category || '').toLowerCase().trim();
       const value = String(args.value || '').trim();
-      if (!isCinematic() || getActiveService() !== 'showers') {
+      if (!isCinematic()) {
         return { success: false, message: instr('The live 3D preview is not available right now. Describe the option in words instead and continue the conversation.') };
       }
-      if (!['enclosure', 'glass', 'hardware', 'handle'].includes(category) || !value) {
-        return { success: false, message: instr('Invalid preview call. category must be enclosure, glass, hardware, or handle, with a value.') };
+      if (!['enclosure', 'glass', 'hardware', 'handle', 'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting', 'com-type', 'com-glass', 'com-framing', 'com-scope'].includes(category) || !value) {
+        return { success: false, message: instr('Invalid preview call. Use a supported category for the active service, with a value.') };
       }
       emitPreview(category, value);
       return {
@@ -621,7 +669,7 @@ DO THE FOLLOWING IN ORDER:
 
     case 'set_camera_view': {
       const view = String(args.view || '').toLowerCase().trim();
-      if (!isCinematic() || getActiveService() !== 'showers') {
+      if (!isCinematic()) {
         return { success: false, message: instr('The 3D camera is not available right now. Continue the conversation normally.') };
       }
       emitPreview('camera', view);
@@ -668,10 +716,10 @@ DO THE FOLLOWING IN ORDER:
           preferredMode: getState().currentMode || undefined,
           lastQuote: {
             service: (service as 'showers' | 'railings' | 'commercial') || undefined,
-            enclosure: quoteChoices['enclosure'] || undefined,
-            glass: quoteChoices['glass'] || undefined,
-            hardware: quoteChoices['hardware'] || undefined,
-            handle: quoteChoices['handle'] || undefined,
+            enclosure: quoteChoices['enclosure'] || quoteChoices['rail-type'] || quoteChoices['com-type'] || undefined,
+            glass: quoteChoices['glass'] || quoteChoices['rail-glass'] || quoteChoices['com-glass'] || undefined,
+            hardware: quoteChoices['hardware'] || quoteChoices['rail-finish'] || quoteChoices['com-framing'] || undefined,
+            handle: quoteChoices['handle'] || quoteChoices['rail-mounting'] || quoteChoices['com-scope'] || undefined,
             accessories: quoteChoices['accessories'] || undefined,
             extras: quoteChoices['extras'] || undefined,
           },
