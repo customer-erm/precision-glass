@@ -514,17 +514,17 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     const m = new THREE.MeshPhysicalMaterial({
       color: 0xb9e2ff,
       metalness: 0,
-      roughness: 0.03,
+      roughness: 0.08,
       transparent: true,
-      opacity: 0.34,
-      side: THREE.DoubleSide,
+      opacity: 0.24,
+      side: THREE.FrontSide,
       depthWrite: false,
       envMapIntensity: tuning.glassEnv,
       clearcoat: 1,
-      clearcoatRoughness: 0.06,
+      clearcoatRoughness: 0.08,
     });
     if (!opts.cheapGlass) {
-      m.transmission = 0.92;
+      m.transmission = 0;
       m.thickness = 0;   // no volumetric refraction → clean, natural see-through
       m.ior = 1.45;
     }
@@ -533,10 +533,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function applyGlassKey(m: THREE.MeshPhysicalMaterial, key: GlassKey, animate: boolean): void {
     const target = key === 'frosted'
-      ? { roughness: 0.55, opacity: 0.58, color: new THREE.Color(0xdeeefc) }
+      ? { roughness: 0.6, opacity: 0.42, color: new THREE.Color(0xd4e6f4) }
       : key === 'rain'
-        ? { roughness: 0.42, opacity: 0.52, color: new THREE.Color(0xcdeaff) }
-        : { roughness: 0.03, opacity: 0.34, color: new THREE.Color(0xb9e2ff) };
+        ? { roughness: 0.48, opacity: 0.4, color: new THREE.Color(0xc4e4f7) }
+        : { roughness: 0.08, opacity: 0.24, color: new THREE.Color(0x9ed8f7) };
     const isRain = key === 'rain';
     // Drive the flutes through BOTH relief (bump) and shading (roughness) so
     // the texture is unmistakably visible even with glass transmission on.
@@ -549,8 +549,8 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     // making the background look inverted/lensed through panes with no wall
     // behind them — now they read as a natural see-through into the dark room.
     if (!opts.cheapGlass) {
-      m.transmission = isRain ? 0.55 : key === 'frosted' ? 0.78 : 0.92;
-      m.thickness = isRain ? 0.04 : 0;
+      m.transmission = 0;
+      m.thickness = 0;
     }
     m.envMapIntensity = tuning.glassEnv;
     m.needsUpdate = true;
@@ -570,7 +570,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   }
 
   function baseOpacityFor(key: GlassKey): number {
-    const base = key === 'frosted' ? 0.58 : key === 'rain' ? 0.46 : 0.34;
+    const base = key === 'frosted' ? 0.42 : key === 'rain' ? 0.4 : 0.24;
     return clamp(base * tuning.glassOpacityScale, 0.08, 0.82);
   }
 
@@ -622,10 +622,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   // Frameless pivot hinge: a leaf clamping the door glass, a wall-side leaf, and
   // a turned pivot barrel with end caps between them — the real anatomy.
-  function addDoorHinge(pivot: THREE.Group, hy: number, w: number): void {
+  function addDoorHinge(fixedHost: THREE.Group, pivot: THREE.Group, hy: number, w: number): void {
     const s = tuning.hingeScale;
     const edgeX = -w / 2;
-    const frontZ = 0.036 * tuning.clipDepth;
+    const frontZ = 0.042 * tuning.clipDepth;
     const barrelR = 0.008 * s;
 
     const glassLeaf = trackHardware(new THREE.Mesh(scaledRoundedBox(0.074, 0.11, 0.034, s, tuning.clipDepth), metalMat));
@@ -633,17 +633,21 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     pivot.add(glassLeaf);
 
     const wallLeaf = trackHardware(new THREE.Mesh(scaledRoundedBox(0.052, 0.11, 0.034, s, tuning.clipDepth), metalMat));
-    wallLeaf.position.set(edgeX - 0.028, hy, frontZ);
-    pivot.add(wallLeaf);
+    wallLeaf.position.set(-0.028, hy, frontZ);
+    fixedHost.add(wallLeaf);
 
-    const barrel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR, 0.092 * s, 20), metalMat));
-    barrel.position.set(edgeX + 0.002, hy, frontZ + 0.006);
-    pivot.add(barrel);
+    const doorBarrel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR, 0.058 * s, 20), metalMat));
+    doorBarrel.position.set(edgeX + 0.006, hy - 0.016 * s, frontZ + 0.008);
+    pivot.add(doorBarrel);
 
-    for (const cy of [0.051 * s, -0.051 * s]) {
+    const fixedBarrel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR, 0.058 * s, 20), metalMat));
+    fixedBarrel.position.set(0.002, hy + 0.016 * s, frontZ + 0.008);
+    fixedHost.add(fixedBarrel);
+
+    for (const cy of [0.035 * s, -0.035 * s]) {
       const cap = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR * 1.08, barrelR * 1.08, 0.006, 20), metalMat));
-      cap.position.set(edgeX + 0.002, hy + cy, frontZ + 0.006);
-      pivot.add(cap);
+      cap.position.set(0.002, hy + cy, frontZ + 0.008);
+      fixedHost.add(cap);
     }
   }
 
@@ -673,9 +677,14 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
     const root = new THREE.Group();
     const pivot = new THREE.Group();
+    let fixedHingeHost: THREE.Group | null = null;
     if (spec.isDoor && !spec.sliding) {
       root.position.set(x1, baseY, z1);
       pivot.position.set(w / 2, 0, 0);
+      fixedHingeHost = new THREE.Group();
+      fixedHingeHost.position.set(x1, baseY, z1);
+      fixedHingeHost.rotation.y = rotY;
+      assembly.add(fixedHingeHost);
     } else {
       root.position.set((x1 + x2) / 2, baseY, (z1 + z2) / 2);
     }
@@ -684,7 +693,8 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     pivot.add(glass, edges);
 
     if (spec.isDoor) {
-      for (const hy of [0.45, 1.5]) addDoorHinge(pivot, hy, w);
+      const hingeHost = fixedHingeHost ?? root;
+      for (const hy of [0.45, 1.5]) addDoorHinge(hingeHost, pivot, hy, w);
     } else if (!spec.baseY && !spec.sliding) {
       // Fixed panels: individual clips where glass meets wall/floor, rather
       // than continuous channels or full-height framing.
@@ -724,6 +734,9 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function disposeGroupGeometries(root: THREE.Object3D): void {
     root.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      const trackedIndex = hardwareMeshes.indexOf(mesh);
+      if (trackedIndex >= 0) hardwareMeshes.splice(trackedIndex, 1);
       const geometry = (object as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
       geometry?.dispose();
     });
@@ -882,27 +895,56 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     for (const p of allGlass()) {
       if (p.grid || p.w <= 0.2) continue; // skip narrow slivers
       const grid = new THREE.Group();
-      const depth = 0.024;
-      const border = 0.019;
-      const bar = 0.014;
+      const depth = 0.008;
+      const border = 0.014;
+      const bar = 0.01;
+      const gridZ = 0.006;
       const isTransom = extraPanels.includes(p) || p.h < 0.7;
       const addHorizontal = (y: number, thick = bar, inset = 0): void => {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.04, p.w - inset * 2), thick, depth), gridMat);
-        mesh.position.set(0, y, 0.011);
-        mesh.renderOrder = 4;
+        mesh.position.set(0, y, gridZ);
+        mesh.renderOrder = 1;
+        grid.add(mesh);
+      };
+      const addInteriorHorizontal = (y: number): void => {
+        const inset = border * 1.4;
+        const hingeGap = p.isDoor && !p.sliding ? 0.14 : 0;
+        const width = Math.max(0.04, p.w - inset * 2 - hingeGap);
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, bar, depth), gridMat);
+        mesh.position.set(hingeGap / 2, y, gridZ);
+        mesh.renderOrder = 1;
         grid.add(mesh);
       };
       const addVertical = (x: number, thick = bar, inset = 0): void => {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(thick, Math.max(0.04, p.h - inset * 2), depth), gridMat);
-        mesh.position.set(x, p.h / 2, 0.011);
-        mesh.renderOrder = 4;
+        mesh.position.set(x, p.h / 2, gridZ);
+        mesh.renderOrder = 1;
+        grid.add(mesh);
+      };
+      const addVerticalSegment = (x: number, y1: number, y2: number, thick = bar): void => {
+        const h = y2 - y1;
+        if (h <= 0.04) return;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(thick, h, depth), gridMat);
+        mesh.position.set(x, y1 + h / 2, gridZ);
+        mesh.renderOrder = 1;
         grid.add(mesh);
       };
 
       // Every panel gets a real edge frame on all four sides.
       addHorizontal(border, border);
       addHorizontal(p.h - border, border);
-      addVertical(-p.w / 2 + border / 2, border);
+      const hingeEdgeX = -p.w / 2 + border / 2;
+      if (p.isDoor && !p.sliding) {
+        const gaps: Array<[number, number]> = [[0.34, 0.56], [1.39, 1.61]];
+        let y = border;
+        for (const [a, b] of gaps) {
+          addVerticalSegment(hingeEdgeX, y, Math.max(y, a), border);
+          y = Math.min(p.h - border, b);
+        }
+        addVerticalSegment(hingeEdgeX, y, p.h - border, border);
+      } else {
+        addVertical(hingeEdgeX, border);
+      }
       addVertical(p.w / 2 - border / 2, border);
 
       const cols = Math.max(1, Math.min(4, Math.round(p.w / (isTransom ? 0.32 : 0.42))));
@@ -913,7 +955,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       if (!isTransom) {
         const rows = Math.max(2, Math.min(5, Math.round(p.h / 0.48)));
         for (let i = 1; i < rows; i++) {
-          addHorizontal((p.h * i) / rows, bar, border * 1.4);
+          addInteriorHorizontal((p.h * i) / rows);
         }
       }
 
@@ -975,13 +1017,13 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   /* A solid metal bar with rounded ends (capsule). `length` is end-to-end. */
   function metalBar(length: number, radius: number): THREE.Mesh {
     const cyl = Math.max(0.001, length - radius * 2);
-    return new THREE.Mesh(new THREE.CapsuleGeometry(radius, cyl, 6, 24), metalMat);
+    return trackHardware(new THREE.Mesh(new THREE.CapsuleGeometry(radius, cyl, 6, 24), metalMat));
   }
 
   /* A machined escutcheon collar (slightly tapered disc) facing along +/-z. */
   function mountCollar(x: number, y: number, z: number, radius: number, thick = 0.014): THREE.Mesh {
     const outer = z >= 0 ? radius : radius * 1.05; // inside collar a touch larger
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.86, outer, thick, 28), metalMat);
+    const collar = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.86, outer, thick, 28), metalMat));
     collar.rotation.x = Math.PI / 2;
     collar.position.set(x, y, z);
     return collar;
@@ -990,7 +1032,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   // Through-glass mount: a clean bolt with a tapered escutcheon collar on each
   // face of the glass — the building block for towel bars, robe hooks, combos.
   function addThroughGlassPost(groupRef: THREE.Group, x: number, y: number, radius = 0.011): void {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.14, 20), metalMat);
+    const post = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.14, 20), metalMat));
     post.rotation.x = Math.PI / 2;
     post.position.set(x, y, 0);
     groupRef.add(
@@ -1014,10 +1056,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
     for (const y of [top, bottom]) {
       const escut = mountCollar(0, y, 0.012, radius * 1.7, 0.02);
-      const standoff = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.72, radius * 0.72, standZ - 0.012, 20), metalMat);
+      const standoff = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.72, radius * 0.72, standZ - 0.012, 20), metalMat));
       standoff.rotation.x = Math.PI / 2;
       standoff.position.set(0, y, standZ / 2);
-      const nut = new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.25, radius * 1.25, 0.014, 6), metalMat);
+      const nut = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(radius * 1.25, radius * 1.25, 0.014, 6), metalMat));
       nut.rotation.x = Math.PI / 2;
       nut.position.set(0, y, -0.014);
       groupRef.add(escut, standoff, nut);
@@ -1034,7 +1076,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     groupRef.add(bar);
     for (const x of [centerX - railW / 2, centerX + railW / 2]) {
       addThroughGlassPost(groupRef, x, y, 0.01);
-      const standoff = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, Math.abs(faceZ) - 0.012, 18), metalMat);
+      const standoff = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, Math.abs(faceZ) - 0.012, 18), metalMat));
       standoff.rotation.x = Math.PI / 2;
       standoff.position.set(x, y, faceZ / 2);
       groupRef.add(standoff);
@@ -1048,12 +1090,13 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   function addTowelHandleCombo(groupRef: THREE.Group, doorW: number): void {
     const railW = clamp(doorW - 0.24, 0.22, 0.5);
     const latchX = 0, farX = -railW;
-    const topY = 0.22, botY = -0.22;
+    const topY = 0.18, botY = -0.18;
+    const pullTop = 0.3, pullBot = -0.3;
     const outZ = 0.078, inZ = -0.078;
     const r = 0.0125;
 
-    const pull = metalBar(topY - botY, r);
-    pull.position.set(latchX, (topY + botY) / 2, outZ);
+    const pull = metalBar(pullTop - pullBot, r);
+    pull.position.set(latchX, (pullTop + pullBot) / 2, outZ);
     groupRef.add(pull);
 
     const towel = metalBar(railW, r * 0.92);
@@ -1068,13 +1111,13 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     const mount = (x: number, y: number): void => {
       groupRef.add(mountCollar(x, y, 0.009, 0.02, 0.012));
       groupRef.add(mountCollar(x, y, -0.009, 0.02, 0.012));
-      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 16), metalMat);
+      const bolt = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 16), metalMat));
       bolt.rotation.x = Math.PI / 2;
       bolt.position.set(x, y, 0);
       groupRef.add(bolt);
     };
     const link = (x: number, y: number, z: number): void => {
-      const s = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, Math.abs(z) - 0.012, 18), metalMat);
+      const s = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, Math.abs(z) - 0.012, 18), metalMat));
       s.rotation.x = Math.PI / 2;
       s.position.set(x, y, z / 2);
       groupRef.add(s);
@@ -1087,11 +1130,11 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   // Compact through-glass robe hook: thin flush backplate (nothing protrudes on
   // the inside), with a small UPWARD-curving hook arm and a ball finial.
   function addRobeHook(groupRef: THREE.Group, x: number, y: number): void {
-    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.022, 0.012, 28), metalMat);
+    const plate = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.022, 0.012, 28), metalMat));
     plate.rotation.x = Math.PI / 2;
     plate.position.set(x, y, 0.006);
     // Flush interior cap — sits against the back of the glass, no protrusion.
-    const backCap = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.005, 24), metalMat);
+    const backCap = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.005, 24), metalMat));
     backCap.rotation.x = Math.PI / 2;
     backCap.position.set(x, y, -0.0025);
 
@@ -1101,8 +1144,8 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       new THREE.Vector3(x, y + 0.008, 0.052),  // curl upward
       new THREE.Vector3(x, y + 0.024, 0.045),
     ]);
-    const hook = new THREE.Mesh(new THREE.TubeGeometry(curve, 22, 0.0065, 14, false), metalMat);
-    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.0088, 16, 12), metalMat);
+    const hook = trackHardware(new THREE.Mesh(new THREE.TubeGeometry(curve, 22, 0.0065, 14, false), metalMat));
+    const finial = trackHardware(new THREE.Mesh(new THREE.SphereGeometry(0.0088, 16, 12), metalMat));
     finial.position.set(x, y + 0.024, 0.045);
     groupRef.add(plate, backCap, hook, finial);
   }
@@ -1206,7 +1249,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     // Escutcheon + standoff pair that mounts a bar to the glass at (x,y).
     const addMount = (x: number, y: number, z: number, postR = 0.008): void => {
       grp.add(mountCollar(x, y, 0.012, 0.02, 0.018));
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, z - 0.012, 18), metalMat);
+      const post = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, z - 0.012, 18), metalMat));
       post.rotation.x = Math.PI / 2;
       post.position.set(x, y, z / 2);
       grp.add(post);
@@ -1238,11 +1281,11 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         new THREE.Vector3(0, -(half + e), -0.02),
       ];
       const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
-      grp.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 80, r, 18, false), metalMat));
+      grp.add(trackHardware(new THREE.Mesh(new THREE.TubeGeometry(curve, 80, r, 18, false), metalMat)));
       const my = half + e * 0.7; // where each leg passes through the glass
       for (const y of [my, -my]) {
         grp.add(mountCollar(0, y, 0.012, r * 1.7, 0.014)); // front washer
-        const nut = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.5, r * 1.5, 0.016, 6), metalMat);
+        const nut = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(r * 1.5, r * 1.5, 0.016, 6), metalMat));
         nut.rotation.x = Math.PI / 2;
         nut.position.set(0, y, -0.018);
         grp.add(nut);
@@ -1251,10 +1294,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       addTowelHandleCombo(grp, panels.find((p) => p.hasHandle)?.w ?? 0.7);
     } else { // knob — turned backplate, standoff, and a rounded mushroom knob
       grp.add(mountCollar(0, 0, 0.012, 0.026, 0.016));
-      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.045, 18), metalMat);
+      const stem = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.045, 18), metalMat));
       stem.rotation.x = Math.PI / 2;
       stem.position.z = 0.034;
-      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.026, 28, 20), metalMat);
+      const knob = trackHardware(new THREE.Mesh(new THREE.SphereGeometry(0.026, 28, 20), metalMat));
       knob.scale.set(1, 1, 0.78);
       knob.position.z = 0.07;
       grp.add(stem, knob);

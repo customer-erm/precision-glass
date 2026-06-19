@@ -6,6 +6,8 @@
 import { images } from '../data/image-map';
 import { getBathroomPhoto } from '../utils/bathroom-photo';
 import { addInfoButton } from '../sections/buyer-guide-modal';
+import { setState } from '../utils/state';
+import { saveUser } from '../utils/user-storage';
 
 export type ServiceType = 'showers' | 'railings' | 'commercial';
 
@@ -107,8 +109,7 @@ export function showSlide(slideId: string): Promise<void> {
       currentSlide = target;
       currentSlideId = slideId;
 
-      const els = target.querySelectorAll('.slide-el');
-      els.forEach((el, i) => setTimeout(() => (el as HTMLElement).classList.add('revealed'), 120 + i * 140));
+      runSlideAssembly(target);
 
       if (slideId === 'gallery') {
         startGalleryFade();
@@ -129,6 +130,67 @@ export function showSlide(slideId: string): Promise<void> {
 
       resolve();
     }, delay);
+  });
+}
+
+function runSlideAssembly(target: HTMLElement): void {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const els = Array.from(target.querySelectorAll<HTMLElement>('.slide-el'));
+  els.forEach((el) => {
+    el.classList.remove('revealed', 'assembling');
+    el.getAnimations().forEach((animation) => animation.cancel());
+  });
+
+  const headingEls = target.querySelectorAll<HTMLElement>('.slide-title, .slide-heading, .slide-label, .slide-subtitle, .slide-sub');
+  headingEls.forEach((el) => {
+    el.classList.remove('text-assembling');
+    el.getAnimations().forEach((animation) => animation.cancel());
+  });
+
+  if (reduced) {
+    els.forEach((el) => el.classList.add('revealed'));
+    return;
+  }
+
+  els.forEach((el, i) => {
+    const isCard = el.matches('.ss-enc-card, .ss-glass-card, .ss-hw-card, .ss-acc-card, .ss-extra-card, .ss-process-step, .ss-info-bullet');
+    const delay = 90 + i * (isCard ? 58 : 100);
+    window.setTimeout(() => {
+      el.classList.add('revealed', 'assembling');
+      el.animate([
+        {
+          opacity: 0,
+          transform: isCard ? 'translate3d(18px, 10px, 0) scale(0.94)' : 'translate3d(0, 22px, 0) scale(0.98)',
+          filter: 'blur(10px)',
+          clipPath: 'inset(0 100% 0 0)',
+        },
+        {
+          opacity: 0.72,
+          transform: isCard ? 'translate3d(-2px, -1px, 0) scale(1.015)' : 'translate3d(0, -2px, 0) scale(1.005)',
+          filter: 'blur(1px)',
+          clipPath: 'inset(0 0 0 0)',
+          offset: 0.78,
+        },
+        {
+          opacity: 1,
+          transform: 'translate3d(0, 0, 0) scale(1)',
+          filter: 'blur(0)',
+          clipPath: 'inset(0 0 0 0)',
+        },
+      ], {
+        duration: isCard ? 620 : 760,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        fill: 'both',
+      });
+      window.setTimeout(() => el.classList.remove('assembling'), 850);
+    }, delay);
+  });
+
+  headingEls.forEach((el, i) => {
+    window.setTimeout(() => {
+      el.classList.add('text-assembling');
+      window.setTimeout(() => el.classList.remove('text-assembling'), 820);
+    }, 90 + i * 80);
   });
 }
 
@@ -189,12 +251,49 @@ export function showBuyerGuidePopup(): void {
     popup.innerHTML = `
       <img src="/images/buyersguide.png" alt="Free Frameless Shower Buyer's Guide" />
       <div class="bg-popup-caption">Free Buyer's Guide</div>
+      <button class="bg-popup-email-toggle" type="button" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="m22 6-10 7L2 6"/></svg>
+        <span>Enter email</span>
+      </button>
+      <form class="bg-popup-email-form" hidden>
+        <input type="email" required placeholder="you@example.com" aria-label="Email for buyer's guide" />
+        <button type="submit">Send</button>
+      </form>
+      <div class="bg-popup-confirm" hidden>We'll send it right over.</div>
     `;
     document.body.appendChild(popup);
+    wireBuyerGuidePopup(popup);
   }
   // Force reflow then add visible class for animation
   void popup.offsetWidth;
   popup.classList.add('visible');
+}
+
+function wireBuyerGuidePopup(popup: HTMLElement): void {
+  const toggle = popup.querySelector<HTMLButtonElement>('.bg-popup-email-toggle');
+  const form = popup.querySelector<HTMLFormElement>('.bg-popup-email-form');
+  const input = popup.querySelector<HTMLInputElement>('.bg-popup-email-form input');
+  const confirm = popup.querySelector<HTMLElement>('.bg-popup-confirm');
+  toggle?.addEventListener('click', () => {
+    if (!form || !input) return;
+    const open = form.hidden;
+    form.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open) input.focus();
+  });
+  form?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    if (!input?.value || !input.checkValidity()) {
+      input?.reportValidity();
+      return;
+    }
+    const email = input.value.trim();
+    setState({ customerEmail: email });
+    saveUser({ email });
+    form.hidden = true;
+    if (confirm) confirm.hidden = false;
+    toggle?.setAttribute('aria-expanded', 'false');
+  });
 }
 
 export function hideBuyerGuidePopup(): void {

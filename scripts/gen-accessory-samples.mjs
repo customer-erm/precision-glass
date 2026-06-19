@@ -79,7 +79,7 @@ const ASSETS = [
   },
   {
     file: 'towel.webp',
-    prompt: `${SHARED} Subject: a towel bar and pull combo for a frameless shower door, short vertical pull on the outside connected through glass to a straight horizontal towel rail on the inside, three clean round mounts, premium polished chrome finish.`,
+    prompt: `${SHARED} Subject: an accurate frameless shower towel-bar / pull combo shown as a clean product render on a faint transparent glass plane. One tall vertical tubular pull handle is on the OUTSIDE at the right-side latch end, extending above and below its two connector posts. A straight horizontal towel rail is on the INSIDE, passing left from the upper shared through-glass mount. Show three aligned round through-glass collars: top shared mount at the vertical pull, bottom pull mount, and far towel-bar mount. Do not show a centered dangling handle under the towel rail. Premium polished chrome finish.`,
   },
   {
     file: 'hook.webp',
@@ -94,6 +94,13 @@ const ASSETS = [
     prompt: `${SHARED} Subject: a close-up sample of matte black decorative shower glass grid muntin bars applied to clear glass, even top, bottom, side, and vertical bars.`,
   },
 ];
+
+const requested = new Set(process.argv.slice(2));
+const assetsToGenerate = requested.size ? ASSETS.filter((asset) => requested.has(asset.file)) : ASSETS;
+if (requested.size && assetsToGenerate.length === 0) {
+  console.error(`No matching assets. Valid files: ${ASSETS.map((asset) => asset.file).join(', ')}`);
+  process.exit(1);
+}
 
 async function generateOne(asset) {
   const inputPath = join(OUT_DIR, asset.file);
@@ -136,7 +143,7 @@ async function generateOne(asset) {
 }
 
 let ok = 0;
-for (const asset of ASSETS) {
+for (const asset of assetsToGenerate) {
   console.log(`Generating ${asset.file}...`);
   const buf = await generateOne(asset);
   if (!buf) {
@@ -152,5 +159,5 @@ for (const asset of ASSETS) {
   ok++;
 }
 
-console.log(`Done: ${ok}/${ASSETS.length} generated.`);
-process.exit(ok === ASSETS.length ? 0 : 1);
+console.log(`Done: ${ok}/${assetsToGenerate.length} generated.`);
+process.exit(ok === assetsToGenerate.length ? 0 : 1);

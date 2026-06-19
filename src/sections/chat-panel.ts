@@ -111,7 +111,7 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
     bubble.innerHTML = '<span class="chat-typing-dot"></span><span class="chat-typing-dot"></span><span class="chat-typing-dot"></span>';
     row.classList.add('typing');
   } else if (kind === 'agent') {
-    bubble.innerHTML = formatChatText(text);
+    typeAgentMessage(bubble, text, msgs);
   } else {
     bubble.textContent = text;
   }
@@ -119,6 +119,29 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
   return row;
+}
+
+function typeAgentMessage(bubble: HTMLElement, text: string, msgs: HTMLElement): void {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || text.length < 24) {
+    bubble.innerHTML = formatChatText(text);
+    return;
+  }
+  bubble.classList.add('typewriting');
+  const step = Math.max(1, Math.ceil(text.length / 120));
+  let i = 0;
+  const tick = (): void => {
+    i = Math.min(text.length, i + step);
+    bubble.innerHTML = formatChatText(text.slice(0, i));
+    msgs.scrollTop = msgs.scrollHeight;
+    if (i < text.length) {
+      window.setTimeout(tick, 12);
+    } else {
+      bubble.classList.remove('typewriting');
+      bubble.innerHTML = formatChatText(text);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+  };
+  tick();
 }
 
 function formatChatText(text: string): string {
