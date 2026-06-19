@@ -709,6 +709,17 @@ export class ChatDriver {
   get isActive(): boolean { return this.active; }
   get stepId(): string | null { return this.currentStep?.id ?? null; }
 
+  getNavState(): { stepId: string | null; canBack: boolean; canNext: boolean; label: string } {
+    const id = this.currentStep?.id ?? null;
+    const chips = this.currentChips();
+    return {
+      stepId: id,
+      canBack: !!id && !!previousChatStep(id),
+      canNext: !!id && chips.length > 0,
+      label: id ? navLabelForStep(id) : '',
+    };
+  }
+
   async start(): Promise<void> {
     this.active = true;
     await this.goToStep('greet');
@@ -766,6 +777,39 @@ export class ChatDriver {
     if (!chip) return false;
     this.cbs.onChips?.([]);
     await this.executeAction(chip.action);
+    return true;
+  }
+
+  async goBack(): Promise<boolean> {
+    const id = this.currentStep?.id;
+    if (!id) return false;
+    const prev = previousChatStep(id);
+    if (!prev) return false;
+    const slideId = stepIdToSlideId(prev);
+    if (slideId) {
+      await handleToolCall('show_slide', { slide_id: slideId });
+    }
+    await this.goToStep(prev);
+    return true;
+  }
+
+  async advanceDefault(): Promise<boolean> {
+    const step = this.currentStep;
+    if (!step) return false;
+    const chips = this.currentChips();
+    if (!chips.length) return false;
+
+    let chip: Chip | undefined;
+    if (step.id === 'showers-photo-ask' || step.id === 'showers-gallery' || step.id === 'showers-extras') {
+      chip = chips.find((c) => /skip|none|move on/i.test(c.label));
+    } else if (step.requiresTextInput) {
+      chip = chips.find((c) => /skip|continue|next/i.test(c.label));
+    }
+    chip ||= chips.find((c) => /continue|next|ready|let/i.test(c.label));
+    chip ||= chips.find((c) => c.primary);
+    chip ||= chips[0];
+
+    await this.onChipTapped(chip);
     return true;
   }
 
@@ -991,6 +1035,41 @@ function stepIdToSlideId(stepId: string): string | null {
     'commercial-contact': 'quote',
   };
   return map[stepId] || null;
+}
+
+const CHAT_STEP_ORDER_BY_SERVICE: Record<string, string[]> = {
+  showers: [
+    'showers-intro',
+    'showers-photo-ask',
+    'showers-gallery',
+    'showers-enclosure',
+    'showers-glass',
+    'showers-hardware',
+    'showers-handle',
+    'showers-extras',
+    'showers-quote',
+    'showers-contact',
+  ],
+  railings: ['railings-intro', 'railings-type', 'railings-glass', 'railings-finish', 'railings-mounting', 'railings-process', 'railings-contact'],
+  commercial: ['commercial-intro', 'commercial-type', 'commercial-glass', 'commercial-framing', 'commercial-scope', 'commercial-process', 'commercial-contact'],
+};
+
+function orderForStep(stepId: string): string[] {
+  if (stepId.startsWith('railings-')) return CHAT_STEP_ORDER_BY_SERVICE.railings;
+  if (stepId.startsWith('commercial-')) return CHAT_STEP_ORDER_BY_SERVICE.commercial;
+  return CHAT_STEP_ORDER_BY_SERVICE.showers;
+}
+
+function previousChatStep(stepId: string): string | null {
+  const order = orderForStep(stepId);
+  const idx = order.indexOf(stepId);
+  return idx > 0 ? order[idx - 1] : null;
+}
+
+function navLabelForStep(stepId: string): string {
+  const order = orderForStep(stepId);
+  const idx = order.indexOf(stepId);
+  return idx >= 0 ? `${idx + 1} of ${order.length}` : '';
 }
 
 function fuzzyMatch(input: string, target: string): boolean {

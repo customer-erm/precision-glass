@@ -15,6 +15,7 @@ let driver: ChatDriver | null = null;
 let currentChips: Chip[] = [];
 let inputRequired = false;
 let typewriterToken = 0;
+let cardWireTimer: number | null = null;
 
 /* ------------------------------------------------------------------ */
 /*  DOM                                                                */
@@ -139,7 +140,7 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
 
 function typeAgentMessage(bubble: HTMLElement, text: string, msgs: HTMLElement): void {
   const token = ++typewriterToken;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || text.length < 24) {
+  if (document.body.classList.contains('chat-active') || window.matchMedia('(prefers-reduced-motion: reduce)').matches || text.length < 24) {
     bubble.innerHTML = formatChatText(text);
     return;
   }
@@ -179,6 +180,7 @@ function renderChips(chips: Chip[]): void {
   wrap.innerHTML = '';
   if (!chips.length || shouldUseTourCards(chips)) {
     wrap.style.display = 'none';
+    updateChatTourNav();
     return;
   }
   wrap.style.display = 'flex';
@@ -196,6 +198,18 @@ function renderChips(chips: Chip[]): void {
     });
     wrap.appendChild(btn);
   });
+  updateChatTourNav();
+  if (cardWireTimer) window.clearTimeout(cardWireTimer);
+  [120, 320, 760, 1300].forEach((delay) => {
+    cardWireTimer = window.setTimeout(() => {
+      wireTourCardsToChips();
+      if (shouldUseTourCards(chips)) {
+        wrap.innerHTML = '';
+        wrap.style.display = 'none';
+      }
+      updateChatTourNav();
+    }, delay);
+  });
 }
 
 function setInputMode(enabled: boolean, stepId: string): void {
@@ -212,6 +226,7 @@ function setInputMode(enabled: boolean, stepId: string): void {
     input.type = 'text';
     input.placeholder = stepId === 'greet' ? 'Enter your name...' : 'Type your answer...';
   }
+  updateChatTourNav();
 }
 
 function labelForCard(card: HTMLElement): string {
@@ -226,12 +241,12 @@ function labelForCard(card: HTMLElement): string {
 
 function activeTourCards(): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(
-    '.tour-slide.active.cine-side .ss-enc-card, ' +
-    '.tour-slide.active.cine-side .ss-glass-card, ' +
-    '.tour-slide.active.cine-side .ss-hw-card, ' +
-    '.tour-slide.active.cine-side .ss-acc-card, ' +
-    '.tour-slide.active.cine-side .ss-extra-card, ' +
-    '.tour-slide.active.cine-side .ss-info-bullet',
+    '.tour-slide.active .ss-enc-card, ' +
+    '.tour-slide.active .ss-glass-card, ' +
+    '.tour-slide.active .ss-hw-card, ' +
+    '.tour-slide.active .ss-acc-card, ' +
+    '.tour-slide.active .ss-extra-card, ' +
+    '.tour-slide.active .ss-info-bullet',
   ));
 }
 
@@ -267,23 +282,29 @@ function wireTourCardsToChips(): void {
       const label = labelForCard(card);
       if (label) card.setAttribute('data-label', label);
       card.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
         if ((ev.target as HTMLElement).closest('.card-info-btn')) return;
         const clicked = labelForCard(card);
         if (!clicked || !driver) return;
-        if (roughMatch(clicked, { label: 'Grid Patterns', action: { kind: 'close' } } as Chip)
-          || roughMatch(clicked, { label: 'Steam Upgrade', action: { kind: 'close' } } as Chip)) {
-          card.classList.toggle('selected');
-        } else {
-          card.parentElement?.querySelectorAll('.selected').forEach((el) => {
-            if (el !== card) el.classList.remove('selected');
-          });
-          card.classList.add('selected');
-        }
-        const handled = await driver.chooseOptionByLabel(clicked);
-        if (!handled) card.classList.remove('selected');
+        await handleTourCardChoice(card, clicked);
       });
     });
   }, 80);
+}
+
+async function handleTourCardChoice(card: HTMLElement, clicked = labelForCard(card)): Promise<void> {
+  if (!clicked || !driver) return;
+  if (roughMatch(clicked, { label: 'Grid Patterns', action: { kind: 'close' } } as Chip)
+    || roughMatch(clicked, { label: 'Steam Upgrade', action: { kind: 'close' } } as Chip)) {
+    card.classList.toggle('selected');
+  } else {
+    card.parentElement?.querySelectorAll('.selected').forEach((el) => {
+      if (el !== card) el.classList.remove('selected');
+    });
+    card.classList.add('selected');
+  }
+  const handled = await driver.chooseOptionByLabel(clicked);
+  if (!handled) card.classList.remove('selected');
 }
 
 function renderProgress(step: number | null, total: number | null): void {
@@ -302,6 +323,64 @@ function renderProgress(step: number | null, total: number | null): void {
   }
 }
 
+function ensureChatTourNav(): HTMLElement {
+  let bar = document.getElementById('chat-tour-nav-bar');
+  if (bar) return bar;
+
+  bar = el('div', { className: 'manual-nav-bar chat-tour-nav-bar', id: 'chat-tour-nav-bar' });
+  const prev = el('button', {
+    className: 'manual-nav-btn chat-tour-prev',
+    id: 'chat-tour-prev',
+    type: 'button',
+    textContent: '\u2190 Back',
+  });
+  const counter = el('span', { className: 'manual-nav-counter', id: 'chat-tour-counter', textContent: '' });
+  const next = el('button', {
+    className: 'manual-nav-btn manual-nav-next primary chat-tour-next',
+    id: 'chat-tour-next',
+    type: 'button',
+    textContent: 'Next \u2192',
+  });
+  const restart = el('button', {
+    className: 'manual-nav-btn manual-nav-restart chat-tour-restart',
+    id: 'chat-tour-restart',
+    type: 'button',
+    innerHTML: '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><span>Start over</span>',
+    ariaLabel: 'Start over',
+    title: 'Start over',
+  });
+
+  prev.addEventListener('click', () => { void driver?.goBack(); });
+  next.addEventListener('click', () => { void driver?.advanceDefault(); });
+  restart.addEventListener('click', () => {
+    if (confirm('Start over? Your current conversation will be cleared.')) {
+      window.location.reload();
+    }
+  });
+
+  bar.append(prev, counter, next, restart);
+  document.body.appendChild(bar);
+  return bar;
+}
+
+function updateChatTourNav(): void {
+  const bar = ensureChatTourNav();
+  const state = driver?.getNavState();
+  const inTour = !!document.getElementById('tour-slideshow') && !!state?.stepId && /^(showers|railings|commercial)-/.test(state.stepId);
+  bar.classList.toggle('visible', inTour);
+  if (!inTour || !state) return;
+
+  const prev = document.getElementById('chat-tour-prev') as HTMLButtonElement | null;
+  const next = document.getElementById('chat-tour-next') as HTMLButtonElement | null;
+  const counter = document.getElementById('chat-tour-counter');
+  if (prev) prev.disabled = !state.canBack;
+  if (next) {
+    next.disabled = !state.canNext;
+    next.textContent = state.stepId === 'showers-contact' ? 'Submit \u2192' : 'Next \u2192';
+  }
+  if (counter) counter.textContent = state.label;
+}
+
 function clearExtras(): void {
   const extras = document.getElementById('chat-extras');
   if (extras) extras.innerHTML = '';
@@ -314,11 +393,14 @@ function clearExtras(): void {
 export function showChatPanel(): void {
   document.getElementById('chat-panel')?.classList.add('visible');
   document.body.classList.add('chat-active');
+  ensureChatTourNav();
+  updateChatTourNav();
 }
 
 export function hideChatPanel(): void {
   document.getElementById('chat-panel')?.classList.remove('visible');
   document.body.classList.remove('chat-active');
+  document.getElementById('chat-tour-nav-bar')?.classList.remove('visible');
 }
 
 export async function startChat(): Promise<void> {
@@ -335,6 +417,7 @@ export async function startChat(): Promise<void> {
   driver.setCallbacks({
     onAgentMessage: (text) => {
       appendMessage('agent', text);
+      updateChatTourNav();
     },
     onUserMessage: (text) => {
       appendMessage('user', text);
@@ -348,6 +431,7 @@ export async function startChat(): Promise<void> {
     },
     onProgress: (step, total) => {
       renderProgress(step, total);
+      updateChatTourNav();
     },
     onTypingStart: () => appendMessage('typing', ''),
     onTypingEnd: () => document.querySelectorAll('.chat-msg.typing').forEach((n) => n.remove()),
@@ -372,6 +456,17 @@ export function wireChatPanelEvents(): void {
   const input = document.getElementById('chat-input') as HTMLInputElement | null;
   const closeBtn = document.getElementById('chat-panel-close');
   const questionBtn = document.getElementById('chat-question-btn');
+
+  document.addEventListener('click', (ev) => {
+    if (!document.body.classList.contains('chat-active')) return;
+    const target = ev.target as HTMLElement;
+    if (target.closest('.card-info-btn')) return;
+    const card = target.closest<HTMLElement>(
+      '.tour-slide.active .ss-enc-card, .tour-slide.active .ss-glass-card, .tour-slide.active .ss-hw-card, .tour-slide.active .ss-acc-card, .tour-slide.active .ss-extra-card, .tour-slide.active .ss-info-bullet',
+    );
+    if (!card) return;
+    void handleTourCardChoice(card);
+  });
 
   if (form && input) {
     form.addEventListener('submit', (e) => {

@@ -115,9 +115,10 @@ export function showSlide(slideId: string): Promise<void> {
         startGalleryFade();
         // Buyer's guide popup only on the showers gallery slide
         if (activeService === 'showers') {
+          const guideDelay = document.body.classList.contains('chat-active') ? 900 : 6000;
           setTimeout(() => {
             if (currentSlideId === 'gallery') showBuyerGuidePopup();
-          }, 6000);
+          }, guideDelay);
         }
       }
 
