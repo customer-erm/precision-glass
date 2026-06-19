@@ -182,10 +182,12 @@ function clearExtras(): void {
 
 export function showChatPanel(): void {
   document.getElementById('chat-panel')?.classList.add('visible');
+  document.body.classList.add('chat-active');
 }
 
 export function hideChatPanel(): void {
   document.getElementById('chat-panel')?.classList.remove('visible');
+  document.body.classList.remove('chat-active');
 }
 
 export async function startChat(): Promise<void> {

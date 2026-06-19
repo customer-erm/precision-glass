@@ -1190,15 +1190,56 @@ body.browse-active .help-launcher {
   pointer-events: none;
   padding: 80px 60px 100px;
 }
+.tour-slide::before {
+  content: '';
+  position: absolute;
+  inset: 58px 52px 92px;
+  z-index: 0;
+  pointer-events: none;
+  border: 1px solid rgba(120, 210, 255, 0.16);
+  border-left-color: rgba(120, 210, 255, 0.34);
+  border-right-color: rgba(120, 210, 255, 0.08);
+  opacity: 0;
+  transform: scaleX(0.82);
+  transform-origin: center;
+  clip-path: inset(0 50% 0 50%);
+}
+.tour-slide::after {
+  content: '';
+  position: absolute;
+  left: 8vw;
+  right: 8vw;
+  top: 50%;
+  z-index: 0;
+  height: 1px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.78), transparent);
+  transform: translate3d(-12vw, 0, 0);
+  box-shadow: 0 0 18px rgba(93, 173, 226, 0.45);
+}
 .tour-slide.active {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
 }
+.tour-slide.active::before {
+  animation: ss-frame-assemble 0.9s var(--ease-out-expo) forwards;
+}
+.tour-slide.active::after {
+  animation: ss-scanline 0.85s ease-out forwards;
+}
 .tour-slide.exiting {
   opacity: 0;
   transform: scale(0.96);
   transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.tour-slide.exiting .slide-el {
+  opacity: 0;
+  transform: translate3d(0, -18px, 0) scale(0.985);
+  filter: blur(8px);
+  clip-path: inset(100% 0 0 0);
+  transition-duration: 0.42s;
 }
 
 /* ---- Slide background ---- */
@@ -1241,12 +1282,45 @@ body.browse-active .help-launcher {
 /* ---- Staggered element reveals ---- */
 .slide-el {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.7s var(--ease-out-expo), transform 0.7s var(--ease-out-expo);
+  transform: translate3d(0, 26px, 0) scale(0.985);
+  filter: blur(8px);
+  clip-path: inset(0 0 100% 0);
+  transition:
+    opacity 0.72s var(--ease-out-expo),
+    transform 0.72s var(--ease-out-expo),
+    filter 0.72s var(--ease-out-expo),
+    clip-path 0.82s var(--ease-out-expo);
+  will-change: opacity, transform, filter, clip-path;
 }
 .slide-el.revealed {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+  clip-path: inset(0 0 0 0);
+}
+
+@keyframes ss-frame-assemble {
+  0% { opacity: 0; transform: scaleX(0.82); clip-path: inset(0 50% 0 50%); }
+  58% { opacity: 0.82; transform: scaleX(1.01); clip-path: inset(0 0 0 0); }
+  100% { opacity: 0.42; transform: scaleX(1); clip-path: inset(0 0 0 0); }
+}
+@keyframes ss-scanline {
+  0% { opacity: 0; transform: translate3d(-12vw, -22px, 0) scaleX(0.2); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(12vw, 22px, 0) scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-slide::before,
+  .tour-slide::after {
+    animation: none !important;
+  }
+  .slide-el,
+  .slide-el.revealed,
+  .tour-slide.exiting .slide-el {
+    filter: none;
+    clip-path: none;
+    transform: none;
+  }
 }
 
 /* ---- Slide typography ---- */
@@ -1314,12 +1388,13 @@ body.browse-active .help-launcher {
 .ss-gallery-fade img:nth-child(4) { animation-delay: -15s; animation-direction: alternate-reverse; }
 .ss-gallery-fade img.gf-active { opacity: 1; }
 
-/* ---- Our Work: single 9:16 portrait cross-fade (one at a time) ---- */
+/* ---- Our Work: single 3:4 portrait cross-fade (one at a time) ---- */
 .ss-gallery-fade.ss-gallery-portrait {
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 3 / 4;
   width: auto;
-  height: min(72vh, 800px);
-  max-height: 72vh;
+  height: min(74vh, 760px);
+  max-width: min(100%, 560px);
+  max-height: calc(100svh - 170px);
   margin: 0 auto;
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(120, 180, 230, 0.16);
@@ -2583,6 +2658,74 @@ body.browse-active .help-launcher {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0) scale(1);
+}
+
+/* Chat during the cinematic tour is part of the stage, not a detached
+   support widget. It lives as a translucent left rail so option cards remain
+   reachable on the right. */
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.visible {
+  top: 176px;
+  left: 0;
+  right: auto;
+  bottom: 92px;
+  width: clamp(300px, 26vw, 390px);
+  height: auto;
+  max-width: min(390px, 36vw);
+  max-height: none;
+  border-radius: 0 22px 22px 0;
+  border-left: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 13, 26, 0.94) 0%, rgba(9, 22, 40, 0.78) 72%, rgba(9, 22, 40, 0.46) 100%);
+  box-shadow: 18px 0 64px rgba(0, 0, 0, 0.32), inset -1px 0 0 rgba(125, 211, 252, 0.18);
+  transform-origin: left center;
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-header {
+  padding: 12px 16px 10px;
+  border-bottom-color: rgba(125, 211, 252, 0.12);
+  background: linear-gradient(90deg, rgba(125, 211, 252, 0.06), transparent);
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-avatar,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-avatar {
+  box-shadow: 0 0 18px rgba(125, 211, 252, 0.18);
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-messages {
+  padding: 14px 16px 8px;
+  min-height: 0;
+  gap: 10px;
+  mask-image: linear-gradient(180deg, transparent 0, #000 22px, #000 calc(100% - 10px));
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-msg {
+  max-width: 96%;
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-bubble {
+  background: linear-gradient(135deg, rgba(20, 36, 60, 0.86), rgba(17, 31, 54, 0.62));
+  border-color: rgba(125, 211, 252, 0.18);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-user .chat-msg-bubble {
+  background: linear-gradient(135deg, rgba(93, 173, 226, 0.92), rgba(36, 113, 163, 0.88));
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-chips {
+  padding: 8px 14px 10px;
+  max-height: 96px;
+  background: linear-gradient(180deg, transparent, rgba(5, 13, 26, 0.28));
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-input-row {
+  padding: 12px 14px 14px;
+  border-top-color: rgba(125, 211, 252, 0.14);
+  background: linear-gradient(180deg, transparent, rgba(5, 13, 26, 0.58));
+}
+body.chat-active:has(.tour-slideshow.cinematic) .chat-input {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(125, 211, 252, 0.2);
+}
+body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup {
+  top: 82px;
+  left: 18px;
+  right: auto;
+  bottom: auto;
+  width: 142px;
+  z-index: 451;
 }
 .chat-panel-header {
   display: flex; align-items: center; gap: 12px;
@@ -5412,4 +5555,183 @@ body.browse-active .browse-menu-toggle {
   .nav-cta-btn { padding: 7px 14px; font-size: 0.78rem; }
   .help-launcher { bottom: 16px; right: 16px; }
   .help-orb { width: 56px; height: 56px; }
+}
+
+@media (max-width: 760px) {
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.visible {
+    top: 56px;
+    left: 10px;
+    right: 10px;
+    bottom: auto;
+    width: auto;
+    max-width: none;
+    height: min(34svh, 290px);
+    max-height: min(34svh, 290px);
+    border-radius: 18px;
+    border-left: 1px solid rgba(125, 211, 252, 0.2);
+    background:
+      linear-gradient(180deg, rgba(5, 13, 26, 0.92), rgba(9, 22, 40, 0.74)),
+      linear-gradient(90deg, rgba(125, 211, 252, 0.09), transparent);
+    transform-origin: top center;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-header {
+    padding: 9px 11px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-avatar {
+    width: 32px;
+    height: 32px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-name { font-size: 0.9rem; }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-role { display: none; }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-restart span { display: none; }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-messages {
+    min-height: 0;
+    padding: 9px 10px 4px;
+    gap: 7px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-avatar {
+    display: none;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-bubble {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    padding: 4px 10px 7px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 6px 10px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-input-row {
+    padding: 8px 10px 10px;
+    gap: 8px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-input {
+    min-height: 38px;
+    padding: 9px 14px;
+    font-size: 0.86rem;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-send-btn {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup {
+    top: auto;
+    bottom: 158px;
+    left: 12px;
+    width: 104px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .tour-slide.cine-side {
+    align-items: flex-end;
+    padding: 48px 0 0;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .tour-slide.cine-side .slide-content {
+    max-height: 142px;
+    min-height: 142px;
+    padding: 10px 10px 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    background: linear-gradient(180deg, rgba(5, 13, 26, 0.14), rgba(5, 13, 26, 0.92) 42%, rgba(5, 13, 26, 0.98));
+    border-top: 1px solid rgba(125, 211, 252, 0.22);
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .tour-slide.cine-side .slide-content::-webkit-scrollbar {
+    display: none;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .slide-header {
+    display: none;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-enc-grid,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-glass-grid,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-hw-grid,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-acc-grid,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-extras-grid,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-info-layout,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-info-bullets,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-process-strip {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    width: max-content;
+    min-width: 100%;
+    max-width: none;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-enc-card,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-glass-card,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-hw-card,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-acc-card,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-extra-card,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-process-step {
+    flex: 0 0 92px;
+    width: 92px;
+    min-height: 106px;
+    height: 106px;
+    display: block;
+    padding: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-enc-card img,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-glass-card img,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-hw-card img,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-acc-card img,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-extra-card img,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-process-step img {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    object-fit: cover;
+    border-radius: 0;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-card-info,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-hw-card h4,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-hw-card p,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-process-step .ss-card-info,
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .ss-step-num {
+    display: none;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) .cine-side .card-info-btn {
+    width: 28px;
+    height: 28px;
+    top: 6px;
+    right: 6px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery.cine-side {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 356px 14px 24px;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery.cine-side .slide-content {
+    width: min(74vw, 300px);
+    max-width: 300px;
+    min-height: 0;
+    max-height: calc(100svh - 386px);
+    padding: 0;
+    margin: 0 auto;
+    overflow: visible;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery.cine-side .slide-header {
+    display: none;
+  }
+  body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery .ss-gallery-fade.ss-gallery-portrait {
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    max-height: calc(100svh - 386px);
+  }
 }

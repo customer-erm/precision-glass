@@ -177,6 +177,37 @@ export function createStage(initialContainer: HTMLElement): Stage {
   }
   setService('showers');
 
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let pointerStart: { x: number; y: number } | null = null;
+
+  function updatePointer(e: PointerEvent): void {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
+  }
+
+  function onPointerDown(e: PointerEvent): void {
+    pointerStart = { x: e.clientX, y: e.clientY };
+  }
+
+  function onPointerUp(e: PointerEvent): void {
+    if (!pointerStart || !shower.group.visible) { pointerStart = null; return; }
+    const dx = e.clientX - pointerStart.x;
+    const dy = e.clientY - pointerStart.y;
+    pointerStart = null;
+    if (Math.hypot(dx, dy) > 6) return;
+    updatePointer(e);
+    raycaster.setFromCamera(pointer, camera);
+    if (shower.tryToggleDoor(raycaster)) {
+      userDriving = false;
+      cameraTweening = false;
+    }
+  }
+
+  renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  renderer.domElement.addEventListener('pointerup', onPointerUp);
+
   /* ---- Render loop ---- */
 
   let active = true;
@@ -265,6 +296,8 @@ export function createStage(initialContainer: HTMLElement): Stage {
   function dispose(): void {
     disposed = true;
     window.removeEventListener('resize', resize);
+    renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+    renderer.domElement.removeEventListener('pointerup', onPointerUp);
     controls.dispose();
     shower.dispose();
     railings.dispose();

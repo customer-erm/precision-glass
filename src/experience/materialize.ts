@@ -66,9 +66,37 @@ export function materializeSlide(slide: HTMLElement, opts?: { stagger?: number }
   // Separate wrappers (set visible immediately) from cards (assemble)
   const wrappers = units.filter((u) => u.classList.contains('slide-el')
     && u.querySelectorAll(CARD_SELECTOR).length >= 2);
-  const pieces = units.filter((u) => !wrappers.includes(u));
+  const headings = Array.from(slide.querySelectorAll<HTMLElement>('.slide-heading, .slide-title, .slide-label'));
+  const pieces = units.filter((u) => !wrappers.includes(u) && !headings.includes(u));
 
   if (wrappers.length) tl.set(wrappers, { opacity: 1, y: 0, clearProps: 'filter' }, 0);
+
+  if (headings.length) {
+    tl.fromTo(
+      headings,
+      {
+        opacity: 0,
+        y: 18,
+        scale: 0.985,
+        clipPath: 'inset(0 100% 0 0)',
+        filter: 'blur(8px) brightness(1.45)',
+        textShadow: '0 0 28px rgba(125, 211, 252, 0.7)',
+      },
+      {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        clipPath: 'inset(0 0% 0 0)',
+        filter: 'blur(0px) brightness(1)',
+        textShadow: '0 2px 28px rgba(8, 20, 40, 0.85)',
+        duration: 0.72,
+        ease: 'power3.out',
+        stagger: 0.08,
+        clearProps: 'clipPath,filter,textShadow,transform',
+      },
+      0,
+    );
+  }
 
   tl.fromTo(
     pieces,

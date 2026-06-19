@@ -49,7 +49,7 @@ export const images = {
       { id: 'acc-pull', src: '/images/shower-details/accessories/pull.webp', label: 'Pull Handles', desc: 'Tubular pull handles' },
       { id: 'acc-uhandle', src: '/images/shower-details/accessories/u-handle-1.webp', label: 'U-Handles', desc: 'Classic U-shaped handles' },
       { id: 'acc-hook', src: '/images/shower-details/accessories/hook.webp', label: 'Robe Hooks', desc: 'Through-glass robe hooks' },
-      { id: 'acc-towel', src: '/images/shower-details/accessories/towel.webp', label: 'Towel Bars', desc: 'Through-glass towel bars' },
+      { id: 'acc-towel', src: '/images/shower-details/accessories/towel.webp', label: 'Towel Bar / Pull Combo', desc: 'Outside pull with inside towel rail' },
       { id: 'acc-ladder', src: '/images/shower-details/accessories/ladder2.webp', label: 'Ladder Pulls', desc: 'Ladder-style door pulls' },
       { id: 'acc-grid', src: '/images/shower-details/accessories/grid.webp', label: 'Grid Patterns', desc: 'Decorative glass grids' },
       { id: 'acc-kit', src: '/images/shower-details/accessories/kit.webp', label: 'Hardware Kits', desc: 'Complete hardware sets' },
