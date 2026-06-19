@@ -968,6 +968,38 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     return collar;
   }
 
+  // A grab/towel bar modelled as ONE smooth tube: it runs parallel to the glass
+  // then bends with rounded 90° elbows down to two flush feet — the real shape of
+  // a D-pull or towel bar, with no exposed bolts. Stays entirely on one face of
+  // the glass so it never warps. axis 'v' = bar along Y, 'h' = bar along X.
+  // length = straight grip span; faceZ = signed offset from glass (+out / -in).
+  function smoothBracketBar(opts: { axis: 'v' | 'h'; length: number; faceZ: number; r?: number; cx?: number; cy?: number }): THREE.Group {
+    const r = opts.r ?? 0.0125;
+    const cx = opts.cx ?? 0, cy = opts.cy ?? 0;
+    const fz = opts.faceZ;
+    const half = opts.length / 2;
+    const e = Math.min(0.05, Math.abs(fz) * 0.95, opts.length * 0.45); // elbow reach
+    const footZ = 0.0009 * Math.sign(fz || 1);                          // ~flush at glass
+    const pts2: Array<[number, number]> = [
+      [-(half + e), footZ],
+      [-(half + e * 0.4), fz * 0.62],
+      [-half, fz],
+      [half, fz],
+      [half + e * 0.4, fz * 0.62],
+      [half + e, footZ],
+    ];
+    const v3 = pts2.map(([u, z]) => opts.axis === 'v'
+      ? new THREE.Vector3(cx, cy + u, z)
+      : new THREE.Vector3(cx + u, cy, z));
+    const curve = new THREE.CatmullRomCurve3(v3, false, 'centripetal');
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 88, r, 18, false), metalMat));
+    for (const end of [v3[0], v3[v3.length - 1]]) {
+      g.add(mountCollar(end.x, end.y, 0.005 * Math.sign(fz || 1), r * 1.5, 0.01));
+    }
+    return g;
+  }
+
   // Through-glass mount: a clean bolt with a tapered escutcheon collar on each
   // face of the glass — the building block for towel bars, robe hooks, combos.
   function addThroughGlassPost(groupRef: THREE.Group, x: number, y: number, radius = 0.011): void {
@@ -1022,41 +1054,18 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     }
   }
 
-  // Towel-bar pull combo, modelled as ONE continuous smooth tube: it starts
-  // flush at the glass (towel-bar far end), runs along the inside as the towel
-  // bar, arcs up and over through the glass at the latch, drops down the outside
-  // as the grab pull, and curls back flush to the glass at the bottom. No corner
-  // joints or exposed bolts — both ground ends sit flush against the glass.
-  // Scaled to the door width so it never overhangs (e.g. the narrow neo door).
+  // Towel-bar / pull combo: a grab pull (D-handle) on the OUTSIDE plus a towel
+  // bar on the INSIDE, each a clean smooth bracket-bar with rounded elbow feet
+  // (no exposed bolts). The towel bar sits near the top of the pull, like the
+  // real CRL combo. Width scales to the door so it never overhangs (neo door).
   function addTowelHandleCombo(groupRef: THREE.Group, doorW: number): void {
-    const railW = clamp(doorW - 0.2, 0.22, 0.48); // inside towel-bar reach toward the hinge
-    const h = 0.3;                                  // outside grab-pull height
-    const sz = 0.075;                               // bar offset from the glass
-    const r = 0.0125;
-    const topY = h / 2, botY = -h / 2;
-    const farX = -railW;
-
-    const pts = [
-      new THREE.Vector3(farX, topY, 0.003),          // towel far end — flush at glass
-      new THREE.Vector3(farX + 0.018, topY, -sz * 0.6),
-      new THREE.Vector3(farX * 0.5, topY, -sz),      // towel bar, inside face
-      new THREE.Vector3(-0.035, topY, -sz),
-      new THREE.Vector3(0, topY + 0.05, -sz * 0.45), // arc up & over the top…
-      new THREE.Vector3(0, topY + 0.066, 0),         // …crossing the glass plane
-      new THREE.Vector3(0, topY + 0.05, sz * 0.45),
-      new THREE.Vector3(0, topY, sz),                // grab pull, outside face
-      new THREE.Vector3(0, botY, sz),
-      new THREE.Vector3(0, botY - 0.032, sz * 0.55), // gentle return hook…
-      new THREE.Vector3(0, botY - 0.044, 0.003),     // …flush at glass
-    ];
-    const curve = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5);
-    const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 96, r, 18, false), metalMat);
-    groupRef.add(tube);
-
-    // Slim flush flanges where the tube meets the glass — finished, not poking.
-    for (const [fx, fy] of [[farX, topY], [0, botY - 0.044]] as Array<[number, number]>) {
-      groupRef.add(mountCollar(fx, fy, 0.006, r * 1.5, 0.01));
-    }
+    const railW = clamp(doorW - 0.22, 0.24, 0.5); // inside towel-bar span toward hinge
+    const pullH = 0.3;
+    const sz = 0.075;
+    // Outside grab pull, centred on the latch
+    groupRef.add(smoothBracketBar({ axis: 'v', length: pullH, faceZ: sz }));
+    // Inside towel bar, hung near the pull's top, running toward the hinge (-x)
+    groupRef.add(smoothBracketBar({ axis: 'h', length: railW, faceZ: -sz, cx: -railW / 2, cy: pullH / 2 + 0.02 }));
   }
 
   // Compact through-glass robe hook: thin flush backplate (nothing protrudes on
@@ -1161,39 +1170,18 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     if (key === 'pull') {
       addOutsideVerticalPull(grp);
     } else if (key === 'ladder') {
-      // Two vertical rails with horizontal rungs between them — a statement pull.
-      const railHalf = 0.05;
-      const H = 0.5;
-      const standZ = 0.072;
-      const r = 0.011;
-      for (const x of [-railHalf, railHalf]) {
-        const rail = metalBar(H, r);
-        rail.position.set(x, 0, standZ);
-        grp.add(rail);
-        addMount(x, H / 2 - 0.05, standZ);
-        addMount(x, -H / 2 + 0.05, standZ);
-      }
-      for (const y of [0.18, 0, -0.18]) {
-        const rung = metalBar(railHalf * 2, 0.0095);
-        rung.rotation.z = Math.PI / 2;
-        rung.position.set(0, y, standZ);
-        grp.add(rung);
-      }
+      // A single long back-to-back bar pull (one handle), feet inset from the
+      // rounded ends — like a classic ladder/T-bar pull.
+      const H = 0.64;
+      const standZ = 0.078;
+      const bar = metalBar(H, 0.012);
+      bar.position.z = standZ;
+      grp.add(bar);
+      addMount(0, H / 2 - 0.085, standZ);
+      addMount(0, -H / 2 + 0.085, standZ);
     } else if (key === 'u-handle') {
-      // Squared D-handle: a front grab bar on two legs returning to the glass.
-      const H = 0.28;
-      const standZ = 0.075;
-      const r = 0.012;
-      const front = metalBar(H, r);
-      front.position.z = standZ;
-      grp.add(front);
-      for (const y of [H / 2 - 0.03, -H / 2 + 0.03]) {
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(r, r, standZ - 0.012, 18), metalMat);
-        leg.rotation.x = Math.PI / 2;
-        leg.position.set(0, y, standZ / 2);
-        grp.add(leg);
-        grp.add(mountCollar(0, y, 0.012, 0.02, 0.018));
-      }
+      // Smoothly-curved D-handle: one continuous tube with rounded elbow feet.
+      grp.add(smoothBracketBar({ axis: 'v', length: 0.24, faceZ: 0.072 }));
     } else if (key === 'towel') {
       addTowelHandleCombo(grp, panels.find((p) => p.hasHandle)?.w ?? 0.7);
     } else { // knob — turned backplate, standoff, and a rounded mushroom knob
