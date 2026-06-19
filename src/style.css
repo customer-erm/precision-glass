@@ -6669,18 +6669,25 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup .bg-popup-con
 }
 
 .tour-slideshow.cinematic #slide-gallery .slide-header {
-  position: static !important;
+  position: absolute !important;
+  top: 96px;
+  left: 48px;
+  right: auto;
   transform: none !important;
   z-index: 4;
   display: block !important;
-  margin: 20px 0 0 !important;
-  text-align: center !important;
+  margin: 0 !important;
+  text-align: left !important;
   pointer-events: none;
+}
+/* The chat tour centers the photo and shows no section title. */
+body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery .slide-header {
+  display: none !important;
 }
 
 .tour-slideshow.cinematic #slide-gallery .slide-label,
 .tour-slideshow.cinematic #slide-gallery .slide-heading {
-  text-align: center !important;
+  text-align: left !important;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.82), 0 0 20px rgba(5, 13, 26, 0.9);
 }
 
@@ -6873,4 +6880,113 @@ body.chat-active:has(.tour-slideshow.cinematic) .chat-tour-nav-bar {
 }
 .chat-tour-next.pulse {
   animation: chatNextPulse 1.1s ease-in-out infinite;
+}
+
+/* Contact / "get your rendering" popup — shown at the end of the tour because
+   the inline chat-extras strip is hidden in cinematic mode. */
+.chat-quote-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 10, 22, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.chat-quote-modal.visible { opacity: 1; }
+.chat-quote-modal-card {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: rgba(13, 26, 46, 0.98);
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 60px rgba(80, 160, 255, 0.12);
+  padding: 26px 26px 24px;
+  transform: translateY(14px) scale(0.97);
+  transition: transform 0.35s var(--ease-bounce);
+}
+.chat-quote-modal.visible .chat-quote-modal-card { transform: translateY(0) scale(1); }
+.chat-quote-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  color: var(--white-70);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.chat-quote-modal-close:hover { background: rgba(255, 255, 255, 0.12); color: var(--white); }
+.chat-quote-modal-title {
+  font-size: 1.4rem;
+  margin: 0 0 6px;
+  color: var(--white);
+}
+.chat-quote-modal-desc {
+  font-size: 0.9rem;
+  color: var(--white-70);
+  margin: 0 0 18px;
+  line-height: 1.45;
+}
+.chat-quote-modal .chat-inline-form { display: flex; flex-direction: column; gap: 12px; }
+.chat-quote-modal .chat-form-row { display: flex; flex-direction: column; gap: 12px; }
+.chat-quote-modal .chat-form-row.two-col { flex-direction: row; }
+.chat-quote-modal .chat-form-row.two-col label { flex: 1; min-width: 0; }
+.chat-quote-modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--white-70);
+}
+.chat-quote-modal input,
+.chat-quote-modal select,
+.chat-quote-modal textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: 0;
+  outline: none;
+}
+.chat-quote-modal input:focus,
+.chat-quote-modal select:focus,
+.chat-quote-modal textarea:focus { border-color: var(--blue-400); }
+.chat-quote-modal input.invalid { border-color: #fda4af; }
+.chat-quote-modal textarea { resize: vertical; }
+.chat-quote-submit {
+  margin-top: 6px;
+  padding: 13px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cta-gradient);
+  box-shadow: var(--cta-shadow);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.chat-quote-submit:hover { transform: translateY(-2px); box-shadow: var(--cta-shadow-hover); }
+@media (max-width: 560px) {
+  .chat-quote-modal .chat-form-row.two-col { flex-direction: column; }
 }

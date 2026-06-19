@@ -296,15 +296,35 @@ function wireTourCardsToChips(): void {
 
 async function handleTourCardChoice(card: HTMLElement, clicked = labelForCard(card)): Promise<void> {
   if (!clicked || !driver) return;
-  if (roughMatch(clicked, { label: 'Grid Patterns', action: { kind: 'close' } } as Chip)
-    || roughMatch(clicked, { label: 'Steam Upgrade', action: { kind: 'close' } } as Chip)) {
+
+  // Optional add-on (robe hook): an independent toggle that previews on the
+  // model without touching the handle selection or advancing the tour.
+  if (card.dataset.accessoryKind === 'addon') {
     card.classList.toggle('selected');
-  } else {
-    card.parentElement?.querySelectorAll('.selected').forEach((el) => {
-      if (el !== card) el.classList.remove('selected');
-    });
-    card.classList.add('selected');
+    await driver.toggleAccessory(card.classList.contains('selected'), clicked);
+    return;
   }
+
+  // Grid / Steam upgrades: multi-select toggles — either, both, or neither.
+  if (/grid|steam/i.test(clicked)) {
+    card.classList.toggle('selected');
+    let grid = false;
+    let steam = false;
+    document.querySelectorAll<HTMLElement>('.tour-slide.active .ss-extra-card.selected').forEach((c) => {
+      const l = labelForCard(c).toLowerCase();
+      if (l.includes('grid')) grid = true;
+      if (l.includes('steam')) steam = true;
+    });
+    await driver.previewExtras(grid, steam);
+    return;
+  }
+
+  // Single-select options (enclosure/glass/hardware/handle) — clear only other
+  // single-select cards, leaving any add-on toggle untouched.
+  card.parentElement?.querySelectorAll<HTMLElement>('.selected').forEach((el) => {
+    if (el !== card && el.dataset.accessoryKind !== 'addon') el.classList.remove('selected');
+  });
+  card.classList.add('selected');
   const handled = await driver.chooseOptionByLabel(clicked);
   if (!handled) card.classList.remove('selected');
 }

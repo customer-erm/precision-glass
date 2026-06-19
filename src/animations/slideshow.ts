@@ -331,6 +331,8 @@ function buildGallerySlide(): HTMLElement {
   });
   content.appendChild(container);
   slide.appendChild(content);
+  // Section title, pinned top-left of the slide (hidden during the chat tour).
+  slide.appendChild(makeHeader('', 'Recent Work'));
   return slide;
 }
 

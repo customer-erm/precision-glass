@@ -83,6 +83,17 @@ interface ChatContext {
   goToStep: (id: string) => Promise<void>;
   addAgent: (text: string) => void;
   addUser: (text: string) => void;
+  /** Submit the contact form + kick off the rendering (used by the popup form). */
+  submitQuote: () => Promise<void>;
+}
+
+/** Combine the grid / steam upgrade toggles into the single extras value the
+ *  model and quote understand. */
+function combineExtras(grid: boolean, steam: boolean): string {
+  if (grid && steam) return 'Grid Patterns + Steam Upgrade';
+  if (grid) return 'Grid Patterns';
+  if (steam) return 'Steam Upgrade';
+  return 'none';
 }
 
 /* ------------------------------------------------------------------ */
@@ -259,7 +270,7 @@ function buildSteps(): Record<string, ChatStep> {
       agent: (ctx) =>
         ctx.choices.enclosure?.toLowerCase().includes('splash')
           ? 'Your splash panel is a walk-in, so no handle is needed. I will keep the render clean and avoid adding door hardware.'
-          : 'Nice. Hinges come standard. Which handle style do you like? The rendering will place it opposite the hinge side.',
+          : 'Nice. Hinges come standard. Which handle style do you like? The rendering will place it opposite the hinge side. Want a robe hook too? Tap it to add it to the glass.',
       chips: (ctx) =>
         ctx.choices.enclosure?.toLowerCase().includes('splash')
           ? [{ label: 'Continue', primary: true, action: { kind: 'advance', next: 'showers-extras' } }]
@@ -275,7 +286,7 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'showers-extras',
       progressStep: 9,
       progressTotal: 10,
-      agent: 'Last visual pick - any upgrades? Grid patterns add architectural character, and steam means a more sealed design. Pick one and I will show it on the model before the running-shower frame.',
+      agent: 'Last visual pick — any upgrades? Tap Grid Patterns and/or Steam to preview them live on the model; tap again to remove. Pick either, both, or neither, then hit Next.',
       chips: [
         { label: 'Skip upgrades', primary: true, action: { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: 'none' } },
         { label: 'Add Grid Patterns', action: { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: 'Grid Patterns' } },
@@ -302,7 +313,7 @@ function buildSteps(): Record<string, ChatStep> {
           name: ctx.choices.name || '',
           email: ctx.choices.email || '',
           phone: ctx.choices.phone || '',
-        });
+        }, () => ctx.submitQuote());
       },
       chips: [
         { label: 'Submit my info', primary: true, action: { kind: 'submit-quote' } },
@@ -364,7 +375,7 @@ function buildSteps(): Record<string, ChatStep> {
     'railings-contact': {
       id: 'railings-contact',
       agent: 'Perfect. A few quick details so we can put an accurate quote together?',
-      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '' }),
+      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '' }, () => ctx.submitQuote()),
       chips: [{ label: 'Submit my info', primary: true, action: { kind: 'submit-quote' } }],
     },
 
@@ -421,7 +432,7 @@ function buildSteps(): Record<string, ChatStep> {
     'commercial-contact': {
       id: 'commercial-contact',
       agent: 'Last step — drop your contact so we can send a detailed quote.',
-      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '' }),
+      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '' }, () => ctx.submitQuote()),
       chips: [{ label: 'Submit my info', primary: true, action: { kind: 'submit-quote' } }],
     },
 
@@ -619,39 +630,74 @@ function injectPhotoUploadUI(ctx: ChatContext): void {
   });
 }
 
-function injectContactForm(prefill: { name: string; email: string; phone: string }): void {
-  const container = document.getElementById('chat-extras');
-  if (!container) return;
-  container.innerHTML = '';
+function attr(s: string): string {
+  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
-  const form = document.createElement('form');
-  form.className = 'chat-inline-form';
-  form.id = 'chat-inline-form';
-  form.innerHTML = `
-    <div class="chat-form-row">
-      <label>Name<input type="text" name="name" value="${escape(prefill.name)}" placeholder="Your name"></label>
-    </div>
-    <div class="chat-form-row">
-      <label>Email<input type="email" name="email" value="${escape(prefill.email)}" placeholder="you@example.com"></label>
-    </div>
-    <div class="chat-form-row two-col">
-      <label>Phone<input type="tel" name="phone" value="${escape(prefill.phone)}" placeholder="(555) 123-4567"></label>
-      <label>City<input type="text" name="location" placeholder="e.g. Fort Lauderdale"></label>
-    </div>
-    <div class="chat-form-row">
-      <label>Project stage<select name="timeline">
-        <option value="">Select</option>
-        <option>Ready for field measure</option>
-        <option>Remodel in progress</option>
-        <option>Planning layout</option>
-        <option>Just exploring</option>
-      </select></label>
-    </div>
-    <div class="chat-form-row">
-      <label>Notes<textarea name="notes" rows="3" placeholder="Measurements, swing concerns, tile plans, or anything staff should know"></textarea></label>
+/** Show the contact details as a centered popup (the inline chat-extras strip
+ *  is hidden in the cinematic tour). Name + email are required to generate the
+ *  rendering; everything else is optional context for the team. */
+function injectContactForm(
+  prefill: { name: string; email: string; phone: string },
+  onSubmit?: () => void,
+): void {
+  closeContactForm();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'chat-quote-modal';
+  overlay.id = 'chat-quote-modal';
+  overlay.innerHTML = `
+    <div class="chat-quote-modal-card" role="dialog" aria-label="Get your rendering">
+      <button type="button" class="chat-quote-modal-close" aria-label="Close">&times;</button>
+      <h3 class="chat-quote-modal-title">Get your rendering</h3>
+      <p class="chat-quote-modal-desc">Just your <strong>name and email</strong> generates the design. Add location, timeline, or budget if you'd like the team to tailor a full proposal.</p>
+      <form class="chat-inline-form" id="chat-inline-form">
+        <div class="chat-form-row two-col">
+          <label>Name*<input type="text" name="name" value="${attr(prefill.name)}" placeholder="Your name" required></label>
+          <label>Email*<input type="email" name="email" value="${attr(prefill.email)}" placeholder="you@example.com" required></label>
+        </div>
+        <div class="chat-form-row two-col">
+          <label>Phone<input type="tel" name="phone" value="${attr(prefill.phone)}" placeholder="(555) 123-4567"></label>
+          <label>City<input type="text" name="location" placeholder="e.g. Fort Lauderdale"></label>
+        </div>
+        <div class="chat-form-row two-col">
+          <label>Timeline<select name="timeline">
+            <option value="">Select</option>
+            <option>Ready for field measure</option>
+            <option>Remodel in progress</option>
+            <option>Planning layout</option>
+            <option>Just exploring</option>
+          </select></label>
+          <label>Budget<select name="budget">
+            <option value="">Select</option>
+            <option>Under $2,500</option>
+            <option>$2,500 – $5,000</option>
+            <option>$5,000 – $10,000</option>
+            <option>$10,000+</option>
+          </select></label>
+        </div>
+        <div class="chat-form-row">
+          <label>Notes<textarea name="notes" rows="2" placeholder="Measurements, swing concerns, tile plans, or anything staff should know"></textarea></label>
+        </div>
+        <button type="submit" class="chat-quote-submit primary">Generate my rendering →</button>
+      </form>
     </div>
   `;
-  container.appendChild(form);
+  document.body.appendChild(overlay);
+
+  const close = () => closeContactForm();
+  overlay.querySelector('.chat-quote-modal-close')?.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('#chat-inline-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    onSubmit?.();
+  });
+
+  requestAnimationFrame(() => overlay.classList.add('visible'));
+}
+
+function closeContactForm(): void {
+  document.getElementById('chat-quote-modal')?.remove();
 }
 
 function readContactForm(): Record<string, string> {
@@ -715,6 +761,7 @@ export class ChatDriver {
       goToStep: (id) => this.goToStep(id),
       addAgent: (text) => this.cbs.onAgentMessage?.(text),
       addUser: (text) => this.cbs.onUserMessage?.(text),
+      submitQuote: () => this.submitQuote(),
     };
     // Preload known info from user storage
     const user = loadUser();
@@ -758,9 +805,11 @@ export class ChatDriver {
       console.warn('[Chat] Unknown step:', id);
       return;
     }
-    // Entering a new step clears any un-committed preview selection.
+    // Entering a new step clears any un-committed preview selection and any
+    // open contact popup (the contact step re-injects its own via onEnter).
     this.pendingAction = null;
     this.cbs.onPendingNext?.(false);
+    closeContactForm();
     this.currentStep = step;
     this.cbs.onInputMode?.(!!step.requiresTextInput, step.id);
 
@@ -822,6 +871,73 @@ export class ChatDriver {
     }
     this.pendingAction = action;
     this.cbs.onPendingNext?.(true);
+  }
+
+  /** Live-preview the grid/steam upgrade combination on the model and arm Next
+   *  to commit it. Either, both, or neither can be active. */
+  async previewExtras(grid: boolean, steam: boolean): Promise<void> {
+    const combined = combineExtras(grid, steam);
+    this.ctx.choices.extras = combined;
+    await handleToolCall('preview_option', { category: 'extras', value: combined });
+    this.pendingAction = { kind: 'advance', next: 'showers-quote', choiceCategory: 'extras', choice: combined };
+    this.cbs.onPendingNext?.(true);
+  }
+
+  /** Toggle an optional add-on (e.g. the robe hook) on the model. It is an
+   *  independent accessory — it does not affect the handle selection. */
+  async toggleAccessory(on: boolean, value = 'Robe Hook'): Promise<void> {
+    this.ctx.choices.accessories = on ? value : '';
+    await handleToolCall('preview_option', { category: 'accessories', value: on ? value : 'none' });
+  }
+
+  /** Submit the contact form and kick off the rendering. Shared by the
+   *  "Submit" chip and the popup form's own submit button. */
+  async submitQuote(): Promise<void> {
+    // If the popup was dismissed, bring it back so they have somewhere to type.
+    if (!document.getElementById('chat-inline-form')) {
+      injectContactForm(
+        { name: this.ctx.choices.name || '', email: this.ctx.choices.email || '', phone: this.ctx.choices.phone || '' },
+        () => this.submitQuote(),
+      );
+      return;
+    }
+    const form = readContactForm();
+    if (!form.name || !form.email) {
+      const nameInput = document.querySelector('#chat-inline-form [name="name"]') as HTMLInputElement | null;
+      const emailInput = document.querySelector('#chat-inline-form [name="email"]') as HTMLInputElement | null;
+      if (nameInput && !form.name) nameInput.classList.add('invalid');
+      if (emailInput && !form.email) emailInput.classList.add('invalid');
+      this.cbs.onAgentMessage?.('I just need your name and email to generate the rendering — the rest is optional.');
+      return;
+    }
+
+    Object.assign(this.ctx.choices, form);
+
+    saveUser({
+      name: this.ctx.choices.name,
+      email: this.ctx.choices.email,
+      phone: this.ctx.choices.phone,
+      location: this.ctx.choices.location,
+      timeline: this.ctx.choices.timeline,
+      notes: this.ctx.choices.notes,
+      preferredMode: 'chat',
+      lastQuote: {
+        service: activeChatService(this.ctx.choices),
+        enclosure: this.ctx.choices.enclosure || this.ctx.choices['rail-type'] || this.ctx.choices['com-type'],
+        glass: this.ctx.choices.glass || this.ctx.choices['rail-glass'] || this.ctx.choices['com-glass'],
+        hardware: this.ctx.choices.hardware || this.ctx.choices['rail-finish'] || this.ctx.choices['com-framing'],
+        handle: this.ctx.choices.handle || this.ctx.choices['rail-mounting'] || this.ctx.choices['com-scope'],
+        accessories: this.ctx.choices.accessories,
+        extras: this.ctx.choices.extras,
+        doorPlacement: this.ctx.choices.doorPlacement,
+        photoSource: this.ctx.choices.photoSource,
+      },
+    });
+
+    closeContactForm();
+    populateEditorialFromChoices(this.ctx.choices);
+    unlockAndGenerateViz(this.ctx.choices);
+    setTimeout(() => this.goToStep('done'), 600);
   }
 
   async goBack(): Promise<boolean> {
@@ -954,56 +1070,7 @@ export class ChatDriver {
         break;
       }
       case 'submit-quote': {
-        // Read the form BEFORE any async work — fields could be cleared later
-        const form = readContactForm();
-        console.log('[Chat] Form read on submit:', form);
-
-        // Validate required fields
-        if (!form.name || !form.email) {
-          const nameInput = document.querySelector('#chat-inline-form [name="name"]') as HTMLInputElement | null;
-          const emailInput = document.querySelector('#chat-inline-form [name="email"]') as HTMLInputElement | null;
-          if (nameInput && !form.name) nameInput.classList.add('invalid');
-          if (emailInput && !form.email) emailInput.classList.add('invalid');
-          this.cbs.onAgentMessage?.('I need at least your name and email to send the quote. Can you fill those in?');
-          return;
-        }
-
-        // Merge form values into choices
-        Object.assign(this.ctx.choices, form);
-
-        // Persist for next visit
-        saveUser({
-          name: this.ctx.choices.name,
-          email: this.ctx.choices.email,
-          phone: this.ctx.choices.phone,
-          location: this.ctx.choices.location,
-          timeline: this.ctx.choices.timeline,
-          notes: this.ctx.choices.notes,
-          preferredMode: 'chat',
-          lastQuote: {
-            service: activeChatService(this.ctx.choices),
-            enclosure: this.ctx.choices.enclosure || this.ctx.choices['rail-type'] || this.ctx.choices['com-type'],
-            glass: this.ctx.choices.glass || this.ctx.choices['rail-glass'] || this.ctx.choices['com-glass'],
-            hardware: this.ctx.choices.hardware || this.ctx.choices['rail-finish'] || this.ctx.choices['com-framing'],
-            handle: this.ctx.choices.handle || this.ctx.choices['rail-mounting'] || this.ctx.choices['com-scope'],
-            accessories: this.ctx.choices.accessories,
-            extras: this.ctx.choices.extras,
-            doorPlacement: this.ctx.choices.doorPlacement,
-            photoSource: this.ctx.choices.photoSource,
-          },
-        });
-
-        console.log('[Chat] Quote submitted with choices:', this.ctx.choices);
-
-        // Re-populate the editorial card with the final choices (including
-        // newly-submitted contact fields like name/email/phone shown there)
-        populateEditorialFromChoices(this.ctx.choices);
-
-        // Unlock the AI visualization and trigger image generation.
-        // Single path — no duplicate present_quote call to race with.
-        unlockAndGenerateViz(this.ctx.choices);
-
-        setTimeout(() => this.goToStep('done'), 600);
+        await this.submitQuote();
         break;
       }
       case 'close': {
