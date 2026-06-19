@@ -329,9 +329,7 @@ function buildGallerySlide(): HTMLElement {
   srcs.forEach((src, i) => {
     container.appendChild(h('img', { src, alt: `Installation ${i + 1}` }));
   });
-  // Caption sits UNDER the photos (no eyebrow label).
   content.appendChild(container);
-  content.appendChild(makeHeader('', 'Recent Work'));
   slide.appendChild(content);
   return slide;
 }

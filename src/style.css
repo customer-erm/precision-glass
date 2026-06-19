@@ -6696,7 +6696,7 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup .bg-popup-con
 body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery.cine-side {
   align-items: center !important;
   justify-content: flex-end !important;
-  padding: 64px 0 248px !important;
+  padding: 64px 0 !important;
 }
 
 body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery.cine-side .slide-content {
