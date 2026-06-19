@@ -219,24 +219,17 @@ function buildGallerySlide(): HTMLElement {
   const slide = makeSlide('gallery');
   const content = h('div', { className: 'slide-content' });
   content.appendChild(makeHeader('PORTFOLIO', 'Our Recent Work'));
-  // Showers gallery uses real portrait install photos in a vertical-card row;
-  // other services keep the cross-fade.
-  const vertical = activeService === 'showers' ? images.showers.galleryVertical : undefined;
-  if (vertical && vertical.length) {
-    const row = h('div', { className: 'ss-gallery-vert slide-el' });
-    vertical.forEach((src, i) => {
-      const card = h('div', { className: 'ss-vert-card' });
-      card.appendChild(h('img', { src, alt: `Installation ${i + 1}`, loading: 'lazy' }));
-      row.appendChild(card);
-    });
-    content.appendChild(row);
-  } else {
-    const container = h('div', { className: 'ss-gallery-fade slide-el' });
-    images[activeService].gallery.forEach((src, i) => {
-      container.appendChild(h('img', { src, alt: `Installation ${i + 1}` }));
-    });
-    content.appendChild(container);
-  }
+  // Showers: a single-at-a-time 9:16 portrait cross-fade of real install photos.
+  // Other services keep the 16:9 cross-fade.
+  const vertical = activeService === 'showers' && images.showers.galleryVertical.length
+    ? images.showers.galleryVertical
+    : null;
+  const srcs = vertical ?? images[activeService].gallery;
+  const container = h('div', { className: `ss-gallery-fade slide-el${vertical ? ' ss-gallery-portrait' : ''}` });
+  srcs.forEach((src, i) => {
+    container.appendChild(h('img', { src, alt: `Installation ${i + 1}` }));
+  });
+  content.appendChild(container);
   slide.appendChild(content);
   return slide;
 }

@@ -1042,17 +1042,25 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     towel.position.set((latchX + farX) / 2, topY, inZ);
     groupRef.add(towel);
 
-    // Through-glass mounts (collars on both faces) at the three anchor points.
-    for (const [x, y] of [[latchX, topY], [latchX, botY], [farX, topY]] as Array<[number, number]>) {
-      addThroughGlassPost(groupRef, x, y, 0.01);
-    }
-    // Short standoffs linking glass → bar at each end.
+    // Each mount is FLUSH on both faces (thin escutcheon discs) with the bolt
+    // hidden inside the glass — a standoff only reaches out to the bar on the
+    // side that actually uses it. So the pull's unused inside end and the towel
+    // bar's unused outside end sit flush against the glass (no protrusion).
+    const mount = (x: number, y: number): void => {
+      groupRef.add(mountCollar(x, y, 0.009, 0.02, 0.012));
+      groupRef.add(mountCollar(x, y, -0.009, 0.02, 0.012));
+      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.03, 16), metalMat);
+      bolt.rotation.x = Math.PI / 2;
+      bolt.position.set(x, y, 0);
+      groupRef.add(bolt);
+    };
     const link = (x: number, y: number, z: number): void => {
       const s = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.0085, Math.abs(z) - 0.012, 18), metalMat);
       s.rotation.x = Math.PI / 2;
       s.position.set(x, y, z / 2);
       groupRef.add(s);
     };
+    mount(latchX, topY); mount(latchX, botY); mount(farX, topY);
     link(latchX, topY, outZ); link(latchX, botY, outZ);  // outside pull
     link(latchX, topY, inZ); link(farX, topY, inZ);       // inside towel bar
   }
