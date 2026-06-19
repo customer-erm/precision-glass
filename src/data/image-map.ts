@@ -10,6 +10,14 @@ export const images = {
       '/images/showers/showers-7.webp',
       '/images/showers/showers-8.webp',
     ],
+    // Portrait shots for the "Our Work" tab (shown as a row of vertical cards).
+    galleryVertical: [
+      '/images/showers/vertical/v1.webp',
+      '/images/showers/vertical/v2.webp',
+      '/images/showers/vertical/v3.webp',
+      '/images/showers/vertical/v4.webp',
+      '/images/showers/vertical/v5.webp',
+    ],
     enclosures: [
       { id: 'enc-single', src: '/images/shower-details/enclosures-3d/single-door.jpg', label: 'Single Door', desc: 'Clean, minimal entry point for alcove showers' },
       { id: 'enc-door-panel', src: '/images/shower-details/enclosures-3d/door-panel.jpg', label: 'Door + Panel', desc: 'Door with fixed panel for wider openings' },

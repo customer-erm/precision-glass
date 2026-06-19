@@ -59,9 +59,9 @@
 .tour-slideshow.cinematic #slide-intro .slide-content.slide-center {
   text-align: left;
   align-items: flex-start;
-  max-width: 520px;
+  max-width: 460px;
   margin-right: auto;
-  margin-left: 6vw;
+  margin-left: 3.5vw;
 }
 .tour-slideshow.cinematic #slide-intro .slide-title {
   font-size: 3.1rem;

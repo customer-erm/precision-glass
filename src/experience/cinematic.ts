@@ -39,7 +39,7 @@ const SIDE_SLIDES_BY_SERVICE: Record<ServiceType, Set<string>> = {
 };
 
 const SHOWER_STATIONS: Record<string, CameraSpec> = {
-  intro: { angle: 0.55, distance: 6.8, height: 2.4, lateral: -0.85 }, // copy left, model right
+  intro: { angle: 0.55, distance: 6.6, height: 2.2, lateral: -1.05, targetHeight: 1.05 }, // copy left, model right (clears the text)
   gallery: { angle: -0.6, distance: 6.6, height: 1.9, lateral: 1.55 },
   enclosures: { angle: 0.05, distance: 5.0, height: 1.7, lateral: 1.15 },
   glass: { angle: -0.5, distance: 3.6, height: 1.5, lateral: 0.95 },

@@ -219,11 +219,24 @@ function buildGallerySlide(): HTMLElement {
   const slide = makeSlide('gallery');
   const content = h('div', { className: 'slide-content' });
   content.appendChild(makeHeader('PORTFOLIO', 'Our Recent Work'));
-  const container = h('div', { className: 'ss-gallery-fade slide-el' });
-  images.showers.gallery.forEach((src, i) => {
-    container.appendChild(h('img', { src, alt: `Installation ${i + 1}` }));
-  });
-  content.appendChild(container);
+  // Showers gallery uses real portrait install photos in a vertical-card row;
+  // other services keep the cross-fade.
+  const vertical = activeService === 'showers' ? images.showers.galleryVertical : undefined;
+  if (vertical && vertical.length) {
+    const row = h('div', { className: 'ss-gallery-vert slide-el' });
+    vertical.forEach((src, i) => {
+      const card = h('div', { className: 'ss-vert-card' });
+      card.appendChild(h('img', { src, alt: `Installation ${i + 1}`, loading: 'lazy' }));
+      row.appendChild(card);
+    });
+    content.appendChild(row);
+  } else {
+    const container = h('div', { className: 'ss-gallery-fade slide-el' });
+    images[activeService].gallery.forEach((src, i) => {
+      container.appendChild(h('img', { src, alt: `Installation ${i + 1}` }));
+    });
+    content.appendChild(container);
+  }
   slide.appendChild(content);
   return slide;
 }
