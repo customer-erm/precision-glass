@@ -6164,3 +6164,331 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup {
     max-height: calc(100svh - 284px);
   }
 }
+
+/* ============================================
+   Agent-guided overlay - no chat box
+   ============================================ */
+.chat-question-btn {
+  display: none;
+  position: absolute;
+  right: 70px;
+  bottom: 18px;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border-light);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--blue-200);
+  font-family: var(--font-display);
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.chat-panel.visible .chat-question-btn {
+  display: flex;
+}
+
+.chat-panel:not(.needs-input):not(.question-open) .chat-input-row {
+  display: none;
+}
+
+.chat-panel.needs-input .chat-input-row,
+.chat-panel.question-open .chat-input-row {
+  display: flex;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.visible {
+  top: auto;
+  left: 26px;
+  right: auto;
+  bottom: 24px;
+  width: min(720px, calc(100vw - 52px));
+  height: 118px;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
+  pointer-events: none;
+  transform-origin: bottom left;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel::before {
+  content: '';
+  position: absolute;
+  left: -28px;
+  right: -80px;
+  bottom: -26px;
+  height: 190px;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(5, 13, 26, 0.88), rgba(5, 13, 26, 0.34) 58%, transparent);
+  z-index: -1;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-header {
+  position: absolute;
+  left: 0;
+  top: auto;
+  bottom: 0;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-avatar {
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(125, 211, 252, 0.42);
+  box-shadow: 0 0 24px rgba(125, 211, 252, 0.24), 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-meta,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-role,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-name,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-progress,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-extras {
+  display: none !important;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-actions {
+  position: absolute;
+  left: 38px;
+  bottom: 34px;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-restart,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-close {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(6, 15, 30, 0.58);
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  color: rgba(245, 249, 255, 0.72);
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-restart span {
+  display: none;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-messages {
+  position: absolute;
+  left: 74px;
+  right: 0;
+  top: 0;
+  bottom: 34px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, transparent 0, #000 20px, #000 100%);
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-msg {
+  max-width: min(640px, calc(100vw - 130px));
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-avatar {
+  display: none;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-bubble {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(248, 251, 255, 0.96);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.36;
+  letter-spacing: 0;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.8), 0 0 24px rgba(125, 211, 252, 0.22);
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-chips {
+  position: absolute;
+  left: 74px;
+  right: auto;
+  bottom: -2px;
+  width: min(560px, calc(100vw - 150px));
+  height: auto;
+  max-height: none;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  gap: 8px;
+  scrollbar-width: none;
+  background: transparent;
+  pointer-events: auto;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(9, 22, 40, 0.72);
+  border-color: rgba(125, 211, 252, 0.25);
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-question-btn {
+  display: flex;
+  position: absolute;
+  left: 48px;
+  bottom: -2px;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.32);
+  background: rgba(8, 20, 38, 0.68);
+  color: rgba(232, 244, 255, 0.86);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-question-btn:hover {
+  border-color: rgba(125, 211, 252, 0.72);
+  color: var(--white);
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-input-row {
+  display: none;
+  position: absolute;
+  left: 74px;
+  right: auto;
+  bottom: -8px;
+  width: min(420px, calc(100vw - 150px));
+  padding: 0;
+  border: 0;
+  gap: 8px;
+  background: transparent;
+  pointer-events: auto;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.needs-input .chat-input-row,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.question-open .chat-input-row {
+  display: flex;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.needs-input {
+  height: 162px;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.needs-input .chat-messages {
+  bottom: 78px;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.needs-input .chat-chips {
+  bottom: 42px;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.question-open .chat-chips {
+  display: none !important;
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-input {
+  min-height: 42px;
+  padding: 10px 14px;
+  background: rgba(7, 18, 34, 0.78);
+  border-color: rgba(125, 211, 252, 0.3);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.24);
+}
+
+body.chat-active:has(.tour-slideshow.cinematic) .chat-send-btn {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+}
+
+@media (max-width: 760px) {
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.visible {
+    left: 14px;
+    right: 14px;
+    bottom: 12px;
+    width: auto;
+    height: 126px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel::before {
+    left: -14px;
+    right: -14px;
+    bottom: -12px;
+    height: 178px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-header {
+    left: 0;
+    bottom: 0;
+    width: 50px;
+    height: 50px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-actions {
+    left: 34px;
+    bottom: 32px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-messages {
+    left: 64px;
+    right: 4px;
+    top: 0;
+    bottom: 38px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-bubble {
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.28;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-chips {
+    left: 64px;
+    width: calc(100vw - 96px);
+    bottom: 0;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-question-btn {
+    left: 42px;
+    bottom: -1px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .chat-input-row {
+    left: 64px;
+    width: calc(100vw - 92px);
+    bottom: -4px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .tour-slide.cine-side {
+    padding-bottom: 146px;
+  }
+
+  body.chat-active:has(.tour-slideshow.cinematic) .tour-slide.cine-side .slide-content {
+    bottom: 146px;
+  }
+}

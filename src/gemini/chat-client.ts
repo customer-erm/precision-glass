@@ -267,6 +267,7 @@ function buildSteps(): Record<string, ChatStep> {
               { label: 'Pull Handle', hint: 'Most popular', primary: true, action: { kind: 'advance', next: 'showers-extras', choiceCategory: 'handle', choice: 'Pull Handle' } },
               { label: 'U-Handle', action: { kind: 'advance', next: 'showers-extras', choiceCategory: 'handle', choice: 'U-Handle' } },
               { label: 'Ladder Pull', hint: 'Statement', action: { kind: 'advance', next: 'showers-extras', choiceCategory: 'handle', choice: 'Ladder Pull' } },
+              { label: 'Towel Bar / Pull Combo', hint: 'Handle + towel rail', action: { kind: 'advance', next: 'showers-extras', choiceCategory: 'handle', choice: 'Towel Bar / Pull Combo' } },
               { label: 'Knob', hint: 'Minimal', action: { kind: 'advance', next: 'showers-extras', choiceCategory: 'handle', choice: 'Knob' } },
             ],
     },
@@ -673,6 +674,7 @@ export type ChatCallbacks = {
   onAgentMessage?: (text: string) => void;
   onUserMessage?: (text: string) => void;
   onChips?: (chips: Chip[]) => void;
+  onInputMode?: (enabled: boolean, stepId: string) => void;
   onProgress?: (step: number | null, total: number | null) => void;
   onTypingStart?: () => void;
   onTypingEnd?: () => void;
@@ -705,6 +707,7 @@ export class ChatDriver {
   }
 
   get isActive(): boolean { return this.active; }
+  get stepId(): string | null { return this.currentStep?.id ?? null; }
 
   async start(): Promise<void> {
     this.active = true;
@@ -724,6 +727,7 @@ export class ChatDriver {
       return;
     }
     this.currentStep = step;
+    this.cbs.onInputMode?.(!!step.requiresTextInput, step.id);
 
     // Typing indicator
     this.cbs.onTypingStart?.();
@@ -743,11 +747,26 @@ export class ChatDriver {
     step.onEnter?.(this.ctx);
   }
 
+  currentChips(): Chip[] {
+    const chips = this.currentStep?.chips
+      ? (typeof this.currentStep.chips === 'function' ? this.currentStep.chips(this.ctx) : this.currentStep.chips)
+      : [];
+    return chips;
+  }
+
   async onChipTapped(chip: Chip): Promise<void> {
     this.cbs.onUserMessage?.(chip.label);
     this.cbs.onChips?.([]);
 
     await this.executeAction(chip.action);
+  }
+
+  async chooseOptionByLabel(label: string): Promise<boolean> {
+    const chip = findChipForLabel(label, this.currentChips());
+    if (!chip) return false;
+    this.cbs.onChips?.([]);
+    await this.executeAction(chip.action);
+    return true;
   }
 
   async onUserText(text: string): Promise<void> {
@@ -983,6 +1002,31 @@ function fuzzyMatch(input: string, target: string): boolean {
   const short = a.length < b.length ? a : b;
   const long = a.length < b.length ? b : a;
   return short.split(' ').every((w) => w.length < 2 || long.includes(w));
+}
+
+function findChipForLabel(label: string, chips: Chip[]): Chip | null {
+  if (!chips.length) return null;
+  const normalized = label.toLowerCase();
+  const direct = chips.find((chip) => fuzzyMatch(label, chip.label));
+  if (direct) return direct;
+
+  const byNeedle = (needle: string) => chips.find((chip) => chip.label.toLowerCase().includes(needle)) || null;
+  if (normalized.includes('grid')) return byNeedle('grid');
+  if (normalized.includes('steam')) return byNeedle('steam');
+  if (normalized.includes('towel')) return byNeedle('towel') || byNeedle('pull');
+  if (normalized.includes('pull')) return byNeedle('pull');
+  if (normalized.includes('u-handle') || normalized.includes('u handle')) return byNeedle('u-handle') || byNeedle('u handle');
+  if (normalized.includes('ladder')) return byNeedle('ladder');
+  if (normalized.includes('knob')) return byNeedle('knob');
+  if (normalized.includes('hook')) return byNeedle('hook') || byNeedle('continue');
+  if (normalized.includes('clear')) return byNeedle('clear');
+  if (normalized.includes('frost')) return byNeedle('frost');
+  if (normalized.includes('rain')) return byNeedle('rain');
+  if (normalized.includes('chrome')) return byNeedle('chrome');
+  if (normalized.includes('nickel')) return byNeedle('nickel');
+  if (normalized.includes('black')) return byNeedle('black');
+  if (normalized.includes('brass')) return byNeedle('brass');
+  return null;
 }
 
 function escape(s: string): string {

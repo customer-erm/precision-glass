@@ -12,6 +12,9 @@ import { ChatDriver, type Chip } from '../gemini/chat-client';
 const SEND_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 
 let driver: ChatDriver | null = null;
+let currentChips: Chip[] = [];
+let inputRequired = false;
+let typewriterToken = 0;
 
 /* ------------------------------------------------------------------ */
 /*  DOM                                                                */
@@ -66,6 +69,16 @@ export function buildChatPanel(): HTMLElement {
   const chips = el('div', { className: 'chat-chips', id: 'chat-chips' });
   panel.appendChild(chips);
 
+  const questionBtn = el('button', {
+    className: 'chat-question-btn',
+    id: 'chat-question-btn',
+    type: 'button',
+    textContent: '?',
+    ariaLabel: 'Ask Alex a question',
+    title: 'Ask Alex a question',
+  });
+  panel.appendChild(questionBtn);
+
   // Input
   const inputRow = el('form', { className: 'chat-input-row', id: 'chat-input-form' });
   const input = el('input', {
@@ -96,9 +109,12 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
   const msgs = document.getElementById('chat-messages');
   if (!msgs) return document.createElement('div');
 
+  if (kind === 'user') return document.createElement('div');
+
   if (kind !== 'typing') {
     msgs.querySelectorAll('.chat-msg.typing').forEach((n) => n.remove());
   }
+  if (kind === 'agent' || kind === 'typing') msgs.innerHTML = '';
 
   const row = el('div', { className: `chat-msg chat-msg-${kind}` });
   if (kind === 'agent' || kind === 'typing') {
@@ -122,19 +138,21 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
 }
 
 function typeAgentMessage(bubble: HTMLElement, text: string, msgs: HTMLElement): void {
+  const token = ++typewriterToken;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || text.length < 24) {
     bubble.innerHTML = formatChatText(text);
     return;
   }
   bubble.classList.add('typewriting');
-  const step = Math.max(1, Math.ceil(text.length / 120));
+  const step = Math.max(2, Math.ceil(text.length / 52));
   let i = 0;
   const tick = (): void => {
+    if (token !== typewriterToken) return;
     i = Math.min(text.length, i + step);
     bubble.innerHTML = formatChatText(text.slice(0, i));
     msgs.scrollTop = msgs.scrollHeight;
     if (i < text.length) {
-      window.setTimeout(tick, 12);
+      window.setTimeout(tick, 8);
     } else {
       bubble.classList.remove('typewriting');
       bubble.innerHTML = formatChatText(text);
@@ -154,10 +172,12 @@ function formatChatText(text: string): string {
 }
 
 function renderChips(chips: Chip[]): void {
+  currentChips = chips;
+  wireTourCardsToChips();
   const wrap = document.getElementById('chat-chips');
   if (!wrap) return;
   wrap.innerHTML = '';
-  if (!chips.length) {
+  if (!chips.length || shouldUseTourCards(chips)) {
     wrap.style.display = 'none';
     return;
   }
@@ -176,6 +196,94 @@ function renderChips(chips: Chip[]): void {
     });
     wrap.appendChild(btn);
   });
+}
+
+function setInputMode(enabled: boolean, stepId: string): void {
+  inputRequired = enabled;
+  const panel = document.getElementById('chat-panel');
+  const input = document.getElementById('chat-input') as HTMLInputElement | null;
+  panel?.classList.toggle('needs-input', enabled);
+  panel?.classList.remove('question-open');
+  if (!input) return;
+  if (stepId.includes('gallery') || stepId.includes('email')) {
+    input.type = 'email';
+    input.placeholder = 'Enter email...';
+  } else {
+    input.type = 'text';
+    input.placeholder = stepId === 'greet' ? 'Enter your name...' : 'Type your answer...';
+  }
+}
+
+function labelForCard(card: HTMLElement): string {
+  return (
+    card.getAttribute('data-label')
+    || card.querySelector('h4')?.textContent
+    || card.querySelector('img')?.getAttribute('alt')
+    || card.textContent
+    || ''
+  ).trim();
+}
+
+function activeTourCards(): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>(
+    '.tour-slide.active.cine-side .ss-enc-card, ' +
+    '.tour-slide.active.cine-side .ss-glass-card, ' +
+    '.tour-slide.active.cine-side .ss-hw-card, ' +
+    '.tour-slide.active.cine-side .ss-acc-card, ' +
+    '.tour-slide.active.cine-side .ss-extra-card, ' +
+    '.tour-slide.active.cine-side .ss-info-bullet',
+  ));
+}
+
+function roughMatch(label: string, chip: Chip): boolean {
+  const a = label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const b = chip.label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  if (!a || !b) return false;
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  if (a.includes('grid') && b.includes('grid')) return true;
+  if (a.includes('steam') && b.includes('steam')) return true;
+  if (a.includes('towel') && b.includes('towel')) return true;
+  if (a.includes('pull') && b.includes('pull')) return true;
+  if (a.includes('ladder') && b.includes('ladder')) return true;
+  if (a.includes('knob') && b.includes('knob')) return true;
+  if (a.includes('chrome') && b.includes('chrome')) return true;
+  if (a.includes('nickel') && b.includes('nickel')) return true;
+  if (a.includes('black') && b.includes('black')) return true;
+  if (a.includes('brass') && b.includes('brass')) return true;
+  return false;
+}
+
+function shouldUseTourCards(chips: Chip[]): boolean {
+  const cards = activeTourCards();
+  return cards.length > 0 && cards.some((card) => chips.some((chip) => roughMatch(labelForCard(card), chip)));
+}
+
+function wireTourCardsToChips(): void {
+  window.setTimeout(() => {
+    const cards = activeTourCards();
+    cards.forEach((card) => {
+      if (card.classList.contains('chat-card-wired')) return;
+      card.classList.add('chat-card-wired', 'browse-option');
+      const label = labelForCard(card);
+      if (label) card.setAttribute('data-label', label);
+      card.addEventListener('click', async (ev) => {
+        if ((ev.target as HTMLElement).closest('.card-info-btn')) return;
+        const clicked = labelForCard(card);
+        if (!clicked || !driver) return;
+        if (roughMatch(clicked, { label: 'Grid Patterns', action: { kind: 'close' } } as Chip)
+          || roughMatch(clicked, { label: 'Steam Upgrade', action: { kind: 'close' } } as Chip)) {
+          card.classList.toggle('selected');
+        } else {
+          card.parentElement?.querySelectorAll('.selected').forEach((el) => {
+            if (el !== card) el.classList.remove('selected');
+          });
+          card.classList.add('selected');
+        }
+        const handled = await driver.chooseOptionByLabel(clicked);
+        if (!handled) card.classList.remove('selected');
+      });
+    });
+  }, 80);
 }
 
 function renderProgress(step: number | null, total: number | null): void {
@@ -221,6 +329,7 @@ export async function startChat(): Promise<void> {
   if (msgs) msgs.innerHTML = '';
   const chips = document.getElementById('chat-chips');
   if (chips) chips.innerHTML = '';
+  currentChips = [];
   clearExtras();
 
   driver.setCallbacks({
@@ -233,6 +342,9 @@ export async function startChat(): Promise<void> {
     },
     onChips: (chipsArr) => {
       renderChips(chipsArr);
+    },
+    onInputMode: (enabled, stepId) => {
+      setInputMode(enabled, stepId);
     },
     onProgress: (step, total) => {
       renderProgress(step, total);
@@ -259,6 +371,7 @@ export function wireChatPanelEvents(): void {
   const form = document.getElementById('chat-input-form') as HTMLFormElement | null;
   const input = document.getElementById('chat-input') as HTMLInputElement | null;
   const closeBtn = document.getElementById('chat-panel-close');
+  const questionBtn = document.getElementById('chat-question-btn');
 
   if (form && input) {
     form.addEventListener('submit', (e) => {
@@ -267,8 +380,21 @@ export function wireChatPanelEvents(): void {
       if (!text || !driver) return;
       input.value = '';
       driver.onUserText(text);
+      if (!inputRequired) {
+        document.getElementById('chat-panel')?.classList.remove('question-open');
+      }
     });
   }
+  questionBtn?.addEventListener('click', () => {
+    const panel = document.getElementById('chat-panel');
+    const input = document.getElementById('chat-input') as HTMLInputElement | null;
+    panel?.classList.toggle('question-open');
+    if (panel?.classList.contains('question-open') && input) {
+      input.type = 'text';
+      input.placeholder = 'Ask Alex a question...';
+      input.focus();
+    }
+  });
   if (closeBtn) {
     closeBtn.addEventListener('click', () => stopChat());
   }

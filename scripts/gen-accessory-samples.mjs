@@ -79,7 +79,7 @@ const ASSETS = [
   },
   {
     file: 'towel.webp',
-    prompt: `${SHARED} Subject: an accurate frameless shower towel-bar / pull combo shown as a clean product render on a faint transparent glass plane. One tall vertical tubular pull handle is on the OUTSIDE at the right-side latch end, extending above and below its two connector posts. A straight horizontal towel rail is on the INSIDE, passing left from the upper shared through-glass mount. Show three aligned round through-glass collars: top shared mount at the vertical pull, bottom pull mount, and far towel-bar mount. Do not show a centered dangling handle under the towel rail. Premium polished chrome finish.`,
+    prompt: `${SHARED} Subject: an accurate frameless shower towel-bar / pull combo matching a CRL-style product render. A short vertical tubular pull handle sits at the LEFT end, mounted between two round through-glass collars. From the upper left collar, a long straight horizontal towel rail extends to the RIGHT and ends at a single round collar. Pale blue glass plane and very light cool-gray background. Premium polished chrome finish. Do not make the vertical pull tall; do not put the vertical pull on the right; do not add a centered dangling handle.`,
   },
   {
     file: 'hook.webp',

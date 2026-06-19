@@ -895,23 +895,14 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     for (const p of allGlass()) {
       if (p.grid || p.w <= 0.2) continue; // skip narrow slivers
       const grid = new THREE.Group();
-      const depth = 0.008;
+      const depth = 0.006;
       const border = 0.014;
       const bar = 0.01;
-      const gridZ = 0.006;
+      const gridZ = 0.004;
       const isTransom = extraPanels.includes(p) || p.h < 0.7;
       const addHorizontal = (y: number, thick = bar, inset = 0): void => {
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.04, p.w - inset * 2), thick, depth), gridMat);
         mesh.position.set(0, y, gridZ);
-        mesh.renderOrder = 1;
-        grid.add(mesh);
-      };
-      const addInteriorHorizontal = (y: number): void => {
-        const inset = border * 1.4;
-        const hingeGap = p.isDoor && !p.sliding ? 0.14 : 0;
-        const width = Math.max(0.04, p.w - inset * 2 - hingeGap);
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, bar, depth), gridMat);
-        mesh.position.set(hingeGap / 2, y, gridZ);
         mesh.renderOrder = 1;
         grid.add(mesh);
       };
@@ -921,30 +912,11 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         mesh.renderOrder = 1;
         grid.add(mesh);
       };
-      const addVerticalSegment = (x: number, y1: number, y2: number, thick = bar): void => {
-        const h = y2 - y1;
-        if (h <= 0.04) return;
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(thick, h, depth), gridMat);
-        mesh.position.set(x, y1 + h / 2, gridZ);
-        mesh.renderOrder = 1;
-        grid.add(mesh);
-      };
 
       // Every panel gets a real edge frame on all four sides.
       addHorizontal(border, border);
       addHorizontal(p.h - border, border);
-      const hingeEdgeX = -p.w / 2 + border / 2;
-      if (p.isDoor && !p.sliding) {
-        const gaps: Array<[number, number]> = [[0.34, 0.56], [1.39, 1.61]];
-        let y = border;
-        for (const [a, b] of gaps) {
-          addVerticalSegment(hingeEdgeX, y, Math.max(y, a), border);
-          y = Math.min(p.h - border, b);
-        }
-        addVerticalSegment(hingeEdgeX, y, p.h - border, border);
-      } else {
-        addVertical(hingeEdgeX, border);
-      }
+      addVertical(-p.w / 2 + border / 2, border);
       addVertical(p.w / 2 - border / 2, border);
 
       const cols = Math.max(1, Math.min(4, Math.round(p.w / (isTransom ? 0.32 : 0.42))));
@@ -955,7 +927,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       if (!isTransom) {
         const rows = Math.max(2, Math.min(5, Math.round(p.h / 0.48)));
         for (let i = 1; i < rows; i++) {
-          addInteriorHorizontal((p.h * i) / rows);
+          addHorizontal((p.h * i) / rows, bar, border * 1.4);
         }
       }
 
@@ -1090,8 +1062,8 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   function addTowelHandleCombo(groupRef: THREE.Group, doorW: number): void {
     const railW = clamp(doorW - 0.24, 0.22, 0.5);
     const latchX = 0, farX = -railW;
-    const topY = 0.18, botY = -0.18;
-    const pullTop = 0.3, pullBot = -0.3;
+    const topY = 0.17, botY = -0.17;
+    const pullTop = 0.235, pullBot = -0.235;
     const outZ = 0.078, inZ = -0.078;
     const r = 0.0125;
 
