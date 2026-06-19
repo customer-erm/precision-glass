@@ -6589,7 +6589,7 @@ body.chat-active:has(.tour-slideshow.cinematic) .chat-msg-bubble {
   background: transparent !important;
   box-shadow: none !important;
   color: rgba(248, 251, 255, 0.98) !important;
-  font-size: 20px !important;
+  font-size: 18px !important;
   font-weight: 500 !important;
   line-height: 1.34 !important;
   letter-spacing: 0 !important;
@@ -6673,7 +6673,7 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup .bg-popup-con
   transform: none !important;
   z-index: 4;
   display: block !important;
-  margin: 0 0 20px !important;
+  margin: 20px 0 0 !important;
   text-align: center !important;
   pointer-events: none;
 }
@@ -6863,4 +6863,14 @@ body.chat-active:has(.tour-slideshow.cinematic) .chat-tour-nav-bar {
   box-shadow: none !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
+}
+
+/* Once an option is previewed on the model, the Next button pulses to invite
+   the user to commit — selections no longer auto-advance the tour. */
+@keyframes chatNextPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 122, 44, 0.5); }
+  50% { transform: scale(1.06); box-shadow: 0 0 20px 5px rgba(255, 122, 44, 0.55); }
+}
+.chat-tour-next.pulse {
+  animation: chatNextPulse 1.1s ease-in-out infinite;
 }

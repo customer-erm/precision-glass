@@ -225,7 +225,7 @@ function makeSlide(id: string): HTMLElement {
 
 function makeHeader(label: string, heading: string, sub?: string): HTMLElement {
   const wrap = h('div', { className: 'slide-header slide-el' });
-  wrap.appendChild(h('div', { className: 'slide-label', textContent: label }));
+  if (label) wrap.appendChild(h('div', { className: 'slide-label', textContent: label }));
   wrap.appendChild(h('h3', { className: 'slide-heading', textContent: heading }));
   if (sub) wrap.appendChild(h('p', { className: 'slide-sub', textContent: sub }));
   return wrap;
@@ -319,7 +319,6 @@ function buildIntroSlide(): HTMLElement {
 function buildGallerySlide(): HTMLElement {
   const slide = makeSlide('gallery');
   const content = h('div', { className: 'slide-content' });
-  content.appendChild(makeHeader('PORTFOLIO', 'Our Recent Work'));
   // Showers: a single-at-a-time 9:16 portrait cross-fade of real install photos.
   // Other services keep the 16:9 cross-fade.
   const vertical = activeService === 'showers' && images.showers.galleryVertical.length
@@ -330,7 +329,9 @@ function buildGallerySlide(): HTMLElement {
   srcs.forEach((src, i) => {
     container.appendChild(h('img', { src, alt: `Installation ${i + 1}` }));
   });
+  // Caption sits UNDER the photos (no eyebrow label).
   content.appendChild(container);
+  content.appendChild(makeHeader('', 'Recent Work'));
   slide.appendChild(content);
   return slide;
 }

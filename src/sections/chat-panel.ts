@@ -140,12 +140,14 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
 
 function typeAgentMessage(bubble: HTMLElement, text: string, msgs: HTMLElement): void {
   const token = ++typewriterToken;
-  if (document.body.classList.contains('chat-active') || window.matchMedia('(prefers-reduced-motion: reduce)').matches || text.length < 24) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     bubble.innerHTML = formatChatText(text);
     return;
   }
   bubble.classList.add('typewriting');
-  const step = Math.max(2, Math.ceil(text.length / 52));
+  // Reveal a few characters per tick — scaled so long lines stay ~1.5s while
+  // short replies still type out, reading as live communication.
+  const step = Math.max(1, Math.ceil(text.length / 140));
   let i = 0;
   const tick = (): void => {
     if (token !== typewriterToken) return;
@@ -153,7 +155,7 @@ function typeAgentMessage(bubble: HTMLElement, text: string, msgs: HTMLElement):
     bubble.innerHTML = formatChatText(text.slice(0, i));
     msgs.scrollTop = msgs.scrollHeight;
     if (i < text.length) {
-      window.setTimeout(tick, 8);
+      window.setTimeout(tick, 18);
     } else {
       bubble.classList.remove('typewriting');
       bubble.innerHTML = formatChatText(text);
@@ -435,6 +437,9 @@ export async function startChat(): Promise<void> {
     },
     onTypingStart: () => appendMessage('typing', ''),
     onTypingEnd: () => document.querySelectorAll('.chat-msg.typing').forEach((n) => n.remove()),
+    onPendingNext: (pending) => {
+      document.getElementById('chat-tour-next')?.classList.toggle('pulse', pending);
+    },
     onClose: () => hideChatPanel(),
   });
 

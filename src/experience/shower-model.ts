@@ -245,7 +245,7 @@ const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
     { from: [-0.17, 0.26], to: [0.26, -0.17], isDoor: true, hasHandle: true, hingeRotY: 0 }, // 45° door (~24"); hinges bend onto the left fixed panel (∥ back wall, rotY 0)
     { from: [0.26, -0.17], to: [0.26, L] },                          // right fixed ∥ left wall
   ] },
-  slider: { headerBar: true, panels: [
+  slider: { headerBar: true, alcoveRightWall: true, panels: [
     { from: [L, 0.66], to: [0.06, 0.66] },
     { from: [-0.06, 0.74], to: [R, 0.74], sliding: true, hasHandle: true },
   ] },

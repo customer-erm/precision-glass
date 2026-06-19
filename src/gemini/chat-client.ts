@@ -678,8 +678,27 @@ export type ChatCallbacks = {
   onProgress?: (step: number | null, total: number | null) => void;
   onTypingStart?: () => void;
   onTypingEnd?: () => void;
+  /** Fired when an option has been previewed and is waiting for the user to
+   *  confirm with Next (true), or cleared on advance / step change (false). */
+  onPendingNext?: (pending: boolean) => void;
   onClose?: () => void;
 };
+
+/* Choice categories that map to a live 3D preview. Tapping one of these
+ * options previews it on the model and arms the Next button instead of
+ * auto-advancing, so the customer can try several before committing. */
+const PREVIEWABLE_CATEGORIES = new Set([
+  'enclosure', 'glass', 'hardware', 'handle', 'accessories', 'extras',
+  'rail-type', 'rail-glass', 'rail-finish', 'rail-mounting',
+  'com-type', 'com-glass', 'com-framing', 'com-scope',
+]);
+
+function isPreviewableChoice(action: ChipAction): action is Extract<ChipAction, { kind: 'advance' }> {
+  return action.kind === 'advance'
+    && !!action.choiceCategory
+    && !!action.choice
+    && PREVIEWABLE_CATEGORIES.has(action.choiceCategory);
+}
 
 export class ChatDriver {
   private steps = buildSteps();
@@ -687,6 +706,8 @@ export class ChatDriver {
   private ctx: ChatContext;
   private cbs: ChatCallbacks = {};
   private active = false;
+  /** An option the user previewed but hasn't committed; Next executes it. */
+  private pendingAction: Extract<ChipAction, { kind: 'advance' }> | null = null;
 
   constructor() {
     this.ctx = {
@@ -737,6 +758,9 @@ export class ChatDriver {
       console.warn('[Chat] Unknown step:', id);
       return;
     }
+    // Entering a new step clears any un-committed preview selection.
+    this.pendingAction = null;
+    this.cbs.onPendingNext?.(false);
     this.currentStep = step;
     this.cbs.onInputMode?.(!!step.requiresTextInput, step.id);
 
@@ -766,6 +790,10 @@ export class ChatDriver {
   }
 
   async onChipTapped(chip: Chip): Promise<void> {
+    if (isPreviewableChoice(chip.action)) {
+      await this.selectOption(chip.action);
+      return;
+    }
     this.cbs.onUserMessage?.(chip.label);
     this.cbs.onChips?.([]);
 
@@ -775,9 +803,25 @@ export class ChatDriver {
   async chooseOptionByLabel(label: string): Promise<boolean> {
     const chip = findChipForLabel(label, this.currentChips());
     if (!chip) return false;
+    if (isPreviewableChoice(chip.action)) {
+      await this.selectOption(chip.action);
+      return true;
+    }
     this.cbs.onChips?.([]);
     await this.executeAction(chip.action);
     return true;
+  }
+
+  /** Preview an option on the 3D model without advancing the tour. The choice
+   *  is held as pending and committed only when the user taps Next. This lets
+   *  the customer try several options before moving on. */
+  private async selectOption(action: Extract<ChipAction, { kind: 'advance' }>): Promise<void> {
+    if (action.choiceCategory && action.choice) {
+      this.ctx.choices[action.choiceCategory] = action.choice;
+      await handleToolCall('preview_option', { category: action.choiceCategory, value: action.choice });
+    }
+    this.pendingAction = action;
+    this.cbs.onPendingNext?.(true);
   }
 
   async goBack(): Promise<boolean> {
@@ -794,6 +838,15 @@ export class ChatDriver {
   }
 
   async advanceDefault(): Promise<boolean> {
+    // If the user previewed an option, Next commits that exact choice.
+    if (this.pendingAction) {
+      const action = this.pendingAction;
+      this.pendingAction = null;
+      this.cbs.onPendingNext?.(false);
+      if (action.choice) this.cbs.onUserMessage?.(action.choice);
+      await this.executeAction(action);
+      return true;
+    }
     const step = this.currentStep;
     if (!step) return false;
     const chips = this.currentChips();
@@ -809,7 +862,11 @@ export class ChatDriver {
     chip ||= chips.find((c) => c.primary);
     chip ||= chips[0];
 
-    await this.onChipTapped(chip);
+    // Next always commits (advances), even for a previewable option chip —
+    // bypass the preview path so an un-touched step still moves forward.
+    this.cbs.onUserMessage?.(chip.label);
+    this.cbs.onChips?.([]);
+    await this.executeAction(chip.action);
     return true;
   }
 
