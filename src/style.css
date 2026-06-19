@@ -6225,15 +6225,9 @@ body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.visible {
 }
 
 body.chat-active:has(.tour-slideshow.cinematic) .chat-panel::before {
-  content: '';
-  position: absolute;
-  left: -28px;
-  right: -80px;
-  bottom: -26px;
-  height: 190px;
-  pointer-events: none;
-  background: linear-gradient(0deg, rgba(5, 13, 26, 0.88), rgba(5, 13, 26, 0.34) 58%, transparent);
-  z-index: -1;
+  content: none;
+  display: none;
+  background: none;
 }
 
 body.chat-active:has(.tour-slideshow.cinematic) .chat-panel-header {
@@ -6704,16 +6698,16 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup .bg-popup-con
 
 body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery.cine-side {
   align-items: center !important;
-  justify-content: center !important;
-  padding: 64px 24px 248px !important;
+  justify-content: flex-end !important;
+  padding: 64px 0 248px !important;
 }
 
 body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery.cine-side .slide-content {
-  width: min(46vw, 540px) !important;
-  max-width: 540px !important;
+  width: min(40vw, 480px) !important;
+  max-width: 480px !important;
   max-height: calc(100svh - 270px) !important;
   padding: 0 !important;
-  margin: 0 auto !important;
+  margin: 0 3vw 0 0 !important;
   overflow: visible !important;
   background: transparent !important;
   border: 0 !important;

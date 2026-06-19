@@ -212,6 +212,11 @@ interface PanelSpec {
   sliding?: boolean;      // gets top rollers instead of wall hinges
   hasHandle?: boolean;
   arched?: boolean;
+  // When a door hinges off a fixed panel that runs at a different angle (e.g.
+  // the neo-angle door pivots off the side panel ∥ the wall), the wall-side
+  // hinge leaf must lie along THAT panel, not the diagonal door. Y-rotation in
+  // radians for the fixed (wall-side) hinge host; defaults to the door's angle.
+  hingeRotY?: number;
 }
 
 interface EnclosureLayout { panels: PanelSpec[]; headerBar?: boolean; alcoveRightWall?: boolean; }
@@ -237,7 +242,7 @@ const LAYOUTS: Record<EnclosureKey, EnclosureLayout> = {
   // diagonal cut. Pentagon plan: wall, wall, fixed, 45° door, fixed.
   neo: { panels: [
     { from: [L, 0.26], to: [-0.17, 0.26] },                          // left fixed ∥ back wall
-    { from: [-0.17, 0.26], to: [0.26, -0.17], isDoor: true, hasHandle: true }, // 45° door (~24")
+    { from: [-0.17, 0.26], to: [0.26, -0.17], isDoor: true, hasHandle: true, hingeRotY: 0 }, // 45° door (~24"); hinges bend onto the left fixed panel (∥ back wall, rotY 0)
     { from: [0.26, -0.17], to: [0.26, L] },                          // right fixed ∥ left wall
   ] },
   slider: { headerBar: true, panels: [
@@ -683,7 +688,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       pivot.position.set(w / 2, 0, 0);
       fixedHingeHost = new THREE.Group();
       fixedHingeHost.position.set(x1, baseY, z1);
-      fixedHingeHost.rotation.y = rotY;
+      fixedHingeHost.rotation.y = spec.hingeRotY ?? rotY;
       assembly.add(fixedHingeHost);
     } else {
       root.position.set((x1 + x2) / 2, baseY, (z1 + z2) / 2);
