@@ -6669,14 +6669,11 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup .bg-popup-con
 }
 
 .tour-slideshow.cinematic #slide-gallery .slide-header {
-  position: absolute !important;
-  top: 50%;
-  left: 0;
-  right: 0;
-  transform: translateY(-50%);
+  position: static !important;
+  transform: none !important;
   z-index: 4;
   display: block !important;
-  margin: 0 !important;
+  margin: 0 0 20px !important;
   text-align: center !important;
   pointer-events: none;
 }
@@ -6850,4 +6847,20 @@ body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery .ss-gallery-fade.
   body.chat-active:has(.tour-slideshow.cinematic) #slide-gallery .ss-gallery-fade.ss-gallery-portrait {
     height: min(58svh, calc(100svh - 320px)) !important;
   }
+}
+
+/* ============================================================
+   Cinematic tour chat: never frost/blur the stage. The standalone
+   (non-cinematic) chat widget keeps its glass blur via the base rule;
+   here we strip it whenever the chat is part of the cinematic tour.
+   Targets .chat-panel itself (not only .visible) so it outranks the
+   base .chat-panel { backdrop-filter: var(--glass-blur) } declaration.
+   ============================================================ */
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-panel.visible,
+body.chat-active:has(.tour-slideshow.cinematic) .chat-tour-nav-bar {
+  background: none !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
