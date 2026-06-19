@@ -30,9 +30,9 @@ export const images = {
       { id: 'enc-custom', src: '/images/shower-details/enclosures-3d/custom.jpg', label: 'Custom', desc: 'Bespoke designs for unique spaces' },
     ],
     glass: [
-      { id: 'glass-clear', src: '/images/shower-details/glass/clearglass.webp', label: 'Clear Glass', desc: 'Crystal clear with maximum light transmission. The most popular choice for modern bathrooms.' },
-      { id: 'glass-frosted', src: '/images/shower-details/glass/frostedglass.webp', label: 'Frosted Glass', desc: 'Acid-etched for privacy while still allowing light through. Elegant and sophisticated.' },
-      { id: 'glass-rain', src: '/images/shower-details/glass/rainglass.webp', label: 'Rain Glass', desc: 'Textured pattern mimicking rain droplets. Provides privacy with artistic flair.' },
+      { id: 'glass-clear', src: '/images/shower-details/glass/clear-sample.webp', label: 'Clear Glass', desc: 'Crystal clear with maximum light transmission. The most popular choice for modern bathrooms.' },
+      { id: 'glass-frosted', src: '/images/shower-details/glass/frosted-sample.webp', label: 'Frosted Glass', desc: 'Acid-etched for privacy while still allowing light through. Elegant and sophisticated.' },
+      { id: 'glass-rain', src: '/images/shower-details/glass/rain-sample.webp', label: 'Rain Glass', desc: 'Textured pattern mimicking rain droplets. Provides privacy with artistic flair.' },
     ],
     hardware: [
       { id: 'hw-chrome', src: '/images/shower-details/hardware/polished-chrome.webp', label: 'Polished Chrome', desc: 'Timeless and versatile' },

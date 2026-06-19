@@ -203,17 +203,17 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
   },
   'u-handle': {
     title: 'U-Handle',
-    subtitle: 'Surface-mounted, sturdy',
-    body: `A U-shaped handle bracket mounted to the outside of the door with two stand-offs. No through-hole drilling required — lower risk during fabrication.`,
-    pros: ['No drilling through glass', 'Comfortable grip', 'Clean look'],
-    cons: ['Only on door exterior'],
+    subtitle: 'The classic D-pull',
+    body: `A rounded-corner D-shaped pull mounted through the glass with a washer on the front and a discreet nut behind. Comfortable, sturdy, and timeless — the most familiar shower-door handle.`,
+    pros: ['Comfortable, secure grip', 'Timeless look', 'Pairs with any glass'],
+    cons: ['Less of a statement than a ladder pull'],
   },
   'ladder pull': {
     title: 'Ladder Pull',
     subtitle: 'A real design statement',
-    body: `Multiple horizontal rungs between two vertical bars — like a small ladder mounted vertically on the glass. A favorite for modern design-forward bathrooms. Can also double as a towel bar on wider doors.`,
-    pros: ['Stunning focal point', 'Doubles as towel bar', 'Commercial-grade heft'],
-    cons: ['Higher cost', 'Needs wider door panel'],
+    body: `A single long, substantial tubular bar mounted back-to-back through the glass on two stand-offs — like a commercial entry-door pull scaled for the shower. A favorite for modern, design-forward bathrooms and the most commanding of the handle options.`,
+    pros: ['Stunning focal point', 'Commercial-grade heft', 'Comfortable full-hand grip'],
+    cons: ['Higher cost', 'Needs a wider door panel'],
   },
   'knob': {
     title: 'Knob',
@@ -222,8 +222,65 @@ export const GUIDE_ENTRIES: Record<string, GuideEntry> = {
     pros: ['Super minimal', 'Low cost', 'Easy to install'],
     cons: ['Less ergonomic for wet hands', 'Feels less premium'],
   },
+
+  /* ---------------- Accessories ---------------- */
+  'towel bar': {
+    title: 'Towel Bar / Pull Combo',
+    subtitle: 'A handle outside, a towel bar inside',
+    body: `A two-in-one: a grab pull on the outside of the door and a full towel bar on the inside, sharing the same through-glass mounts. Keeps a towel within reach and doubles as the door handle — a favorite for compact bathrooms.`,
+    pros: ['Two functions, one fixture', 'Towel always within reach', 'No extra wall hardware'],
+    cons: ['Towel weight rides on the door', 'Best on a wider door panel'],
+  },
+  'robe hook': {
+    title: 'Robe Hook',
+    subtitle: 'Through-glass convenience',
+    body: `A compact hook mounted through the glass so a robe or towel hangs right where you step out. Flush on the inside face, with a small upturned hook on the outside.`,
+    pros: ['Keeps a robe/towel handy', 'Tiny footprint', 'Matches your hardware finish'],
+    cons: ['Holds light items only'],
+  },
+
+  /* ---------------- Premium add-ons ---------------- */
+  'grid': {
+    title: 'Decorative Grid Patterns',
+    subtitle: 'Architectural character',
+    body: `Slim muntin bars applied to the glass in a French, colonial, or custom grid — the look of divided-light windows, in the shower. Always finished in matte black for crisp contrast against clear glass, regardless of your door hardware.`,
+    pros: ['Distinctive, high-design look', 'Custom layouts available', 'Matte-black contrast'],
+    cons: ['A few more seams to wipe down', 'Not suited to curved glass'],
+  },
+  'steam': {
+    title: 'Steam Shower Enclosure',
+    subtitle: 'A sealed spa at home',
+    body: `Glass runs floor-to-ceiling with a sealed transom and door so the enclosure holds steam for a true spa experience. Pairs with a steam generator (specified by the install team).`,
+    pros: ['Full spa/steam function', 'Dramatic floor-to-ceiling glass', 'Adds real wow-factor'],
+    cons: ['Requires a steam generator', 'More glass + sealing = higher cost'],
+  },
+};
+
+// Plural card labels ("Pull Handles") and add-on labels map onto the singular
+// guide keys. Try an exact match, then a small alias table, then a naive
+// singularization of a trailing "s".
+const GUIDE_ALIASES: Record<string, string> = {
+  'pull handles': 'pull handle',
+  'u-handles': 'u-handle',
+  'u handle': 'u-handle',
+  'u handles': 'u-handle',
+  'ladder pulls': 'ladder pull',
+  'towel bars': 'towel bar',
+  'towel bar / pull combo': 'towel bar',
+  'towel bar pull combo': 'towel bar',
+  'robe hooks': 'robe hook',
+  'grid patterns': 'grid',
+  'decorative grid patterns': 'grid',
+  'grid pattern': 'grid',
+  'steam upgrade': 'steam',
+  'steam shower': 'steam',
+  'steam shower enclosure': 'steam',
 };
 
 export function getGuideEntry(label: string): GuideEntry | null {
-  return GUIDE_ENTRIES[label.toLowerCase().trim()] || null;
+  const key = label.toLowerCase().trim();
+  if (GUIDE_ENTRIES[key]) return GUIDE_ENTRIES[key];
+  if (GUIDE_ALIASES[key] && GUIDE_ENTRIES[GUIDE_ALIASES[key]]) return GUIDE_ENTRIES[GUIDE_ALIASES[key]];
+  const singular = key.replace(/s$/, '');
+  return GUIDE_ENTRIES[singular] || null;
 }

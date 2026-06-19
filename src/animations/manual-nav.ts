@@ -23,7 +23,7 @@ import { playTransformAnimation } from './transform';
 import { generateShowerImage } from '../gemini/image-gen';
 import { saveUser } from '../utils/user-storage';
 import { setState, getState } from '../utils/state';
-import { getGuideEntry } from '../data/buyer-guide';
+import { addInfoButton } from '../sections/buyer-guide-modal';
 import { saveCustomerGeneration } from '../utils/save-generation';
 
 /* ------------------------------------------------------------------ */
@@ -376,20 +376,7 @@ function wireSlideInteraction(): void {
     if (label) card.setAttribute('data-label', label);
 
     // Inject a learn-more info button if we have a buyer's-guide entry
-    if (label && getGuideEntry(label) && !card.querySelector('.card-info-btn')) {
-      const infoBtn = el('button', {
-        className: 'card-info-btn',
-        type: 'button',
-        innerHTML: '<span aria-hidden="true">i</span><span class="sr-only">Learn more</span>',
-        ariaLabel: `Learn more about ${label}`,
-      });
-      infoBtn.setAttribute('data-info-label', label);
-      infoBtn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        openBuyerGuideModal(label);
-      });
-      card.appendChild(infoBtn);
-    }
+    if (label) addInfoButton(card, label);
 
     card.addEventListener('click', () => {
       const clickedLabel = card.getAttribute('data-label') || '';
@@ -446,113 +433,6 @@ function wireSlideInteraction(): void {
       if (next) next.classList.add('pulse-ready');
     });
   });
-}
-
-/* ------------------------------------------------------------------ */
-/*  Buyer's Guide modal                                                */
-/* ------------------------------------------------------------------ */
-
-function openBuyerGuideModal(label: string): void {
-  const entry = getGuideEntry(label);
-  if (!entry) return;
-
-  let modal = document.getElementById('bg-modal');
-  if (!modal) {
-    modal = el('div', { className: 'bg-modal', id: 'bg-modal' });
-    document.body.appendChild(modal);
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeBuyerGuideModal();
-    });
-  }
-
-  // Resolve image: prefer entry.image, else the card's own image
-  let img = entry.image;
-  if (!img) {
-    const currentLabel = label.toLowerCase();
-    const matchingCard = Array.from(document.querySelectorAll<HTMLElement>('.browse-option[data-label]')).find(
-      (c) => (c.getAttribute('data-label') || '').toLowerCase() === currentLabel,
-    );
-    const cardImg = matchingCard?.querySelector('img') as HTMLImageElement | null;
-    if (cardImg) img = cardImg.src;
-  }
-
-  modal.innerHTML = `
-    <div class="bg-modal-card">
-      <button type="button" class="bg-modal-close" aria-label="Close">\u2715</button>
-      <div class="bg-modal-body">
-        ${img ? `<div class="bg-modal-image"><img src="${img}" alt="${escapeAttr(entry.title)}"></div>` : ''}
-        <div class="bg-modal-content">
-          <div class="bg-modal-eyebrow">Buyer\u2019s guide</div>
-          <h2 class="bg-modal-title">${escapeHtml(entry.title)}</h2>
-          ${entry.subtitle ? `<p class="bg-modal-subtitle">${escapeHtml(entry.subtitle)}</p>` : ''}
-          <div class="bg-modal-copy">${formatBody(entry.body)}</div>
-          ${
-            entry.specs && entry.specs.length
-              ? `<div class="bg-modal-specs">${entry.specs
-                  .map((s) => `<div class="bg-modal-spec"><span>${escapeHtml(s.label)}</span><strong>${escapeHtml(s.value)}</strong></div>`)
-                  .join('')}</div>`
-              : ''
-          }
-          ${
-            entry.pros && entry.pros.length
-              ? `<div class="bg-modal-prosCons"><div class="bg-modal-list pros"><h4>Pros</h4><ul>${entry.pros
-                  .map((p) => `<li>${escapeHtml(p)}</li>`)
-                  .join('')}</ul></div>${
-                  entry.cons && entry.cons.length
-                    ? `<div class="bg-modal-list cons"><h4>Trade-offs</h4><ul>${entry.cons
-                        .map((c) => `<li>${escapeHtml(c)}</li>`)
-                        .join('')}</ul></div>`
-                    : ''
-                }</div>`
-              : ''
-          }
-          <div class="bg-modal-actions">
-            <button type="button" class="bg-modal-btn primary" data-bg-pick="${escapeAttr(label)}">Choose ${escapeHtml(entry.title)}</button>
-            <button type="button" class="bg-modal-btn" data-bg-dismiss>Keep browsing</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // Wire close + select-from-modal
-  modal.querySelector('.bg-modal-close')?.addEventListener('click', closeBuyerGuideModal);
-  modal.querySelector('[data-bg-dismiss]')?.addEventListener('click', closeBuyerGuideModal);
-  modal.querySelector('[data-bg-pick]')?.addEventListener('click', (ev) => {
-    const pickLabel = (ev.currentTarget as HTMLElement).getAttribute('data-bg-pick') || '';
-    closeBuyerGuideModal();
-    const cur = getCurrentSlideId();
-    if (!cur) return;
-    const slide = document.getElementById(`slide-${cur}`);
-    if (!slide) return;
-    const matchCard = Array.from(slide.querySelectorAll<HTMLElement>('.browse-option')).find(
-      (c) => (c.getAttribute('data-label') || '').toLowerCase() === pickLabel.toLowerCase(),
-    );
-    if (matchCard) {
-      matchCard.click();
-    }
-  });
-
-  requestAnimationFrame(() => modal!.classList.add('visible'));
-}
-
-function closeBuyerGuideModal(): void {
-  const modal = document.getElementById('bg-modal');
-  if (modal) modal.classList.remove('visible');
-}
-
-function escapeHtml(s: string): string {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function escapeAttr(s: string): string {
-  return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-function formatBody(s: string): string {
-  return escapeHtml(s)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n\n+/g, '</p><p>')
-    .replace(/^/, '<p>')
-    .replace(/$/, '</p>');
 }
 
 /* ------------------------------------------------------------------ */

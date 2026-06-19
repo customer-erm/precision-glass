@@ -41,7 +41,7 @@ function findAccessoryImages(handle: string, accessories: string): Array<{ label
 }
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const IMAGE_MODELS = ['gemini-3-pro-image', 'gemini-3.1-flash-image'];
+const IMAGE_MODELS = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image'];
 
 /* ------------------------------------------------------------------ */
 /*  Map an enclosure choice string to its 3D reference image          */
@@ -299,12 +299,6 @@ export async function generateShowerImage(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: promptParts }],
-          generationConfig: {
-            responseModalities: ['TEXT', 'IMAGE'],
-            imageConfig: {
-              aspectRatio: '1:1',
-            },
-          },
         }),
       },
     );

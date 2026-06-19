@@ -5,6 +5,7 @@
  */
 import { images } from '../data/image-map';
 import { getBathroomPhoto } from '../utils/bathroom-photo';
+import { addInfoButton } from '../sections/buyer-guide-modal';
 
 export type ServiceType = 'showers' | 'railings' | 'commercial';
 
@@ -305,6 +306,7 @@ function buildAccessoriesSlide(): HTMLElement {
     info.appendChild(h('h4', { textContent: item.label }));
     info.appendChild(h('p', { textContent: item.desc }));
     card.appendChild(info);
+    addInfoButton(card, item.label);
     grid.appendChild(card);
   });
   content.appendChild(grid);
@@ -326,6 +328,7 @@ function buildExtrasSlide(): HTMLElement {
     info.appendChild(h('h4', { textContent: 'Decorative Grid Patterns' }));
     info.appendChild(h('p', { textContent: 'French, colonial, or custom grid designs applied to your glass panels for architectural character.' }));
     card.appendChild(info);
+    addInfoButton(card, 'Decorative Grid Patterns');
     grid.appendChild(card);
   }
 
@@ -337,6 +340,7 @@ function buildExtrasSlide(): HTMLElement {
     info.appendChild(h('h4', { textContent: 'Steam Shower Enclosure' }));
     info.appendChild(h('p', { textContent: 'Fully sealed floor-to-ceiling glass for a complete spa experience at home.' }));
     card.appendChild(info);
+    addInfoButton(card, 'Steam Shower Enclosure');
     grid.appendChild(card);
   }
 
