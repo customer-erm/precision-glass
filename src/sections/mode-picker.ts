@@ -29,8 +29,10 @@ interface ModeOptionSpec {
   recommended?: boolean;
 }
 
-export function buildModePicker(): HTMLElement {
-  const user = loadUser();
+export function buildModePicker(opts: { forgetReturning?: boolean } = {}): HTMLElement {
+  // forgetReturning: the shower-designer embed always starts fresh — no
+  // welcome-back pill, no "last used" badge, no "your last design" card.
+  const user = opts.forgetReturning ? null : loadUser();
   const returning = !!(user && user.visitCount > 0 && user.name);
   const preferredMode = user?.preferredMode || null;
 

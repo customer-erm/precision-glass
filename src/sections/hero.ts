@@ -2,7 +2,7 @@ import { el } from '../utils/dom';
 import { buildModePicker } from './mode-picker';
 import { images } from '../data/image-map';
 
-export function buildHero(): HTMLElement {
+export function buildHero(opts: { forgetReturning?: boolean } = {}): HTMLElement {
   const section = el('section', { className: 'hero', id: 'hero' });
 
   // Hero background: Ken Burns slideshow cycling through all three services
@@ -95,7 +95,7 @@ export function buildHero(): HTMLElement {
   });
 
   // Mode picker (replaces the old single mic button)
-  const modePicker = buildModePicker();
+  const modePicker = buildModePicker(opts);
 
   // Single centered block: title, trust badges, the 3-circle picker
   const headline = el('div', { className: 'hero-headline' });

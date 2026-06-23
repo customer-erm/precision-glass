@@ -1662,7 +1662,7 @@ body.browse-active .help-launcher {
 /* ---- Extras: 2 large premium cards ---- */
 .ss-extras-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 .ss-extra-card {
@@ -1683,7 +1683,6 @@ body.browse-active .help-launcher {
   height: 36vh;
   object-fit: contain;
 }
-
 /* ---- Process: 5 step strip ---- */
 .ss-process-strip {
   display: grid;
@@ -1802,9 +1801,9 @@ body.browse-active .help-launcher {
 }
 .ss-quote-layout {
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: minmax(380px, 0.86fr) minmax(500px, 1.14fr);
   gap: 24px;
-  max-width: 1100px;
+  max-width: min(1220px, calc(100vw - 32px));
   width: 100%;
   align-items: center;
   margin: auto;
@@ -1819,8 +1818,8 @@ body.browse-active .help-launcher {
   box-shadow: var(--glass-shadow-lg);
   display: flex;
   flex-direction: column;
-  max-height: 78vh;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   align-self: center;
 }
 .ss-quote-header {
@@ -1850,32 +1849,63 @@ body.browse-active .help-launcher {
   color: var(--white-50);
   font-weight: 300;
 }
+.ss-quote-visual-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 78vh;
+  align-self: center;
+  justify-self: center;
+}
+.ss-quote-visual-col.showing-intake {
+  max-width: min(560px, 100%);
+}
+.ss-quote-visual-col.showing-intake .ss-quote-img-wrap,
+.ss-quote-visual-col.showing-intake .ss-quote-inline-actions {
+  display: none;
+}
 /* AI-generated image â€” right column */
 .ss-quote-img-wrap {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
+  min-height: min(540px, 56vh);
   max-height: 78vh;
-  max-width: 78vh;
+  max-width: 100%;
   margin: 0 auto;
   border-radius: 14px;
   overflow: hidden;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--glass-border);
+  background: rgba(5, 13, 26, 0.94);
+  border: 1px solid rgba(93, 173, 226, 0.28);
   box-shadow: var(--glass-shadow-lg);
   align-self: center;
   justify-self: center;
+  z-index: 2;
+}
+.ss-quote-inline-actions {
+  display: none;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ss-quote-inline-actions.ready {
+  display: flex;
 }
 .ss-quote-gen-img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
   opacity: 0;
   transition: opacity 0.8s ease;
+  background: rgba(5, 13, 26, 0.98);
 }
 .ss-quote-gen-img.loaded {
   opacity: 1;
+}
+.ss-quote-img-wrap.compare-active .ss-quote-gen-img.loaded {
+  opacity: 0;
 }
 .ss-quote-gen-img.loaded + .ss-quote-spinner { display: none; }
 .ss-quote-spinner {
@@ -1919,10 +1949,10 @@ body.browse-active .help-launcher {
   transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
 }
 
-.ss-quote-steps { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.ss-quote-steps { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
 .ss-quote-step {
   display: flex; align-items: center; gap: 12px;
-  padding: 8px; border-radius: 12px;
+  padding: 7px 9px; border-radius: 12px;
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.06);
   opacity: 0.5;
@@ -1965,6 +1995,7 @@ body.browse-active .help-launcher {
 }
 
 .ss-quote-contact-rows { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+.ss-quote-hidden-fields { display: none; }
 
 /* Anticipation visualization: blurred bathroom underlay + scan â†’ reveal */
 .ss-quote-viz-bg {
@@ -1974,6 +2005,94 @@ body.browse-active .help-launcher {
 }
 .ss-quote-img-wrap.revealed .ss-quote-viz-bg { opacity: 0; }
 .ss-quote-gen-img { position: absolute; inset: 0; z-index: 3; }
+.ss-before-after {
+  --ba-pos: 50%;
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.55s ease;
+  background: #07111f;
+}
+.ss-quote-img-wrap.compare-active .ss-before-after.ready {
+  opacity: 1;
+  pointer-events: auto;
+}
+.ss-ba-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ss-ba-after {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: inset(0 0 0 var(--ba-pos));
+}
+.ss-ba-label {
+  position: absolute;
+  top: 14px;
+  z-index: 8;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(5, 13, 26, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--white);
+  font: 700 0.72rem/1 var(--font-display);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+.ss-ba-before-label { left: 14px; }
+.ss-ba-after-label { right: 14px; }
+.ss-ba-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--ba-pos);
+  z-index: 9;
+  width: 2px;
+  transform: translateX(-1px);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 0 18px rgba(93, 173, 226, 0.7);
+  pointer-events: none;
+}
+.ss-ba-handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 42px;
+  height: 42px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(8, 21, 39, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.38);
+}
+.ss-ba-handle::after {
+  content: '\2039  \203A';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font: 800 1.05rem/1 var(--font-display);
+  white-space: pre;
+}
+.ss-ba-range {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: ew-resize;
+}
 .ss-quote-spinner { z-index: 4; }
 #qs-spinner-status { transition: opacity 0.22s ease; }
 .ss-quote-lock { z-index: 5; }
@@ -2080,12 +2199,7 @@ body.browse-active .help-launcher {
 
 /* Contact details section on quote card */
 .ss-quote-contact {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: none;
 }
 .ss-quote-contact-header {
   font-size: 0.62rem;
@@ -3387,6 +3501,34 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup {
   border-color: transparent;
   transform: scale(1.1);
 }
+.card-info-btn.info-intro-highlight,
+#slide-enclosures.info-intro-active .card-info-btn {
+  animation: infoIntroPulse 1.05s ease-out var(--info-pulse-delay, 0ms) 4;
+}
+@keyframes infoIntroPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(93, 173, 226, 0.55), 0 0 0 rgba(93, 173, 226, 0);
+    transform: scale(1);
+  }
+  38% {
+    background: var(--cta-gradient);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.78);
+    box-shadow: 0 0 0 8px rgba(93, 173, 226, 0.18), 0 0 22px rgba(93, 173, 226, 0.45);
+    transform: scale(1.16);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(93, 173, 226, 0), 0 0 0 rgba(93, 173, 226, 0);
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-info-btn.info-intro-highlight,
+  #slide-enclosures.info-intro-active .card-info-btn {
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(93, 173, 226, 0.3);
+  }
+}
 .card-info-btn .sr-only { position: absolute; left: -9999px; }
 
 /* Buyer's guide modal (learn more detail) */
@@ -3642,9 +3784,14 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup {
 
 /* Browse mode quote form */
 .browse-quote-form {
-  margin-top: 28px;
-  padding-top: 24px;
-  border-top: 1px solid var(--glass-border);
+  margin-top: 0;
+  padding: 24px;
+  border: 1px solid rgba(93, 173, 226, 0.28);
+  border-radius: 14px;
+  background: rgba(12, 25, 48, 0.95);
+  box-shadow: var(--glass-shadow-lg);
+  max-height: min(78vh, 720px);
+  overflow-y: auto;
 }
 .browse-form-title {
   font-family: var(--font-display);
@@ -3691,6 +3838,13 @@ body.chat-active:has(.tour-slideshow.cinematic) .buyer-guide-popup {
   letter-spacing: 0;
   outline: none;
   transition: border-color 0.2s;
+}
+.browse-form-grid select {
+  color-scheme: dark;
+}
+.browse-form-grid select option {
+  background: #ffffff;
+  color: #07111f;
 }
 .browse-form-grid input:focus,
 .browse-form-grid select:focus,

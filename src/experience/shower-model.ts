@@ -69,19 +69,19 @@ export const DEFAULT_SHOWER_TUNING: ShowerModelTuning = {
   clipScale: 0.72,
   clipDepth: 0.56,
   clipBevel: 0.008,
-  hingeScale: 0.78,
+  hingeScale: 0.72,
   sliderFixedPanelZ: 0.66,
   sliderDoorPanelZ: 0.74,
   sliderFixedEndX: 0.06,
   sliderDoorStartX: -0.06,
   sliderDoorEndX: 0.7,
   railCenterX: 0,
-  railLength: 1.52,
+  railLength: 1.42, // span the full wall-to-wall opening (≈1.4) so brackets land on the jambs
   railDiameter: 0.026,
-  railYOffset: -0.08,
+  railYOffset: -0.02, // sit just under the glass top edge as a proper header rail
   railProjection: 0.05,
-  wallBracketScale: 0.72,
-  hangerScale: 0.72,
+  wallBracketScale: 0.56,
+  hangerScale: 0.66,
   hangerDrop: 0.105,
   hangerProjection: 0.018,
   rollerStartX: 0.05,
@@ -89,13 +89,13 @@ export const DEFAULT_SHOWER_TUNING: ShowerModelTuning = {
   rollerSpread: 0.43,
   rollerProjection: 0.032,
   rollerYOffset: 0.006,
-  floorGuideScale: 0.72,
+  floorGuideScale: 0.62,
   floorGuideX: 0.16,
   floorGuideProjection: 0,
   metalRoughnessScale: 0.72,
-  metalEnv: 1.65,
-  glassOpacityScale: 0.9,
-  glassEnv: 2.3,
+  metalEnv: 2.15,
+  glassOpacityScale: 0.98,
+  glassEnv: 3.05,
 };
 
 function clamp(n: number, min: number, max: number): number {
@@ -309,14 +309,15 @@ function makeRainTexture(): THREE.CanvasTexture {
   for (let i = 0; i < flutes; i++) {
     const x = i * fw;
     const g = ctx.createLinearGradient(x, 0, x + fw, 0);
-    g.addColorStop(0.0, 'rgba(46,46,46,0.85)');
-    g.addColorStop(0.5, 'rgba(232,232,232,0.95)');
-    g.addColorStop(1.0, 'rgba(46,46,46,0.85)');
+    g.addColorStop(0.0, 'rgba(22,22,22,0.95)');
+    g.addColorStop(0.46, 'rgba(244,244,244,1)');
+    g.addColorStop(0.55, 'rgba(255,255,255,1)');
+    g.addColorStop(1.0, 'rgba(22,22,22,0.95)');
     ctx.fillStyle = g;
     ctx.fillRect(x, 0, fw, 512);
     // crisp specular highlight line down the crest of each flute
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fillRect(x + fw * 0.5 - 0.6, 0, 1.2, 512);
+    ctx.fillStyle = 'rgba(255,255,255,0.78)';
+    ctx.fillRect(x + fw * 0.5 - 1.1, 0, 2.2, 512);
   }
 
   // Wavering droplet cascade riding over the flutes — keeps it from looking
@@ -339,7 +340,78 @@ function makeRainTexture(): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.anisotropy = 8;
-  tex.repeat.set(2.4, 2.4);
+  tex.repeat.set(2.1, 2.5);
+  return tex;
+}
+
+/**
+ * A procedural "studio" environment painted as an equirectangular image:
+ * a dark cool room with bright overhead light troughs and tall window bars.
+ * PMREM'd, it gives glass and chrome crisp, contrasty reflections —
+ * the clean vertical/horizontal streaks that read as real glass — instead
+ * of the flat, soft wash of the default RoomEnvironment.
+ */
+export function makeStudioEnvTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 1024;
+  c.height = 512;
+  const ctx = c.getContext('2d')!;
+
+  // Room shell: cool-lit ceiling fading down to a near-black floor.
+  const bg = ctx.createLinearGradient(0, 0, 0, 512);
+  bg.addColorStop(0.0, '#2b3d52');
+  bg.addColorStop(0.42, '#0e1a28');
+  bg.addColorStop(0.62, '#0a131d');
+  bg.addColorStop(1.0, '#04070b');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 1024, 512);
+
+  ctx.globalCompositeOperation = 'lighter';
+
+  // Overhead light troughs → horizontal highlight bands across the glass.
+  const hStrip = (y: number, h: number, a: number): void => {
+    const g = ctx.createLinearGradient(0, y - h, 0, y + h);
+    g.addColorStop(0, 'rgba(180,210,245,0)');
+    g.addColorStop(0.5, `rgba(228,242,255,${a})`);
+    g.addColorStop(1, 'rgba(180,210,245,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y - h, 1024, h * 2);
+  };
+  hStrip(64, 28, 0.9);
+  hStrip(150, 16, 0.4);
+
+  // Tall window bars → the crisp vertical reflection streaks on the panes.
+  const vBar = (x: number, w: number, a: number): void => {
+    const g = ctx.createLinearGradient(x - w, 0, x + w, 0);
+    g.addColorStop(0, 'rgba(200,225,255,0)');
+    g.addColorStop(0.5, `rgba(238,247,255,${a})`);
+    g.addColorStop(1, 'rgba(200,225,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - w, 36, w * 2, 340);
+  };
+  vBar(205, 28, 0.72);
+  vBar(330, 13, 0.5);
+  vBar(755, 32, 0.78);
+  vBar(880, 15, 0.5);
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeGlassSheenTexture(): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 512;
+  const ctx = c.getContext('2d')!;
+  ctx.clearRect(0, 0, 512, 512);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 8;
+  tex.repeat.set(1, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -367,6 +439,10 @@ interface PanelRuntime {
   pivot: THREE.Group;
   glass: THREE.Mesh;
   glassMat: THREE.MeshPhysicalMaterial;
+  reflection: THREE.Mesh;
+  reflectionMat: THREE.MeshBasicMaterial;
+  edgeGlow: THREE.Group;
+  edgeGlowMat: THREE.MeshBasicMaterial;
   edges: THREE.LineSegments;
   edgeMat: THREE.LineBasicMaterial;
   /** Structural yaw of the pivot — assembly animation swings into this. */
@@ -386,9 +462,15 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   let elapsed = 0;
   let solidity = 0.15;
   let glassKey: GlassKey = 'clear';
+  // Realistic transmissive glass wants opacity ~1 (the see-through comes from
+  // `transmission`, not from a faint opacity) — per three.js MeshPhysicalMaterial
+  // guidance. The cheap fallback (no transmission on low-power devices) still
+  // fakes the look with a low opacity.
+  const clearGlassDisplayOpacity = opts.cheapGlass ? 0.15 : 0.97;
   let tuning: ShowerModelTuning = { ...DEFAULT_SHOWER_TUNING };
   let currentFinish = finishFor('chrome');
   const rainTex = makeRainTexture();
+  const glassSheenTex = makeGlassSheenTexture();
   const tileTex = makeTileTexture();
 
   /* ---- Pedestal + walls ---- */
@@ -396,6 +478,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x0a1828, roughness: 0.55, metalness: 0.35 });
   const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.85, 0.1, 64), pedestalMat);
   pedestal.position.y = 0.05;
+  pedestal.receiveShadow = true;
   group.add(pedestal);
 
   const ringMat = new THREE.MeshBasicMaterial({ color: 0x5fd4ff, transparent: true, opacity: 0.65 });
@@ -440,10 +523,22 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   rightWall.visible = false;
   group.add(rightWall);
 
+  const stallJambGroup = new THREE.Group();
+  const stallJambGeo = new THREE.BoxGeometry(0.3, WALL_H, 0.07);
+  const leftJamb = new THREE.Mesh(stallJambGeo.clone(), tileMat);
+  leftJamb.position.set(-0.535, BASE_Y + WALL_H / 2, F + 0.035);
+  const rightJamb = new THREE.Mesh(stallJambGeo.clone(), tileMat);
+  rightJamb.position.set(0.535, BASE_Y + WALL_H / 2, F + 0.035);
+  stallJambGeo.dispose();
+  stallJambGroup.add(leftJamb, rightJamb);
+  stallJambGroup.visible = false;
+  group.add(stallJambGroup);
+
   const floorMat = new THREE.MeshStandardMaterial({ color: 0x14283f, roughness: 0.7, map: tileTex });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(1.68, 48), floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = BASE_Y - 0.001;
+  floor.receiveShadow = true;
   group.add(floor);
 
   // Showerhead — arm comes out of the BACK wall, head hanging at its end.
@@ -511,72 +606,193 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function trackHardware(mesh: THREE.Mesh): THREE.Mesh {
     mesh.renderOrder = 8;
+    mesh.castShadow = !opts.cheapGlass;
+    mesh.receiveShadow = true;
     hardwareMeshes.push(mesh);
     return mesh;
   }
 
+  function makeGlassReflectionMaterial(): THREE.MeshBasicMaterial {
+    return new THREE.MeshBasicMaterial({
+      color: 0xdff8ff,
+      map: glassSheenTex,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.NormalBlending,
+      toneMapped: true,
+    });
+  }
+
+  function makeGlassEdgeMaterial(): THREE.MeshBasicMaterial {
+    return new THREE.MeshBasicMaterial({
+      color: 0xbaf4ff,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.NormalBlending,
+      toneMapped: true,
+    });
+  }
+
+  function makePolishedGlassEdges(w: number, hgt: number, hingeGaps = false): { group: THREE.Group; mat: THREE.MeshBasicMaterial } {
+    const mat = makeGlassEdgeMaterial();
+    const group = new THREE.Group();
+    const edgeDepth = T * 1.18;
+    const side = 0.0055;
+    const cap = 0.008;
+    const z = T * 0.58;
+    const addEdge = (geo: THREE.BufferGeometry, x: number, y: number): void => {
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x, y, z);
+      mesh.renderOrder = 6;
+      group.add(mesh);
+    };
+    const addVertical = (x: number, y1: number, y2: number): void => {
+      const height = Math.max(0.001, y2 - y1);
+      addEdge(new THREE.BoxGeometry(side, height, edgeDepth), x, y1 + height / 2);
+    };
+    if (hingeGaps) {
+      const hingeClearance = [
+        [0.0, 0.3],
+        [0.62, 1.32],
+        [1.68, hgt],
+      ] as const;
+      hingeClearance.forEach(([y1, y2]) => addVertical(-w / 2 + side / 2, y1, y2));
+    } else {
+      addVertical(-w / 2 + side / 2, 0, hgt);
+    }
+    addEdge(new THREE.BoxGeometry(side, hgt, edgeDepth), w / 2 - side / 2, hgt / 2);
+    addEdge(new THREE.BoxGeometry(Math.max(0.04, w), cap, edgeDepth), 0, cap / 2);
+    addEdge(new THREE.BoxGeometry(Math.max(0.04, w), cap, edgeDepth), 0, hgt - cap / 2);
+    return { group, mat };
+  }
+
   function makeGlassMaterial(): THREE.MeshPhysicalMaterial {
     const m = new THREE.MeshPhysicalMaterial({
-      color: 0xb9e2ff,
+      color: 0xffffff,
       metalness: 0,
-      roughness: 0.08,
+      roughness: 0,
       transparent: true,
-      opacity: 0.24,
-      side: THREE.FrontSide,
+      opacity: clearGlassDisplayOpacity,
+      side: THREE.DoubleSide,
       depthWrite: false,
-      envMapIntensity: tuning.glassEnv,
+      // Reflections come from the env map + clearcoat. With the high-contrast
+      // studio environment a healthy intensity gives crisp window streaks.
+      envMapIntensity: tuning.glassEnv * 0.8,
       clearcoat: 1,
-      clearcoatRoughness: 0.08,
+      clearcoatRoughness: 0,
+      reflectivity: 1,
+      emissive: 0x000000,
+      emissiveIntensity: 0,
     });
     if (!opts.cheapGlass) {
-      m.transmission = 0;
-      m.thickness = 0;   // no volumetric refraction → clean, natural see-through
-      m.ior = 1.45;
+      // Full transmission + IOR 1.5 (the physical default for glass) gives a
+      // proper see-through pane with Fresnel edge reflection and refraction.
+      m.transmission = 1;
+      m.ior = 1.5;
+      m.thickness = 0.012;
+      m.attenuationColor = new THREE.Color(0xffffff); // untinted = maximum clarity
+      m.attenuationDistance = 12;
+      m.specularIntensity = 1;
+      m.specularColor = new THREE.Color(0xffffff);
     }
     return m;
   }
 
   function applyGlassKey(m: THREE.MeshPhysicalMaterial, key: GlassKey, animate: boolean): void {
     const target = key === 'frosted'
-      ? { roughness: 0.6, opacity: 0.42, color: new THREE.Color(0xd4e6f4) }
+      ? { roughness: 0.82, fallbackOpacity: 0.5, color: new THREE.Color(0xf5f8fb), envBoost: 0.7, emissive: 0, specular: 0.58, transmission: 0.54, thickness: 0.04, attenuationDistance: 1.25 }
       : key === 'rain'
-        ? { roughness: 0.48, opacity: 0.4, color: new THREE.Color(0xc4e4f7) }
-        : { roughness: 0.08, opacity: 0.24, color: new THREE.Color(0x9ed8f7) };
+        ? { roughness: 0.28, fallbackOpacity: 0.34, color: new THREE.Color(0xf8feff), envBoost: 1.18, emissive: 0, specular: 0.84, transmission: 0.72, thickness: 0.03, attenuationDistance: 2.5 }
+        : { roughness: 0, fallbackOpacity: clearGlassDisplayOpacity, color: new THREE.Color(0xffffff), envBoost: 0.8, emissive: 0, specular: 1, transmission: 1, thickness: 0.012, attenuationDistance: 12 };
     const isRain = key === 'rain';
-    // Drive the flutes through BOTH relief (bump) and shading (roughness) so
-    // the texture is unmistakably visible even with glass transmission on.
+    const isClear = key === 'clear';
+    m.map = null;
     m.bumpMap = isRain ? rainTex : null;
-    m.bumpScale = isRain ? 1.4 : 0;
+    m.bumpScale = isRain ? 0.075 : 0;
     m.roughnessMap = isRain ? rainTex : null;
-    // Rain glass is patterned/obscuring — pull transmission down so the surface
-    // reads as textured glass rather than a clear pane. Frosted/clear keep theirs.
-    // thickness=0 on clear/frosted removes the volumetric refraction that was
-    // making the background look inverted/lensed through panes with no wall
-    // behind them — now they read as a natural see-through into the dark room.
+    m.transparent = true;
     if (!opts.cheapGlass) {
-      m.transmission = 0;
-      m.thickness = 0;
+      m.transmission = target.transmission;
+      m.thickness = target.thickness;
+      m.attenuationColor = isClear ? new THREE.Color(0xffffff) : new THREE.Color(0xeaf6fb);
+      m.attenuationDistance = target.attenuationDistance;
+      m.specularIntensity = target.specular;
     }
-    m.envMapIntensity = tuning.glassEnv;
+    m.emissiveIntensity = target.emissive;
+    m.envMapIntensity = tuning.glassEnv * target.envBoost;
     m.needsUpdate = true;
     if (animate && !prefersReducedMotion()) {
       gsap.to(m, { roughness: target.roughness, duration: 1.1, ease: 'power2.inOut' });
       gsap.to(m.color, { r: target.color.r, g: target.color.g, b: target.color.b, duration: 1.1 });
-      gsap.to(m, { opacity: target.opacity * solidityOpacityScale(), duration: 1.1 });
+      gsap.to(m, { opacity: glassOpacityFor(key), duration: 1.1 });
+      gsap.to(m, { envMapIntensity: tuning.glassEnv * target.envBoost, emissiveIntensity: target.emissive, duration: 1.1, ease: 'power2.inOut' });
     } else {
       m.roughness = target.roughness;
       m.color.copy(target.color);
-      m.opacity = target.opacity * solidityOpacityScale();
+      m.opacity = glassOpacityFor(key);
     }
+  }
+
+  function glassReflectionOpacityFor(_key: GlassKey): number {
+    return 0;
+  }
+
+  function glassEdgeOpacityFor(key: GlassKey): number {
+    const base = key === 'frosted' ? 0.08 : key === 'rain' ? 0.13 : 0.11;
+    return clamp(base * (0.45 + solidity * 0.55), 0.03, 0.18);
+  }
+
+  function applyReflectionKey(m: THREE.MeshBasicMaterial, key: GlassKey, animate: boolean): void {
+    const opacity = opts.cheapGlass ? glassReflectionOpacityFor(key) * 0.7 : glassReflectionOpacityFor(key);
+    const color = key === 'clear' ? 0xffffff : key === 'rain' ? 0xdaf7ff : 0xe8f2f8;
+    m.color.set(color);
+    if (animate && !prefersReducedMotion()) {
+      gsap.to(m, { opacity, duration: 1.1, ease: 'power2.out' });
+    } else {
+      m.opacity = opacity;
+    }
+    m.needsUpdate = true;
+  }
+
+  function applyEdgeKey(m: THREE.MeshBasicMaterial, key: GlassKey, animate: boolean): void {
+    const opacity = opts.cheapGlass ? glassEdgeOpacityFor(key) * 0.75 : glassEdgeOpacityFor(key);
+    const color = key === 'frosted' ? 0xd8f1ff : key === 'rain' ? 0xb8f5ff : 0xa7f4ff;
+    m.color.set(color);
+    if (animate && !prefersReducedMotion()) {
+      gsap.to(m, { opacity, duration: 1.1, ease: 'power2.out' });
+    } else {
+      m.opacity = opacity;
+    }
+    m.needsUpdate = true;
+  }
+
+  function applyPanelGlassKey(p: PanelRuntime, key: GlassKey, animate: boolean): void {
+    applyGlassKey(p.glassMat, key, animate);
+    applyReflectionKey(p.reflectionMat, key, animate);
+    applyEdgeKey(p.edgeGlowMat, key, animate);
   }
 
   function solidityOpacityScale(): number {
     return 0.35 + solidity * 0.65;
   }
 
+  function glassOpacityFor(key: GlassKey): number {
+    const base = baseOpacityFor(key);
+    return key === 'clear' && !opts.cheapGlass ? base : base * solidityOpacityScale();
+  }
+
   function baseOpacityFor(key: GlassKey): number {
-    const base = key === 'frosted' ? 0.42 : key === 'rain' ? 0.4 : 0.24;
-    return clamp(base * tuning.glassOpacityScale, 0.08, 0.82);
+    const base = key === 'frosted' ? 0.5 : key === 'rain' ? 0.34 : clearGlassDisplayOpacity;
+    // Clear glass uses real transmission, so its blend opacity rides high
+    // (the cheap, non-transmissive fallback stays faint). Frosted/rain keep
+    // their privacy look via a capped mid opacity.
+    const clearMax = opts.cheapGlass ? 0.18 : 1;
+    return clamp(base * tuning.glassOpacityScale, 0.045, key === 'clear' ? clearMax : 0.82);
   }
 
   function makeArchedGeometry(w: number, hgt: number): THREE.ExtrudeGeometry {
@@ -630,30 +846,23 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   function addDoorHinge(fixedHost: THREE.Group, pivot: THREE.Group, hy: number, w: number): void {
     const s = tuning.hingeScale;
     const edgeX = -w / 2;
-    const frontZ = 0.042 * tuning.clipDepth;
-    const barrelR = 0.008 * s;
+    const leafW = 0.058 * s;
+    const leafH = 0.136 * s;
+    const leafD = 0.009 * tuning.clipDepth;
+    const seam = 0.0008 * s;
+    const frontZ = T * 0.62 + leafD * 0.55;
 
-    const glassLeaf = trackHardware(new THREE.Mesh(scaledRoundedBox(0.074, 0.11, 0.034, s, tuning.clipDepth), metalMat));
-    glassLeaf.position.set(edgeX + 0.04, hy, frontZ);
+    const glassLeaf = trackHardware(new THREE.Mesh(makeRoundedBox(leafW, leafH, leafD, 0.0045 * s), metalMat));
+    glassLeaf.position.set(edgeX + leafW / 2 + seam, hy, frontZ);
     pivot.add(glassLeaf);
 
-    const wallLeaf = trackHardware(new THREE.Mesh(scaledRoundedBox(0.052, 0.11, 0.034, s, tuning.clipDepth), metalMat));
-    wallLeaf.position.set(-0.028, hy, frontZ);
+    const wallLeaf = trackHardware(new THREE.Mesh(makeRoundedBox(leafW, leafH, leafD, 0.0045 * s), metalMat));
+    wallLeaf.position.set(-(leafW / 2 + seam), hy, frontZ);
     fixedHost.add(wallLeaf);
 
-    const doorBarrel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR, 0.058 * s, 20), metalMat));
-    doorBarrel.position.set(edgeX + 0.006, hy - 0.016 * s, frontZ + 0.008);
-    pivot.add(doorBarrel);
-
-    const fixedBarrel = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR, barrelR, 0.058 * s, 20), metalMat));
-    fixedBarrel.position.set(0.002, hy + 0.016 * s, frontZ + 0.008);
-    fixedHost.add(fixedBarrel);
-
-    for (const cy of [0.035 * s, -0.035 * s]) {
-      const cap = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(barrelR * 1.08, barrelR * 1.08, 0.006, 20), metalMat));
-      cap.position.set(0.002, hy + cy, frontZ + 0.008);
-      fixedHost.add(cap);
-    }
+    const knuckle = trackHardware(new THREE.Mesh(makeRoundedBox(0.009 * s, leafH * 0.92, leafD * 1.08, 0.003 * s), metalMat));
+    knuckle.position.set(0, hy, frontZ + leafD * 0.25);
+    fixedHost.add(knuckle);
   }
 
   function addPanel(spec: PanelSpec): PanelRuntime {
@@ -676,9 +885,17 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     const glass = new THREE.Mesh(geo, glassMat);
     glass.renderOrder = 2;
 
-    const edgeMat = new THREE.LineBasicMaterial({ color: 0x6fd8ff, transparent: true, opacity: 0.9 });
+    const reflectionMat = makeGlassReflectionMaterial();
+    const reflectionGeo = new THREE.PlaneGeometry(w, hgt);
+    reflectionGeo.translate(0, hgt / 2, T * 0.72);
+    const reflection = new THREE.Mesh(reflectionGeo, reflectionMat);
+    reflection.renderOrder = 4;
+
+    const { group: edgeGlow, mat: edgeGlowMat } = makePolishedGlassEdges(w, hgt, !!spec.isDoor && !spec.sliding);
+
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0xe8fdff, transparent: true, opacity: 0.16 });
     const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat);
-    edges.renderOrder = 3;
+    edges.renderOrder = 5;
 
     const root = new THREE.Group();
     const pivot = new THREE.Group();
@@ -695,7 +912,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     }
     root.rotation.y = rotY;
     root.add(pivot);
-    pivot.add(glass, edges);
+    pivot.add(glass, reflection, edgeGlow, edges);
 
     if (spec.isDoor) {
       const hingeHost = fixedHingeHost ?? root;
@@ -726,6 +943,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       pivot,
       glass,
       glassMat,
+      reflection,
+      reflectionMat,
+      edgeGlow,
+      edgeGlowMat,
       edges,
       edgeMat,
       rotY,
@@ -758,6 +979,13 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   function disposeRuntime(p: PanelRuntime): void {
     p.glass.geometry.dispose();
     p.glassMat.dispose();
+    p.reflection.geometry.dispose();
+    p.reflectionMat.dispose();
+    p.edgeGlow.traverse((object) => {
+      const geometry = (object as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
+      geometry?.dispose();
+    });
+    p.edgeGlowMat.dispose();
     p.edges.geometry.dispose();
     p.edgeMat.dispose();
     p.grid?.traverse((o) => { (o as THREE.Mesh).geometry?.dispose?.(); });
@@ -846,6 +1074,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     disposePanels();
     const layout = LAYOUTS[key];
     rightWall.visible = !!layout.alcoveRightWall;
+    stallJambGroup.visible = false;
     layout.panels.forEach((spec, i) => panels.push(addPanel(tuneSliderPanel(spec, i))));
 
     if (layout.headerBar) addSliderHardware();
@@ -853,18 +1082,22 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     // Materialize: each panel's edges rise from the floor while the pane
     // swings into its structural angle, then the glass glazes in with a
     // bright reflective shimmer that settles. Hardware pops on last.
-    const scale = solidityOpacityScale();
     if (animate && !prefersReducedMotion()) {
       panels.forEach((p, i) => {
-        const finalOpacity = baseOpacityFor(glassKey) * scale;
-        applyGlassKey(p.glassMat, glassKey, false);
+        const finalOpacity = glassOpacityFor(glassKey);
+        applyPanelGlassKey(p, glassKey, false);
+        const finalEnv = p.glassMat.envMapIntensity;
         p.glassMat.opacity = 0;
+        p.reflectionMat.opacity = 0;
+        p.edgeGlowMat.opacity = 0;
         const d = i * 0.16;
         gsap.fromTo(p.root.scale, { y: 0.001 }, { y: 1, duration: 0.7, ease: 'power3.out', delay: d });
         gsap.fromTo(p.root.rotation, { y: p.rotY + 0.5 }, { y: p.rotY, duration: 0.95, ease: 'power3.out', delay: d });
         gsap.fromTo(p.edgeMat, { opacity: 0 }, { opacity: edgeOpacity(), duration: 0.45, delay: d });
         gsap.to(p.glassMat, { opacity: finalOpacity, duration: 0.9, delay: d + 0.35, ease: 'power2.out' });
-        gsap.fromTo(p.glassMat, { envMapIntensity: Math.max(3.4, tuning.glassEnv + 0.8) }, { envMapIntensity: tuning.glassEnv, duration: 1.5, ease: 'power2.out', delay: d + 0.35 });
+        gsap.to(p.reflectionMat, { opacity: glassReflectionOpacityFor(glassKey), duration: 1.0, delay: d + 0.42, ease: 'power2.out' });
+        gsap.to(p.edgeGlowMat, { opacity: glassEdgeOpacityFor(glassKey), duration: 0.95, delay: d + 0.46, ease: 'power2.out' });
+        gsap.fromTo(p.glassMat, { envMapIntensity: Math.max(3.4, finalEnv + 0.8) }, { envMapIntensity: finalEnv, duration: 1.5, ease: 'power2.out', delay: d + 0.35 });
       });
       const hwDelay = panels.length * 0.16 + 0.45;
       hardwareMeshes.forEach((hm, i) => {
@@ -876,7 +1109,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     } else {
       buildHandle(handleKey, false);
       buildAccessories(false);
-      panels.forEach((p) => applyGlassKey(p.glassMat, glassKey, false));
+      panels.forEach((p) => applyPanelGlassKey(p, glassKey, false));
       applySolidityNow();
     }
 
@@ -967,9 +1200,11 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
         baseY: BASE_Y + basePanelH + transomGap,
         height: transomH,
       });
-      applyGlassKey(transom.glassMat, glassKey, false);
+      applyPanelGlassKey(transom, glassKey, false);
       transom.edgeMat.opacity = edgeOpacity();
-      transom.glassMat.opacity = baseOpacityFor(glassKey) * solidityOpacityScale();
+      transom.glassMat.opacity = glassOpacityFor(glassKey);
+      transom.reflectionMat.opacity = glassReflectionOpacityFor(glassKey);
+      transom.edgeGlowMat.opacity = glassEdgeOpacityFor(glassKey);
       extraPanels.push(transom);
       if (animate && !prefersReducedMotion()) {
         const target = transom.glassMat.opacity;
@@ -1223,10 +1458,12 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     handleHost.clear();
     const grp = new THREE.Group();
 
-    // Escutcheon + standoff pair that mounts a bar to the glass at (x,y).
+    // Escutcheon + standoff post that mounts a bar to the glass at (x,y),
+    // standing off to depth z. Works for either face (sign of z).
     const addMount = (x: number, y: number, z: number, postR = 0.008): void => {
-      grp.add(mountCollar(x, y, 0.012, 0.02, 0.018));
-      const post = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, z - 0.012, 18), metalMat));
+      const s = z >= 0 ? 1 : -1;
+      grp.add(mountCollar(x, y, s * 0.012, 0.02, 0.018));
+      const post = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, Math.abs(z) - 0.012, 18), metalMat));
       post.rotation.x = Math.PI / 2;
       post.position.set(x, y, z / 2);
       grp.add(post);
@@ -1235,37 +1472,40 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
     if (key === 'pull') {
       addOutsideVerticalPull(grp);
     } else if (key === 'ladder') {
-      // A single long back-to-back bar pull (one handle), feet inset from the
-      // rounded ends — like a classic ladder/T-bar pull.
+      // A back-to-back ladder/T-bar pull: a matching grab bar on BOTH faces of
+      // the door, feet inset from the rounded ends, sharing through-mounts.
       const H = 0.64;
       const standZ = 0.078;
-      const bar = metalBar(H, 0.012);
-      bar.position.z = standZ;
-      grp.add(bar);
-      addMount(0, H / 2 - 0.085, standZ);
-      addMount(0, -H / 2 + 0.085, standZ);
+      for (const s of [1, -1]) {
+        const bar = metalBar(H, 0.012);
+        bar.position.z = standZ * s;
+        grp.add(bar);
+        addMount(0, H / 2 - 0.085, standZ * s);
+        addMount(0, -H / 2 + 0.085, standZ * s);
+      }
     } else if (key === 'u-handle') {
-      // Classic rounded-corner D-handle mounted THROUGH the glass (front washer +
-      // back nut), one tube: leg → 90° curved corner → grip → corner → leg.
+      // Back-to-back rounded-corner D-handle: a matching grip on BOTH faces of
+      // the glass, through-bolted, with an escutcheon washer on each face.
       const Lg = 0.2, sz = 0.058, r = 0.012, e = 0.042;
       const half = Lg / 2;
-      const pts = [
-        new THREE.Vector3(0, half + e, -0.02),
-        new THREE.Vector3(0, half + e * 0.45, sz * 0.55),
-        new THREE.Vector3(0, half, sz),
-        new THREE.Vector3(0, -half, sz),
-        new THREE.Vector3(0, -half - e * 0.45, sz * 0.55),
-        new THREE.Vector3(0, -(half + e), -0.02),
-      ];
-      const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
-      grp.add(trackHardware(new THREE.Mesh(new THREE.TubeGeometry(curve, 80, r, 18, false), metalMat)));
+      const buildU = (s: number): void => {
+        const pts = [
+          new THREE.Vector3(0, half + e, -0.02 * s),
+          new THREE.Vector3(0, half + e * 0.45, sz * 0.55 * s),
+          new THREE.Vector3(0, half, sz * s),
+          new THREE.Vector3(0, -half, sz * s),
+          new THREE.Vector3(0, -half - e * 0.45, sz * 0.55 * s),
+          new THREE.Vector3(0, -(half + e), -0.02 * s),
+        ];
+        const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
+        grp.add(trackHardware(new THREE.Mesh(new THREE.TubeGeometry(curve, 80, r, 18, false), metalMat)));
+      };
+      buildU(1);
+      buildU(-1);
       const my = half + e * 0.7; // where each leg passes through the glass
       for (const y of [my, -my]) {
-        grp.add(mountCollar(0, y, 0.012, r * 1.7, 0.014)); // front washer
-        const nut = trackHardware(new THREE.Mesh(new THREE.CylinderGeometry(r * 1.5, r * 1.5, 0.016, 6), metalMat));
-        nut.rotation.x = Math.PI / 2;
-        nut.position.set(0, y, -0.018);
-        grp.add(nut);
+        grp.add(mountCollar(0, y, 0.012, r * 1.7, 0.014));  // outside washer
+        grp.add(mountCollar(0, y, -0.012, r * 1.7, 0.014)); // inside washer
       }
     } else if (key === 'towel') {
       addTowelHandleCombo(grp, panels.find((p) => p.hasHandle)?.w ?? 0.7);
@@ -1368,14 +1608,15 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
   /* ---- Solidity ---- */
 
   function edgeOpacity(): number {
-    return 0.9 - solidity * 0.62;
+    return 0.72 - solidity * 0.36;
   }
 
   function applySolidityNow(): void {
-    const scale = solidityOpacityScale();
     for (const p of allGlass()) {
       p.edgeMat.opacity = edgeOpacity();
-      p.glassMat.opacity = baseOpacityFor(glassKey) * scale;
+      p.glassMat.opacity = glassOpacityFor(glassKey);
+      p.reflectionMat.opacity = glassReflectionOpacityFor(glassKey);
+      p.edgeGlowMat.opacity = glassEdgeOpacityFor(glassKey);
     }
     ringMat.opacity = 0.4 + solidity * 0.3;
   }
@@ -1446,7 +1687,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
     setGlass(label: string): void {
       glassKey = glassKeyFor(label);
-      for (const p of allGlass()) applyGlassKey(p.glassMat, glassKey, true);
+      for (const p of allGlass()) applyPanelGlassKey(p, glassKey, true);
     },
 
     setHardware(label: string): void {
@@ -1478,7 +1719,7 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       tuning = normalizeTuning(settings);
       applyMetalNow();
       buildEnclosure(currentKey, false);
-      for (const p of allGlass()) applyGlassKey(p.glassMat, glassKey, false);
+      for (const p of allGlass()) applyPanelGlassKey(p, glassKey, false);
       applySolidityNow();
     },
 
@@ -1534,11 +1775,12 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       pedestal.geometry.dispose(); pedestalMat.dispose();
       ring.geometry.dispose(); ringMat.dispose();
       backWall.geometry.dispose(); leftWall.geometry.dispose(); rightWall.geometry.dispose();
+      stallJambGroup.children.forEach((child) => (child as THREE.Mesh).geometry?.dispose?.());
       tileMat.dispose(); shellMat.dispose();
       floor.geometry.dispose(); floorMat.dispose();
       metalMat.dispose(); gridMat.dispose();
       dropGeo.dispose(); dropMat.dispose(); steamTex.dispose();
-      rainTex.dispose(); tileTex.dispose();
+      rainTex.dispose(); glassSheenTex.dispose(); tileTex.dispose();
     },
   };
 }

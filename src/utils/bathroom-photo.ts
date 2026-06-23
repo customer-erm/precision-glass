@@ -10,12 +10,14 @@
  */
 
 let currentPhoto: { dataUrl: string; mimeType: string } | null = null;
+let currentPhotoAnalysis = '';
 
 export function setBathroomPhoto(dataUrl: string): void {
   if (!dataUrl || !dataUrl.startsWith('data:image/')) return;
   const match = dataUrl.match(/^data:(image\/[a-zA-Z+]+);base64,/);
   const mimeType = match ? match[1] : 'image/jpeg';
   currentPhoto = { dataUrl, mimeType };
+  currentPhotoAnalysis = '';
   console.log('[BathroomPhoto] Stored:', mimeType, `${Math.round(dataUrl.length / 1024)}kb`);
 }
 
@@ -25,6 +27,15 @@ export function getBathroomPhoto(): { dataUrl: string; mimeType: string } | null
 
 export function clearBathroomPhoto(): void {
   currentPhoto = null;
+  currentPhotoAnalysis = '';
+}
+
+export function setBathroomPhotoAnalysis(text: string): void {
+  currentPhotoAnalysis = text.trim();
+}
+
+export function getBathroomPhotoAnalysis(): string {
+  return currentPhotoAnalysis;
 }
 
 /**

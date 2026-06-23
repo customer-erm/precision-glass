@@ -12,7 +12,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { gsap } from '../animations/engine';
 import { isLowPowerDevice, prefersReducedMotion } from './flag';
-import { createShowerRig, type ShowerRig } from './shower-model';
+import { createShowerRig, makeStudioEnvTexture, type ShowerRig } from './shower-model';
 import { createCommercialRig, createRailingRig, type CommercialRig, type RailingRig } from './service-models';
 import type { ServiceType } from '../animations/slideshow';
 
@@ -69,7 +69,10 @@ export function createStage(initialContainer: HTMLElement): Stage {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowPower ? 1.3 : 1.75));
   renderer.setSize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.18;
+  renderer.toneMappingExposure = 1.16;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = !lowPower;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.id = 'stage-canvas';
   container.prepend(renderer.domElement);
 
@@ -107,9 +110,13 @@ export function createStage(initialContainer: HTMLElement): Stage {
     gsap.killTweensOf(camera);
   });
 
-  // Environment for glass + metal reflections
+  // Environment for glass + metal reflections — a high-contrast studio map
+  // (bright window bars on a dark room) so the glass picks up crisp streaks.
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const envSrc = makeStudioEnvTexture();
+  envSrc.mapping = THREE.EquirectangularReflectionMapping;
+  scene.environment = pmrem.fromEquirectangular(envSrc).texture;
+  envSrc.dispose();
   pmrem.dispose();
 
   /* ---- Atmosphere ---- */
@@ -145,21 +152,51 @@ export function createStage(initialContainer: HTMLElement): Stage {
 
   /* ---- Lights ---- */
 
-  scene.add(new THREE.AmbientLight(0x32507a, 0.65));
-  const key = new THREE.DirectionalLight(0xeaf4ff, 2.3);
+  scene.add(new THREE.AmbientLight(0x32507a, 0.5));
+  const key = new THREE.DirectionalLight(0xeaf4ff, 2.9);
   key.position.set(4, 7, 5);
+  key.castShadow = !lowPower;
+  key.shadow.mapSize.set(lowPower ? 512 : 1024, lowPower ? 512 : 1024);
+  key.shadow.camera.near = 1;
+  key.shadow.camera.far = 18;
+  key.shadow.camera.left = -4;
+  key.shadow.camera.right = 4;
+  key.shadow.camera.top = 5;
+  key.shadow.camera.bottom = -3;
+  key.shadow.bias = -0.00035;
   scene.add(key);
-  const rim = new THREE.PointLight(0x5fd4ff, 26, 24);
+  const rim = new THREE.PointLight(0x5fd4ff, 34, 24);
   rim.position.set(-4.5, 3.2, -3);
   scene.add(rim);
   const warm = new THREE.PointLight(0xffd9a8, 8, 16);
   warm.position.set(3.5, 1.2, 3.5);
   scene.add(warm);
+  const glassStrip = new THREE.PointLight(0xf7fbff, 18, 10);
+  glassStrip.position.set(-1.8, 2.4, 3.6);
+  scene.add(glassStrip);
   // Cool dramatic key spot raking across the glass from the front-right
-  const spot = new THREE.SpotLight(0x9cc8ff, 30, 30, 0.5, 0.9, 1.2);
+  const spot = new THREE.SpotLight(0x9cc8ff, 32, 30, 0.5, 0.9, 1.2);
   spot.position.set(3.2, 6.2, 5.5);
   spot.target.position.set(0, 1.1, 0);
+  spot.castShadow = !lowPower;
+  spot.shadow.mapSize.set(lowPower ? 512 : 1024, lowPower ? 512 : 1024);
+  spot.shadow.bias = -0.00025;
   scene.add(spot, spot.target);
+
+  // Bright, tight glint that rakes across the glass face to give frameless
+  // panes a clean specular streak (the env map alone is intentionally subtle
+  // now that the glass uses real transmission).
+  const glassGlint = new THREE.SpotLight(0xffffff, 34, 14, 0.28, 0.5, 1.3);
+  glassGlint.position.set(-2.6, 3.1, 3.2);
+  glassGlint.target.position.set(0.25, 1.2, 0.62);
+  scene.add(glassGlint, glassGlint.target);
+
+  // A second soft highlight from the opposite front side so the streak reads
+  // from either orbit angle.
+  const glassGlint2 = new THREE.SpotLight(0xeaf4ff, 20, 14, 0.3, 0.6, 1.4);
+  glassGlint2.position.set(3.0, 2.9, 3.0);
+  glassGlint2.target.position.set(-0.2, 1.2, 0.62);
+  scene.add(glassGlint2, glassGlint2.target);
 
   /* ---- Product rigs on the shared pedestal ---- */
 

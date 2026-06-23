@@ -8,6 +8,8 @@ import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
 import { saveUser } from '../utils/user-storage';
 import type { ServiceType } from '../utils/state';
+import { getBathroomPhotoAnalysis } from '../utils/bathroom-photo';
+import { analyzeBathroomPhoto } from './photo-analysis';
 
 /* ------------------------------------------------------------------ */
 /*  Quote state                                                        */
@@ -15,6 +17,7 @@ import type { ServiceType } from '../utils/state';
 
 const quoteChoices: Record<string, string> = {};
 let pendingImageUrl: string | null = null;
+let pendingImagePromise: Promise<string | null> | null = null;
 let presentQuoteAt = 0;
 
 // Track timing of show_slide calls to detect / block auto-advance hallucinations.
@@ -43,6 +46,23 @@ const TOUR_OPTION_SLIDES = new Set([
   'com-scope',
 ]);
 
+function startPendingShowerRender(): void {
+  if (pendingImageUrl || pendingImagePromise) return;
+  const snapshot = { ...quoteChoices };
+  pendingImagePromise = generateShowerImage(snapshot)
+    .then((url) => {
+      pendingImageUrl = url;
+      return url;
+    })
+    .catch((err) => {
+      console.warn('[ImageGen] Background render failed:', err);
+      return null;
+    })
+    .finally(() => {
+      pendingImagePromise = null;
+    });
+}
+
 /**
  * Defensive: the agent may legitimately jump straight into the tour (e.g.
  * a returning customer says "show me my shower again") without having
@@ -68,6 +88,8 @@ export const TOOL_DECLARATIONS = [
           type: 'string' as const,
           enum: ['showers', 'railings', 'commercial'],
         },
+        customer_name: { type: 'string' as const, description: 'Customer name if known' },
+        email: { type: 'string' as const, description: 'Customer email if known' },
       },
       required: ['service'],
     },
@@ -80,7 +102,7 @@ export const TOOL_DECLARATIONS = [
       properties: {
         slide_id: {
           type: 'string' as const,
-          description: 'The next slide id. Showers flow: gallery, enclosures, glass, hardware, accessories, extras, process. Railings flow: gallery, rail-types, rail-glass, rail-finish, rail-mounting, process. Commercial flow: gallery, com-types, com-glass, com-framing, com-scope, process.',
+          description: 'The next slide id. Showers flow: enclosures, glass, hardware, accessories, extras, process. Railings flow: gallery, rail-types, rail-glass, rail-finish, rail-mounting, process. Commercial flow: gallery, com-types, com-glass, com-framing, com-scope, process.',
         },
         choice: {
           type: 'string' as const,
@@ -202,8 +224,10 @@ export const TOOL_DECLARATIONS = [
         customer_name: { type: 'string' as const, description: 'Customer name if known' },
         email: { type: 'string' as const, description: 'Customer email if known' },
         phone: { type: 'string' as const, description: 'Customer phone number if provided' },
+        address: { type: 'string' as const, description: 'Customer street address/city/state if provided' },
         location: { type: 'string' as const, description: 'Customer city/area if provided' },
         timeline: { type: 'string' as const, description: 'Project stage if provided' },
+        budget: { type: 'string' as const, description: 'Estimated budget range if provided' },
         notes: { type: 'string' as const, description: 'Optional project notes, constraints, or staff-review context if provided' },
       },
       required: [],
@@ -217,13 +241,13 @@ export const TOOL_DECLARATIONS = [
 
 const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Record<string, string>> = {
   showers: {
-  intro: `The page has morphed into the design studio — a glowing 3D blueprint of a shower is on the stage. In 2 punchy sentences: frameless glass transforms a bathroom, and as they make choices that 3D model will build itself into THEIR shower. THEN ask ONE question: would they like to add a photo of their bathroom so you can tailor everything to their space and render their new shower into it at the end? WAIT for their answer.
+  intro: `The page has morphed into the design studio — a glowing 3D blueprint of a shower is on the stage. Introduce yourself as Alex, their shower designer. In 2 punchy sentences: frameless glass transforms a bathroom, and the final visualization can use their selections with an optional bathroom photo. THEN ask ONE question: would they like to add a photo of their bathroom so you can tailor everything to their space and render their new shower into it at the end? WAIT for their answer.
 - If YES: say one short sentence like "Perfect — I'm putting the upload card on screen now, take your time", then call request_photo_upload() and follow the instructions it returns.
-- If NO or they hesitate: totally fine, don't push. Ask if they're ready to look at the options together, and when they agree call show_slide("gallery").`,
+- If NO or they hesitate: totally fine, don't push. Ask if they're ready to look at the layout options together, and when they agree call show_slide("enclosures"). Do not open or mention recent work.`,
 
   gallery: `Recent installations are cycling beside the 3D model. Keep this BRISK — 2 sentences max about the work (custom-fit, everything from compact alcoves to luxury spa builds). THEN ask for the email in a single clear sentence: "I'd also love to send you our free frameless shower buyer's guide — can I grab your email?" Then STOP completely and wait silently. The buyer's guide popup will appear on screen automatically while you're talking — you do not need to call any tool for it. If they give an email, call show_slide("enclosures") with the email parameter and customer_name parameter (if you have it). If they decline, just call show_slide("enclosures").`,
 
-  enclosures: `The enclosure styles are fading in one by one beside the 3D model — pace your description to roughly match (one style at a time, top to bottom): Single Door (clean alcove door), Door + Panel (wider openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle), Frameless Slider (no swing room needed), Splash Panel (open walk-in, just a fixed panel), and Steam Shower (sealed floor-to-ceiling). Mention the most popular are Single Door and Door + Panel, and that arched tops and fully custom layouts are available too — just ask. Do not offer curved glass in this flow for now. If they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
+  enclosures: `The enclosure styles are fading in one by one beside the 3D model. REQUIRED FIRST SPOKEN SENTENCE, EXACTLY: "Notice the icons next to each option. You can click those to get more details or just ask me about them." Do not skip or paraphrase that sentence. If a bathroom photo or placement cue exists, examine the visible opening like an installer before recommending anything: alcove/tub-to-shower openings usually mean Single Door, Door + Panel, or Frameless Slider; do NOT recommend Neo-Angle or 90° Corner unless a true corner stall footprint is visible. Then pace your description to roughly match (one style at a time, top to bottom): Single Door (compact wall-to-wall shower-stall door), Door + Panel (wider alcove openings), Neo-Angle (corner-saving diamond), 90° Corner (two panels meeting at a right angle), Frameless Slider (no swing room needed), Splash Panel (open walk-in, just a fixed panel), and Steam Shower (sealed floor-to-ceiling). Mention the most popular are Single Door and Door + Panel, and that arched tops and fully custom layouts are available too — just ask. Do not offer curved glass in this flow for now. If they ask what a style would look like or are deciding between two, call preview_option(category "enclosure") to assemble that style on the model while you talk. Ask which style works for their space. WAIT. Call show_slide("glass") with their choice.`,
 
   glass: `Three common glass types are shown. Describe all three: Clear Glass — bestseller, crystal clear, shows your tilework. Frosted Glass — acid-etched for privacy, still lets light through. Rain Glass — textured water-droplet pattern, artistic privacy. Verbally mention that other glass styles and privacy patterns can be discussed on request. If they ask what one looks like, call preview_option(category "glass") — the 3D model's glass morphs live, which is a great "watch this" moment. Ask which appeals to them. WAIT. Call show_slide("hardware") with their choice.`,
 
@@ -231,9 +255,9 @@ const SLIDE_CONTEXT_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Re
 
   accessories: `Handle and accessory options are fading in beside the model. Quickly name the HANDLES: Pull (most popular), U-Handle (classic), Ladder Pull (design statement), Knob (minimal), and Towel Bar combo (outside pull with inside towel rail) — then in one sentence the optional add-ons: robe hook and fixed-panel support/stabilizer bar. Ask which handle they'd like AND whether they want any add-ons. WAIT for the full answer. If they mention multiple things (e.g. "u-handle with robe hook and support bar"), capture the handle in the "choice" parameter and the add-ons in the "accessories" parameter as a comma-separated string. If they choose towel bar, save it as the handle choice, not as an accessory. If they ask what a handle looks like, call preview_option(category "handle") to swap it onto the 3D model's door. If they ask about robe hooks or support bars, call preview_option(category "accessories") with the add-ons so they appear in addition to the handle. Call show_slide("extras") with both choice (the handle) and accessories (the add-ons, or omit if none).`,
 
-  extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling enclosure for a spa experience. If they ask what one looks like, call preview_option(category "extras") with "Grid Patterns", "Steam Upgrade", or "Grid Patterns + Steam Upgrade" so the model updates immediately. Ask if they're interested in either upgrade or want to move on. WAIT. Then ALWAYS call show_slide("process") with their choice (use "none" if they decline) — NEVER skip the process step, it's where the customer sees their selected shower running and the team's craft.`,
+  extras: `Two premium upgrades shown. Describe both: Decorative Grid Patterns — French, colonial, or custom grids on the glass for architectural character. Steam Shower — fully sealed floor-to-ceiling glass for a spa experience. Make it explicit that they can choose Grid only, Steam only, BOTH, or neither. They can also click the cards on/off: grid only, steam only, both selected, or no cards selected all count. If they ask what one looks like, call preview_option(category "extras") with "Grid Patterns", "Steam Upgrade", "Grid Patterns + Steam Upgrade", or "none" so the model updates immediately. Ask which of the four choices they want. WAIT. Then ALWAYS call show_slide("process") with the exact choice: "Grid Patterns", "Steam Upgrade", "Grid Patterns + Steam Upgrade", or "none" if they decline or turn both options off. NEVER skip the process step.`,
 
-  process: `Five process steps shown. Walk through each with enthusiasm: 1) Proposal Review — package the design and site notes for staff. 2) Precision Measuring — laser templates, every fraction of an inch matters. 3) Glass Ordering — custom cut, polished, and tempered after field measure. 4) Installation Planning — the team confirms scope before scheduling. 5) Enjoy — step into your new shower. Then mention your AI is generating a visualization of their selections. Ask if they have any questions before reviewing their configuration. WAIT. Call present_quote() with all their selections: enclosure, glass, hardware, handle, accessories, extras.`,
+  process: `Five process steps are shown and the AI visualization is now generating in the background. Do not rush this slide and do not say the visualization is complete yet. Walk through each step with useful detail: 1) Proposal Review — the team reviews the selected layout, glass, hardware, uploaded photo or site notes, and any clearance concerns before treating it like a real project. 2) Precision Measuring — a specialist verifies wall plumb, curb level, tile condition, out-of-square openings, door swing, and every fraction of an inch before glass is ordered. 3) Glass Ordering — panels are custom cut, polished, drilled for hardware, and tempered only after field measurements are confirmed. 4) Installation Planning — the team confirms hardware, access, protection, scheduling, and any constraints around vanities, toilets, fixtures, or steam sealing. 5) Enjoy — the final install should feel clean, solid, and easy to live with. Then say the visualization is still finishing from their selections. Ask if they have any questions before reviewing their configuration. WAIT. Only after they are ready, call present_quote() with all their selections: enclosure, glass, hardware, handle, accessories, extras.`,
   },
 
   railings: {
@@ -269,7 +293,14 @@ function loadUserName(): string {
 
 function getSlideContext(slideId: string): string {
   const ctx = SLIDE_CONTEXT_BY_SERVICE[getActiveService()];
-  return ctx?.[slideId] || 'Slide is showing.';
+  let msg = ctx?.[slideId] || 'Slide is showing.';
+  if (getActiveService() === 'showers' && slideId === 'intro') {
+    return 'The page has morphed into the shower designer. Introduce yourself as Alex, explain that you can use their selections and an optional bathroom photo to create the final visualization, then actively ask: "Would you like to upload a bathroom photo first so the final visualization can reflect your own space?" WAIT. If YES, call request_photo_upload(). If NO, say no problem and ask if they are ready to choose the enclosure layout; when they agree, call show_slide("enclosures"). Do not explain the step-by-step process yet, and do not open or mention recent work.';
+  }
+  if (getActiveService() === 'showers' && slideId === 'gallery' && (quoteChoices.email || getState().customerEmail)) {
+    msg += ' You already have their email, so do NOT ask for it again; mention you can send the buyer guide and visualization there, then continue to enclosure styles.';
+  }
+  return msg;
 }
 
 /* ------------------------------------------------------------------ */
@@ -278,8 +309,7 @@ function getSlideContext(slideId: string): string {
 
 const SLIDE_QUICK_REPLIES_BY_SERVICE: Record<'showers' | 'railings' | 'commercial', Record<string, string[]>> = {
   showers: {
-    intro: ['Yes, show me', 'Tell me more first'],
-    gallery: ['Here\u2019s my email', 'Skip for now'],
+    intro: ['Choose layout', 'Add a photo first'],
     enclosures: ['Single Door', 'Door + Panel', 'Neo-Angle', '90\u00B0 Corner', 'Frameless Slider', 'Splash Panel', 'Steam Shower'],
     glass: ['Clear Glass', 'Frosted Glass', 'Rain Glass'],
     hardware: ['Polished Chrome', 'Brushed Nickel', 'Matte Black', 'Polished Brass', 'Satin Brass'],
@@ -320,6 +350,31 @@ function instr(text: string): string {
   return `[INTERNAL INSTRUCTION FOR THE AGENT — DO NOT READ ANY OF THE FOLLOWING TEXT OUT LOUD. This is a private stage cue, not dialogue. Use it only to decide what to say in your own words.]\n\n${text}`;
 }
 
+function injectQuoteLock(): void {
+  const wrap = document.querySelector('.ss-quote-img-wrap') as HTMLElement | null;
+  if (!wrap || wrap.querySelector('.ss-quote-lock')) return;
+  const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  if (spinner) spinner.style.display = 'none';
+  const lock = document.createElement('div');
+  lock.className = 'ss-quote-lock';
+  lock.innerHTML = `
+    <div class="ss-quote-lock-sparkle">✨</div>
+    <div class="ss-quote-lock-title">Rendering locked</div>
+    <div class="ss-quote-lock-desc">Name and email are enough to generate and send the AI rendering.</div>
+  `;
+  wrap.appendChild(lock);
+}
+
+function unlockQuoteImageSlot(): void {
+  document.querySelector('.ss-quote-lock')?.remove();
+  const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  if (spinner) {
+    spinner.style.display = 'flex';
+    const label = spinner.querySelector('span');
+    if (label) label.textContent = 'Rendering your custom shower...';
+  }
+}
+
 function choiceCategoryForSlide(nextSlideId: string): string | null {
   const byService: Record<'showers' | 'railings' | 'commercial', Record<string, string>> = {
     showers: {
@@ -358,14 +413,26 @@ export async function handleToolCall(
   switch (name) {
     case 'select_service': {
       const service = args.service as 'showers' | 'railings' | 'commercial';
+      pendingImageUrl = null;
+      pendingImagePromise = null;
+      if (args.customer_name) {
+        quoteChoices['name'] = args.customer_name;
+        setState({ customerName: args.customer_name });
+      }
+      if (args.email) {
+        quoteChoices['email'] = args.email;
+        setState({ customerEmail: args.email });
+      }
       setState({ currentService: service, isTransformed: true });
       await playTransformAnimation();
       createSlideshow(service);
-      await showSlide('intro');
+      const firstSlide = 'intro';
+      await showSlide(firstSlide);
       lastShowSlideAt = 0; // reset guard for the new flow
       // The photo-upload card is no longer auto-opened — the agent offers it
       // and calls request_photo_upload only if the customer says yes.
-      return { success: true, message: instr(getSlideContext('intro')) };
+      const msg = getSlideContext(firstSlide);
+      return { success: true, message: instr(msg) };
     }
 
     case 'show_slide': {
@@ -440,6 +507,7 @@ export async function handleToolCall(
       // Showers flow only.
       let targetSlide = args.slide_id;
       const isShowers = getActiveService() === 'showers';
+      if (isShowers && targetSlide === 'gallery') targetSlide = 'enclosures';
       const enclosureLower = (quoteChoices['enclosure'] || '').toLowerCase();
       const isWalkIn = isShowers && (enclosureLower.includes('splash') || enclosureLower.includes('walk'));
       if (isWalkIn && (targetSlide === 'accessories' || targetSlide === 'extras')) {
@@ -461,17 +529,8 @@ export async function handleToolCall(
       // Reassign so downstream logic uses the resolved slide
       args.slide_id = targetSlide;
 
-      // Image generation only runs for the showers flow
       if (isShowers && args.slide_id === 'process') {
-        console.log('[ImageGen] Starting generation — all choices collected');
-        generateShowerImage(quoteChoices).then((imgUrl) => {
-          if (imgUrl) {
-            pendingImageUrl = imgUrl;
-            console.log('[ImageGen] Image ready (cached for quote slide)');
-          } else {
-            console.warn('[ImageGen] Returned null — no image generated');
-          }
-        }).catch((err) => console.warn('[ImageGen] Failed:', err));
+        startPendingShowerRender();
       }
 
       let msg = getSlideContext(args.slide_id);
@@ -536,11 +595,11 @@ export async function handleToolCall(
       presentQuoteAt = Date.now();
       setTimeout(() => populateQuoteSummary(quoteChoices), 500);
 
-      // AI image visualization is shower-flow only.
+      let renderReady = false;
       if (getActiveService() === 'showers') {
         const applyImage = (url: string) => {
+          pendingImageUrl = url;
           markQuoteRenderReady(url);
-          // Persist to the customer-generations gallery (fire and forget)
           saveCustomerGeneration(url, {
             service: 'showers',
             enclosure: quoteChoices.enclosure,
@@ -549,22 +608,24 @@ export async function handleToolCall(
             handle: quoteChoices.handle,
             accessories: quoteChoices.accessories,
             extras: quoteChoices.extras,
-            customerName: quoteChoices.name || args.customer_name,
-            customerEmail: quoteChoices.email || args.email,
-            mode: 'voice',
+            doorPlacement: quoteChoices.doorPlacement,
+            photoSource: quoteChoices.photoSource,
+            customerName: quoteChoices.name,
+            customerEmail: quoteChoices.email,
+            mode: getState().currentMode === 'chat' ? 'chat' : 'voice',
           });
+          renderReady = true;
         };
-        if (pendingImageUrl) {
-          setTimeout(() => applyImage(pendingImageUrl!), 600);
-        } else {
-          generateShowerImage(quoteChoices).then((imgUrl) => {
-            if (imgUrl) applyImage(imgUrl);
-          }).catch((err) => console.warn('[ImageGen] Failed:', err));
+        try {
+          const imgUrl = pendingImageUrl || await (pendingImagePromise || generateShowerImage(quoteChoices));
+          if (imgUrl) applyImage(imgUrl);
+        } catch (err) {
+          console.warn('[ImageGen] Failed:', err);
         }
       } else {
-        // Non-shower flow: no AI render — show a static hero so the column isn't empty.
         const heroSrc = getActiveService() === 'railings' ? '/images/railings/railings-1.webp' : '/images/commercial/commercial-1.webp';
         markQuoteRenderReady(heroSrc);
+        renderReady = true;
       }
 
       const summary = Object.entries(quoteChoices)
@@ -572,10 +633,8 @@ export async function handleToolCall(
         .map(([k, v]) => `${k}: ${v}`)
         .join(', ');
 
-      const hasName = !!quoteChoices['name'];
-      const hasEmail = !!quoteChoices['email'];
       const visualLine = getActiveService() === 'showers'
-        ? 'An AI visualization is loading on the right.'
+        ? (renderReady ? 'The AI rendering is complete and visible on the right.' : 'The AI rendering could not complete automatically; the proposal can still be saved with the configuration and staff can follow up.')
         : 'A project reference image is shown on the right; no AI visualization is needed for this intake.';
 
       return {
@@ -583,13 +642,13 @@ export async function handleToolCall(
         message: instr(`The quote summary is displayed showing: ${summary}. ${visualLine}
 
 DO THE FOLLOWING IN ORDER:
-1. Read back their selections enthusiastically — tell them their choices look amazing together.
-2. Let them know you're preparing a proposal brief for staff review. Do not give pricing or a firm timeline.
-3. Casually ask if they'd like to share any additional details for the staff review - phone number, city/area, project stage, or notes about measurements, layout, tile, plumbing wall, or door clearance. Say something like "No pressure at all, but if you'd like to share your phone number, general area, project stage, or any notes about the bathroom, it helps our team review the design." ${hasName ? 'You already have their name.' : 'Ask for their name if you don\'t have it.'} ${hasEmail ? 'You already have their email.' : 'Ask for their email if you don\'t have it.'}
-4. WAIT for their response.
-5. As soon as they respond (whether they share details or politely decline), deliver your full warm goodbye in ONE SINGLE TURN — use their name, thank them, tell them it was great chatting, wish them a great day. Speak the entire goodbye out loud as one continuous turn — do NOT pause for another reply, do NOT ask any more questions, do NOT leave silence at the end.
-6. IMMEDIATELY in the same turn (right after the last word of your goodbye) call end_session() with any details they shared. The session will close automatically after your goodbye finishes playing — there is no further response expected from the customer, so do not wait for one.`),
+1. Read back their selections enthusiastically - tell them their choices look great together.
+2. Tell them the visualization is ready and tied to the email collected earlier if one is available.
+3. Ask ONE optional-details question: whether they want to add an estimated budget range, project timeline/stage, measurements, or staff-review notes before you prepare the downloadable PDF. Make clear this is optional.
+4. STOP and wait for their answer.
+5. After they answer, call end_session() with customer_name, email, and any optional timeline, budget, phone, address, or notes they provide. Do not give pricing or promise a firm timeline.`),
       };
+
     }
 
     case 'show_buyers_guide': {
@@ -647,14 +706,17 @@ DO THE FOLLOWING IN ORDER:
       }
       if (uploaded) {
         quoteChoices['photoSource'] = 'customer_upload';
+        const analysis = await analyzeBathroomPhoto();
+        const nextSlide = 'enclosures';
         return {
           success: true,
-          message: instr('The customer uploaded a photo of their bathroom — it now floats in the 3D scene and the final render will be composited into their real space. Thank them warmly in one sentence and mention you can now tailor everything to their space. Then ask if they\'re ready to look at the options, and when they agree call show_slide("gallery").'),
+          message: instr(`The customer uploaded a photo of their bathroom. ${analysis ? `Bathroom photo analysis: ${analysis} Briefly describe what you see and the most realistic shower direction. ` : ''}Tell them you can now tailor the design to their real space. Then continue with show_slide("${nextSlide}") when they are ready.`),
         };
       }
+      const nextSlide = 'enclosures';
       return {
         success: true,
-        message: instr('The customer closed or skipped the upload card (or it timed out). No problem — do NOT mention the photo again. Ask if they\'re ready to look at the options, and when they agree call show_slide("gallery").'),
+        message: instr(`The customer closed or skipped the upload card (or it timed out). No problem - do NOT mention the photo again. Ask if they're ready to look at the options, and when they agree call show_slide("${nextSlide}").`),
       };
     }
 
@@ -686,16 +748,14 @@ DO THE FOLLOWING IN ORDER:
     case 'end_session': {
       console.log('[Session End] Extra details:', args);
 
-      // Block end_session if it fires too soon after present_quote — that
-      // means the agent skipped the closing flow (read-back, ask for
-      // optional details, wait, full goodbye) and tried to close the
-      // session immediately.
+      // Block end_session if it fires too soon after present_quote; that
+      // means the agent skipped the read-back and goodbye.
       const sincePresent = Date.now() - presentQuoteAt;
-      if (presentQuoteAt > 0 && sincePresent < 12000) {
+      if (getState().currentMode !== 'chat' && presentQuoteAt > 0 && sincePresent < 3000) {
         console.warn('[Tour] Blocking premature end_session, sincePresent=', sincePresent);
         return {
           success: false,
-          message: instr(`BLOCKED — only ${Math.round(sincePresent / 1000)}s have passed since present_quote. You skipped the closing flow. Go back and: (1) read back their selections enthusiastically, (2) ask if they want to share phone/location/project stage/notes, (3) WAIT IN SILENCE for them to actually answer with their voice, (4) deliver a complete goodbye in one continuous turn, (5) THEN call end_session in that same goodbye turn. Do not call end_session again until you have done all of these.`),
+          message: instr(`BLOCKED - only ${Math.round(sincePresent / 1000)}s have passed since present_quote. You skipped the closing flow. Go back and: (1) read back their selections enthusiastically, (2) tell them the visualization is ready, (3) ask whether they want to add optional staff-review details like budget range, timeline/stage, measurements, or notes, (4) WAIT for their answer, then call end_session with any details they provide.`),
         };
       }
 
@@ -703,9 +763,22 @@ DO THE FOLLOWING IN ORDER:
       if (args.customer_name) quoteChoices['name'] = args.customer_name;
       if (args.email) quoteChoices['email'] = args.email;
       if (args.phone) quoteChoices['phone'] = args.phone;
+      if (args.address) quoteChoices['address'] = args.address;
       if (args.location) quoteChoices['location'] = args.location;
       if (args.timeline) quoteChoices['timeline'] = args.timeline;
+      if (args.budget) quoteChoices['budget'] = args.budget;
       if (args.notes) quoteChoices['notes'] = args.notes;
+
+      const missingRequired = [
+        !quoteChoices['name'] && 'name',
+        !quoteChoices['email'] && 'email',
+      ].filter(Boolean);
+      if (false && getActiveService() === 'showers' && missingRequired.length) {
+        return {
+          success: false,
+          message: instr(`BLOCKED - the rendering cannot be unlocked yet. Missing required details: ${missingRequired.join(', ')}. Ask for only the missing details, then after they answer give the goodbye and call end_session again with those fields.`),
+        };
+      }
 
       console.log('[Final Quote Data]', quoteChoices);
 
@@ -717,8 +790,10 @@ DO THE FOLLOWING IN ORDER:
           name: quoteChoices['name'] || undefined,
           email: quoteChoices['email'] || undefined,
           phone: quoteChoices['phone'] || undefined,
+          address: quoteChoices['address'] || quoteChoices['location'] || undefined,
           location: quoteChoices['location'] || undefined,
           timeline: quoteChoices['timeline'] || undefined,
+          budget: quoteChoices['budget'] || undefined,
           notes: quoteChoices['notes'] || undefined,
           preferredMode: getState().currentMode || undefined,
           lastQuote: {
@@ -737,6 +812,29 @@ DO THE FOLLOWING IN ORDER:
 
       // Re-populate so any newly provided contact details show on the quote screen
       populateQuoteSummary(quoteChoices);
+      if (false && getActiveService() === 'showers') {
+        unlockQuoteImageSlot();
+        generateShowerImage(quoteChoices).then((imgUrl) => {
+          if (!imgUrl) return;
+          markQuoteRenderReady(imgUrl);
+          saveCustomerGeneration(imgUrl, {
+            service: 'showers',
+            enclosure: quoteChoices.enclosure,
+            glass: quoteChoices.glass,
+            hardware: quoteChoices.hardware,
+            handle: quoteChoices.handle,
+            accessories: quoteChoices.accessories,
+            extras: quoteChoices.extras,
+            doorPlacement: quoteChoices.doorPlacement,
+            photoSource: quoteChoices.photoSource,
+            customerName: quoteChoices.name,
+            customerEmail: quoteChoices.email,
+            customerPhone: quoteChoices.phone,
+            customerAddress: quoteChoices.address || quoteChoices.location,
+            mode: getState().currentMode === 'chat' ? 'chat' : 'voice',
+          });
+        }).catch((err) => console.warn('[ImageGen] Failed:', err));
+      }
 
       // Trigger the proposal-ready success animation immediately so the
       // user sees it even if the agent gets disconnected mid-goodbye.
@@ -750,7 +848,11 @@ DO THE FOLLOWING IN ORDER:
         window.dispatchEvent(new CustomEvent('precision:end-session'));
       }, 14000);
 
-      return { success: true, message: instr('Session has been closed. The connection is ending. Do not generate any further audio or text — the call is over.') };
+      // Return NO message: the goodbye has already been spoken. Anything we
+      // hand back here can get read aloud by the model (it previously voiced
+      // the "do not generate any more audio" instruction). An empty result
+      // closes the call cleanly and silently.
+      return { success: true };
     }
 
     default:

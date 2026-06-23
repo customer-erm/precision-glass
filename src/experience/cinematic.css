@@ -67,6 +67,73 @@
   font-size: 3.1rem;
   line-height: 1.08;
 }
+.tour-slideshow.cinematic #slide-intro .ss-intro-timeline {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: clamp(16px, 2.8vw, 54px);
+  width: min(360px, 27vw);
+  transform: translateY(-50%);
+  display: grid;
+  gap: 12px;
+  pointer-events: none;
+}
+.tour-slideshow.cinematic #slide-intro .ss-intro-timeline::before {
+  content: "";
+  position: absolute;
+  left: 34px;
+  top: 28px;
+  bottom: 28px;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0), rgba(125, 211, 252, 0.62), rgba(125, 211, 252, 0));
+  box-shadow: 0 0 18px rgba(95, 212, 255, 0.38);
+}
+.tour-slideshow.cinematic #slide-intro .ss-intro-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 12px;
+  align-items: center;
+  min-height: 74px;
+  padding: 12px 14px 12px 12px;
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(7, 18, 34, 0.78), rgba(7, 18, 34, 0.34));
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+.tour-slideshow.cinematic #slide-intro .ss-intro-step::after {
+  content: none;
+}
+.tour-slideshow.cinematic #slide-intro .ss-intro-step-num {
+  width: 44px;
+  height: 44px;
+  margin-left: 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.42);
+  background: rgba(9, 22, 40, 0.86);
+  color: #9fe8ff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  box-shadow: 0 0 22px rgba(95, 212, 255, 0.22);
+}
+.tour-slideshow.cinematic #slide-intro .ss-intro-step-copy {
+  display: grid;
+  gap: 3px;
+}
+.tour-slideshow.cinematic #slide-intro .ss-intro-step-copy strong {
+  color: #fff;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+}
+.tour-slideshow.cinematic #slide-intro .ss-intro-step-copy span {
+  color: rgba(231, 241, 255, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
 @media (max-width: 767px) {
   .tour-slideshow.cinematic #slide-intro .slide-content.slide-center {
     margin: 0 18px;
@@ -75,6 +142,23 @@
     padding-bottom: 40px;
   }
   .tour-slideshow.cinematic #slide-intro .slide-title { font-size: 2.1rem; }
+  .tour-slideshow.cinematic #slide-intro .ss-intro-timeline {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+    transform: none;
+    margin: 18px;
+    align-self: stretch;
+  }
+  .tour-slideshow.cinematic #slide-intro .ss-intro-step {
+    min-height: 58px;
+    grid-template-columns: 52px 1fr;
+    padding: 10px 10px 10px 8px;
+  }
+  .tour-slideshow.cinematic #slide-intro .ss-intro-step-copy span {
+    display: none;
+  }
 }
 
 /* Buyer's-guide popup lives on the LEFT so it never overlaps the options rail */
@@ -318,6 +402,7 @@ body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  max-width: 430px;
   padding: 13px 24px;
   border-radius: 999px;
   cursor: pointer;
@@ -327,6 +412,7 @@ body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
   font-family: inherit;
   font-size: 0.92rem;
   line-height: 1.3;
+  white-space: normal;
   transition: background 0.3s, transform 0.3s, border-color 0.3s;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -413,6 +499,16 @@ body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
   scrollbar-color: rgba(125, 211, 252, 0.3) transparent;
   padding: 16px 20px;
 }
+.tour-slideshow.cinematic .ss-quote-visual-col {
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  align-self: stretch;
+  justify-self: stretch;
+}
+.tour-slideshow.cinematic .ss-quote-visual-col.showing-intake {
+  justify-content: center;
+}
 .cinematic .ss-quote-card::-webkit-scrollbar { width: 5px; }
 .cinematic .ss-quote-card::-webkit-scrollbar-thumb { background: rgba(125, 211, 252, 0.28); border-radius: 4px; }
 .cinematic .ss-quote-header h3 { font-size: 1.12rem; margin: 2px 0 8px; }
@@ -437,13 +533,15 @@ body:has(.tour-slideshow.cinematic) .buyer-guide-popup {
 .cinematic .ss-quote-contact-row .ss-quote-value { font-size: 0.72rem; }
 .cinematic .ss-quote-img-wrap {
   width: 100%;
-  height: 100%;
+  height: auto;
+  flex: 1 1 auto;
   max-width: none;
   max-height: none;
   aspect-ratio: auto;
   margin: 0;
-  min-height: 0;
-  background: rgba(10, 24, 44, 0.45);
+  min-height: 360px;
+  background: rgba(5, 13, 26, 0.96);
+  border-color: rgba(125, 211, 252, 0.3);
 }
 /* Compact browse-mode contact form (the read-only details block is
    redundant while the form is on screen — the form collects the same) */

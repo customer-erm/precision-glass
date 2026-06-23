@@ -20,6 +20,7 @@ export class GeminiLiveClient {
   private toolCallInFlight = false;
   private isAgentSpeaking = false;
   private lastAudioOutAt = 0;
+  private showerDesigner = false;
 
   private cancelListeningTimer(): void {
     if (this.listeningTimer) {
@@ -38,7 +39,8 @@ export class GeminiLiveClient {
     }, 1200);
   }
 
-  constructor() {
+  constructor(options: { showerDesigner?: boolean } = {}) {
+    this.showerDesigner = !!options.showerDesigner;
     this.ai = new GoogleGenAI({ apiKey: API_KEY, apiVersion: 'v1alpha' });
     this.audioCapture = new AudioCapture();
     this.audioPlayer = new AudioPlayer();
@@ -65,7 +67,7 @@ export class GeminiLiveClient {
 
       // Build the system prompt fresh — it injects a "returning customer" block
       // if we have persisted user data in localStorage.
-      const systemPrompt = buildSystemPrompt({ mode: 'voice' });
+      const systemPrompt = buildSystemPrompt({ mode: 'voice', showerDesigner: this.showerDesigner });
 
       this.session = await this.ai.live.connect({
         model: MODEL,
@@ -86,7 +88,7 @@ export class GeminiLiveClient {
               startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
               endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
               prefixPaddingMs: 400,
-              silenceDurationMs: 650,
+              silenceDurationMs: this.showerDesigner ? 500 : 650,
             },
           },
         } as any,
@@ -117,7 +119,9 @@ export class GeminiLiveClient {
       console.log('[Gemini] Sending initial greeting prompt...');
       const user = loadUser();
       const isReturning = !!(user && user.visitCount > 0 && user.name);
-      const seedText = isReturning
+      const seedText = this.showerDesigner
+        ? '[STAGE CUE - NOT FROM THE USER]: The customer clicked the Voice Guided path in the embedded shower designer. Start naturally: introduce yourself as Alex, welcome them to Design Your Shower, explain that you will help shape a frameless shower design and generate a visualization at the end. Mention they can optionally upload a bathroom photo if they want the visualization to reflect their own space. Then ask who you are speaking with and wait. Do not explain the step-by-step process yet. After they give a name, ask for the best email to send the finished visualization. Only after you have both name and email should you call select_service with service "showers", customer_name, and email.'
+        : isReturning
         ? `[STAGE CUE — NOT FROM THE USER]: The webpage has loaded. This is a RETURNING customer named ${user!.name}. You have the KNOWN RETURNING CUSTOMER context in your system prompt. Deliver your warm returning-customer greeting now (use their name from the first sentence, acknowledge this isn't their first visit${user!.lastQuote?.service ? `, reference that they were looking at ${user!.lastQuote.service} last time` : ''}), then STOP TALKING and wait in complete silence for the customer to reply. Do NOT call any tools yet. Do NOT pretend the user said anything.]`
         : '[STAGE CUE — NOT FROM THE USER]: The webpage has loaded. The customer has NOT spoken yet. You have NOT heard their voice. They have NOT chosen a service. They have NOT given a name. Your only task right now is: deliver your Step 1 greeting (one short turn — introduce yourself as Alex and ask their name), then STOP TALKING and wait in complete silence for the customer to reply with their actual voice. Do NOT call any tools. Do NOT mention showers or any service. Do NOT pretend the user said anything. Just greet and wait.]';
       this.session.sendRealtimeInput({ text: seedText });

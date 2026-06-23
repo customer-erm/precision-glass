@@ -33,14 +33,13 @@ const ARRIVAL: CameraSpec = { angle: 0.1, distance: 9.5, height: 3.6 };
  * option cards stack in the right third and fade in one by one.
  */
 const SIDE_SLIDES_BY_SERVICE: Record<ServiceType, Set<string>> = {
-  showers: new Set(['gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process']),
+  showers: new Set(['enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process']),
   railings: new Set(['gallery', 'rail-types', 'rail-glass', 'rail-finish', 'rail-mounting', 'process']),
   commercial: new Set(['gallery', 'com-types', 'com-glass', 'com-framing', 'com-scope', 'process']),
 };
 
 const SHOWER_STATIONS: Record<string, CameraSpec> = {
-  intro: { angle: 0.55, distance: 6.6, height: 2.2, lateral: -1.05, targetHeight: 1.05 }, // copy left, model right (clears the text)
-  gallery: { angle: -0.6, distance: 6.6, height: 1.9, lateral: 1.55 },
+  intro: { angle: 0.53, distance: 6.9, height: 2.18, lateral: -0.88, targetHeight: 1.05 }, // copy left, model right (clears the text)
   enclosures: { angle: 0.05, distance: 5.0, height: 1.7, lateral: 1.15 },
   glass: { angle: -0.5, distance: 3.6, height: 1.5, lateral: 0.95 },
   hardware: { angle: 0.7, distance: 2.0, height: 1.3, targetHeight: 1.05, lateral: 0.55 },
@@ -99,7 +98,7 @@ const CAMERA_VIEWS: Record<string, CameraSpec> = {
 };
 
 const SLIDE_ORDER_BY_SERVICE: Record<string, string[]> = {
-  showers: ['intro', 'gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'],
+  showers: ['intro', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'],
   railings: ['intro', 'gallery', 'rail-types', 'rail-glass', 'rail-finish', 'rail-mounting', 'process', 'quote'],
   commercial: ['intro', 'gallery', 'com-types', 'com-glass', 'com-framing', 'com-scope', 'process', 'quote'],
 };
@@ -142,6 +141,7 @@ if (typeof window !== 'undefined') {
   idle(prewarmStage);
 }
 let pendingSpec: CameraSpec | null = null;
+let layoutInfoHighlighted = false;
 let unsubChoice: (() => void) | null = null;
 let unsubPreview: (() => void) | null = null;
 let activeServiceLocal: ServiceType = 'showers';
@@ -348,6 +348,7 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   chosen.clear();
   enclosureChoice = '';
   pushedThrough = false;
+  layoutInfoHighlighted = false;
   const host = root();
   host?.classList.add('cinematic', `cine-service-${service}`);
   if (host) host.dataset.service = service;
@@ -361,14 +362,12 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
       const SHIELD = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
       const AWARD = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg>';
       const CLOCK = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
-      const STAR = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
       const trust = document.createElement('div');
       trust.className = 'cine-intro-trust slide-el';
       trust.innerHTML = `
         <span>${SHIELD}Licensed &amp; insured</span>
         <span>${AWARD}Lifetime warranty</span>
         <span>${CLOCK}Most installs in 1 day</span>
-        <span>${STAR}20+ years in S. Florida</span>
       `;
       introContent.appendChild(trust);
     }
@@ -449,7 +448,25 @@ export async function showSlide(slideId: string): Promise<void> {
     const mode = getState().currentMode;
     const slowReveal = isSide && (mode === 'voice' || mode === 'chat');
     materializeSlide(target, { stagger: slowReveal ? 0.45 : 0.07 });
+    if (activeServiceLocal === 'showers' && slideId === 'enclosures') {
+      const delay = slowReveal ? 1500 : 700;
+      window.setTimeout(() => highlightLayoutInfoButtons(target), delay);
+    }
   }
+}
+
+function highlightLayoutInfoButtons(target: HTMLElement): void {
+  if (layoutInfoHighlighted) return;
+  const buttons = Array.from(target.querySelectorAll<HTMLElement>('.card-info-btn'));
+  if (!buttons.length) return;
+  layoutInfoHighlighted = true;
+  target.classList.add('info-intro-active');
+  window.setTimeout(() => target.classList.remove('info-intro-active'), 5600);
+  buttons.forEach((btn, i) => {
+    btn.style.setProperty('--info-pulse-delay', `${i * 90}ms`);
+    btn.classList.add('info-intro-highlight');
+    window.setTimeout(() => btn.classList.remove('info-intro-highlight'), 5200);
+  });
 }
 
 function applyExtrasCompatUI(host: HTMLElement): void {
@@ -495,7 +512,6 @@ export function markQuoteRenderReady(url: string): void {
   const wrap = document.querySelector('.ss-quote-img-wrap') as HTMLElement | null;
   if (!wrap) return;
   revealRender(wrap);
-  installBeforeAfter(wrap);
 }
 
 /* ------------------------------------------------------------------ */

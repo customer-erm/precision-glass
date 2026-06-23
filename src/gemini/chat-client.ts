@@ -18,8 +18,10 @@ import { handleToolCall } from './tools';
 import { loadUser, saveUser } from '../utils/user-storage';
 import { generateShowerImage } from './image-gen';
 import { saveCustomerGeneration } from '../utils/save-generation';
-import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPhoto } from '../utils/bathroom-photo';
+import { setBathroomPhoto, readFileAsDataUrl, getBathroomPhoto, clearBathroomPhoto, getBathroomPhotoAnalysis } from '../utils/bathroom-photo';
+import { analyzeBathroomPhoto } from './photo-analysis';
 import { renderQuoteVisuals, markQuoteRenderReady, getActiveService } from '../experience/facade';
+import { isShowerDesignerRoute } from '../utils/routes';
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const OFFFLOW_MODEL = 'gemini-2.5-flash';
@@ -50,6 +52,7 @@ export type ChipAction =
   | { kind: 'save-email-and-advance'; next: string }
   | { kind: 'open-photo' }
   | { kind: 'submit-quote' }
+  | { kind: 'save-optional-details'; skip?: boolean }
   | { kind: 'close' };
 
 export interface Chip {
@@ -87,6 +90,10 @@ interface ChatContext {
   submitQuote: () => Promise<void>;
 }
 
+interface ChatDriverOptions {
+  showerDesigner?: boolean;
+}
+
 /** Combine the grid / steam upgrade toggles into the single extras value the
  *  model and quote understand. */
 function combineExtras(grid: boolean, steam: boolean): string {
@@ -107,6 +114,37 @@ const GREETING = (name?: string): string =>
 
 function buildSteps(): Record<string, ChatStep> {
   return {
+    'designer-name': {
+      id: 'designer-name',
+      agent: 'Hi, I am Alex, your shower designer. Welcome to Design Your Shower. I will help shape a frameless shower design and, if you want, use a bathroom photo so the finished visualization feels closer to your actual space. Who am I chatting with today?',
+      requiresTextInput: true,
+      onText: async (text, ctx) => {
+        const cleaned = text.trim().split(/\s+/).slice(0, 3).join(' ');
+        ctx.choices.name = cleaned;
+        saveUser({ name: cleaned, lastQuote: { service: 'showers' } });
+        setTimeout(() => ctx.goToStep('designer-email'), 250);
+      },
+    },
+    'designer-email': {
+      id: 'designer-email',
+      agent: (ctx) => ctx.choices.name
+        ? `Thanks, ${ctx.choices.name.split(' ')[0]}. What is the best email for sending your finished visualization when we are done?`
+        : 'What is the best email for sending your finished visualization when we are done?',
+      requiresTextInput: true,
+      onText: async (text, ctx) => {
+        const email = text.trim();
+        if (!/\S+@\S+\.\S+/.test(email)) {
+          ctx.addAgent('That email looks off. Please send the best email for your visualization.');
+          return;
+        }
+        ctx.choices.email = email;
+        ctx.choices.service = 'showers';
+        saveUser({ name: ctx.choices.name, email, preferredMode: 'chat', lastQuote: { service: 'showers' } });
+        await handleToolCall('select_service', { service: 'showers', customer_name: ctx.choices.name || '', email });
+        setTimeout(() => ctx.goToStep('showers-intro'), 400);
+      },
+    },
+
     /* ---------------- Intro ---------------- */
     greet: {
       id: 'greet',
@@ -144,7 +182,7 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'showers-intro',
       progressStep: 1,
       progressTotal: 10,
-      agent: 'Great — I’ll walk you through it like a glass pro would: layout first, then glass, hardware, the handle, and a visual proposal at the end. Ready?',
+      agent: 'Great - I can help you build the design and generate a visualization at the end. You can add a bathroom photo first if you want the preview tailored to your space.',
       chips: [
         { label: 'Let’s go', primary: true, action: { kind: 'advance', next: 'showers-photo-ask' } },
         { label: 'Tell me more first', action: { kind: 'advance', next: 'showers-intro-more' } },
@@ -157,7 +195,7 @@ function buildSteps(): Record<string, ChatStep> {
       agent: 'One quick thing — want to add a photo of your bathroom? I can tailor my advice to your space and render your new shower right into it at the end. Totally optional.',
       chips: [
         { label: 'Add a photo', hint: 'Personalized render', primary: true, action: { kind: 'open-photo' } },
-        { label: 'Skip for now', action: { kind: 'advance', next: 'showers-gallery' } },
+        { label: 'Skip for now', action: { kind: 'advance', next: 'showers-enclosure' } },
       ],
     },
     'showers-upload': {
@@ -183,10 +221,10 @@ function buildSteps(): Record<string, ChatStep> {
       progressTotal: 10,
       agent: 'Perfect. For the rendering to pass a real installer review, I need one placement cue: where should the active door land, or is this a no-swing layout?',
       chips: [
-        { label: 'Hinge on left', hint: 'Door handle right', action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'Hinge on left' } },
-        { label: 'Hinge on right', hint: 'Door handle left', action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'Hinge on right' } },
-        { label: 'No swing / slider', hint: 'Tight clearance', primary: true, action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'No swing / slider preferred' } },
-        { label: 'Not sure', hint: 'Keep it conservative', action: { kind: 'advance', next: 'showers-gallery', choiceCategory: 'doorPlacement', choice: 'Not sure - recommend safest placement' } },
+        { label: 'Hinge on left', hint: 'Door handle right', action: { kind: 'advance', next: 'showers-enclosure', choiceCategory: 'doorPlacement', choice: 'Hinge on left' } },
+        { label: 'Hinge on right', hint: 'Door handle left', action: { kind: 'advance', next: 'showers-enclosure', choiceCategory: 'doorPlacement', choice: 'Hinge on right' } },
+        { label: 'No swing / slider', hint: 'Tight clearance', primary: true, action: { kind: 'advance', next: 'showers-enclosure', choiceCategory: 'doorPlacement', choice: 'No swing / slider preferred' } },
+        { label: 'Not sure', hint: 'Keep it conservative', action: { kind: 'advance', next: 'showers-enclosure', choiceCategory: 'doorPlacement', choice: 'Not sure - recommend safest placement' } },
       ],
     },
     'showers-gallery': {
@@ -219,13 +257,17 @@ function buildSteps(): Record<string, ChatStep> {
       progressStep: 5,
       progressTotal: 10,
       agent: (ctx) => {
+        const analysis = getBathroomPhotoAnalysis();
+        if (analysis) {
+          return `Notice the icons next to each option. You can click those to get more details or just ask me about them. I reviewed the bathroom photo: ${analysis} I will only suggest layouts that fit the visible opening; for an alcove or tub-to-shower footprint, Door + Panel, Single Door, or Slider usually makes more sense than a 90 Degree Corner. Which realistic layout should we use?`;
+        }
         if (ctx.choices.doorPlacement?.toLowerCase().includes('slider')) {
-          return 'For a tight or no-swing space, a frameless slider or splash panel is usually the cleanest direction. If the photo gives us enough opening width, the final render will keep the track and rollers accurate. Which style should we explore?';
+          return 'Notice the icons next to each option. You can click those to get more details or just ask me about them. For a tight or no-swing space, a frameless slider or splash panel is usually the cleanest direction. If the photo gives us enough opening width, the final render will keep the track and rollers accurate. Which style should we explore?';
         }
         if (ctx.choices.doorPlacement?.toLowerCase().includes('hinge')) {
-          return `Great. I will keep "${ctx.choices.doorPlacement}" in mind so the hinge side and handle side do not get flipped in the rendering. Which enclosure style fits the opening best?`;
+          return `Notice the icons next to each option. You can click those to get more details or just ask me about them. I will keep "${ctx.choices.doorPlacement}" in mind so the hinge side and handle side do not get flipped in the rendering. For a straight alcove opening, Single Door or Door + Panel are the realistic hinged choices; 90 Degree Corner only makes sense for a true corner stall. Which enclosure style fits the opening best?`;
         }
-        return 'Great. There are seven enclosure styles on screen. If you are not sure, Single Door and Door + Panel are the safest starting points for most remodels. Which style fits your space best?';
+        return 'Notice the icons next to each option. You can click those to get more details or just ask me about them. There are seven enclosure styles on screen. If you are not sure, Single Door and Door + Panel are the safest starting points for most remodels. Which style fits your space best?';
       },
       chips: [
         { label: 'Single Door', hint: 'Clean, minimal', primary: true, action: { kind: 'advance', next: 'showers-glass', choiceCategory: 'enclosure', choice: 'Single Door' } },
@@ -298,22 +340,34 @@ function buildSteps(): Record<string, ChatStep> {
       id: 'showers-quote',
       progressStep: 10,
       progressTotal: 10,
-      agent: 'Here is your configuration on the main screen. One last detail pass lets staff review the project properly - no automated pricing, just the design, photo context, and notes.',
+      agent: 'Here is the project path on the main screen. Proposal review checks the layout, photo or site notes, and clearance concerns. Precision measuring verifies plumb walls, curb level, door swing, and every fraction before glass is ordered. Then the panels are custom cut, polished, drilled, tempered, and scheduled for installation. I have your name and email, so the visualization can generate from your selections now - no extra contact step.',
       chips: [
-        { label: 'Prepare my proposal', primary: true, action: { kind: 'advance', next: 'showers-contact' } },
+        { label: 'Generate visualization', primary: true, action: { kind: 'submit-quote' } },
+      ],
+    },
+    'showers-optional-details': {
+      id: 'showers-optional-details',
+      progressStep: 10,
+      progressTotal: 10,
+      agent: 'The visualization is ready. Want to add optional project details for staff review before the PDF is prepared?',
+      onEnter: (ctx) => injectOptionalDetailsForm(ctx.choices),
+      chips: [
+        { label: 'Save details + PDF', primary: true, action: { kind: 'save-optional-details' } },
+        { label: 'Skip details', action: { kind: 'save-optional-details', skip: true } },
       ],
     },
     'showers-contact': {
       id: 'showers-contact',
       progressStep: 10,
       progressTotal: 10,
-      agent: 'Add anything that helps the team understand the project. Name and email are enough to prepare the prototype proposal; phone, city, project stage, and notes are optional.',
+      agent: 'Name and email are enough to generate and send the rendering.',
       onEnter: (ctx) => {
         injectContactForm({
           name: ctx.choices.name || '',
           email: ctx.choices.email || '',
           phone: ctx.choices.phone || '',
-        }, () => ctx.submitQuote());
+          address: ctx.choices.address || '',
+        }, () => ctx.submitQuote(), { minimal: true });
       },
       chips: [
         { label: 'Submit my info', primary: true, action: { kind: 'submit-quote' } },
@@ -375,7 +429,7 @@ function buildSteps(): Record<string, ChatStep> {
     'railings-contact': {
       id: 'railings-contact',
       agent: 'Perfect. A few quick details so we can put an accurate quote together?',
-      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '' }, () => ctx.submitQuote()),
+      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '', address: ctx.choices.address || '' }, () => ctx.submitQuote()),
       chips: [{ label: 'Submit my info', primary: true, action: { kind: 'submit-quote' } }],
     },
 
@@ -432,7 +486,7 @@ function buildSteps(): Record<string, ChatStep> {
     'commercial-contact': {
       id: 'commercial-contact',
       agent: 'Last step — drop your contact so we can send a detailed quote.',
-      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '' }, () => ctx.submitQuote()),
+      onEnter: (ctx) => injectContactForm({ name: ctx.choices.name || '', email: ctx.choices.email || '', phone: ctx.choices.phone || '', address: ctx.choices.address || '' }, () => ctx.submitQuote()),
       chips: [{ label: 'Submit my info', primary: true, action: { kind: 'submit-quote' } }],
     },
 
@@ -458,6 +512,52 @@ function buildSteps(): Record<string, ChatStep> {
 /*  Submitted confirmation card                                        */
 /* ------------------------------------------------------------------ */
 
+function injectOptionalDetailsForm(choices: Record<string, string>): void {
+  const container = document.getElementById('chat-extras');
+  if (!container) return;
+  const user = loadUser();
+  const timeline = choices.timeline || user?.timeline || '';
+  const budget = choices.budget || user?.budget || '';
+  const notes = choices.notes || user?.notes || '';
+  container.innerHTML = `
+    <form id="chat-optional-form" class="chat-inline-form">
+      <div class="chat-form-grid">
+        <label>Timeline / stage
+          <select name="timeline">
+            <option value="">Select if helpful</option>
+            ${['Ready for field measure', 'Remodel in progress', 'Planning layout', 'Just exploring']
+              .map((v) => `<option ${timeline === v ? 'selected' : ''}>${escape(v)}</option>`)
+              .join('')}
+          </select>
+        </label>
+        <label>Estimated budget
+          <select name="budget">
+            <option value="">Select if helpful</option>
+            ${['Under $2,500', '$2,500 - $5,000', '$5,000 - $10,000', '$10,000+']
+              .map((v) => `<option ${budget === v ? 'selected' : ''}>${escape(v)}</option>`)
+              .join('')}
+          </select>
+        </label>
+      </div>
+      <label>Measurements, timing, or notes
+        <textarea name="notes" rows="3" placeholder="Opening width, ceiling height, remodel timing, tile/plumbing notes...">${escape(notes)}</textarea>
+      </label>
+    </form>
+  `;
+}
+
+function readOptionalDetailsForm(): Record<string, string> {
+  const form = document.getElementById('chat-optional-form') as HTMLFormElement | null;
+  if (!form) return {};
+  const data = new FormData(form);
+  const clean = (key: string) => String(data.get(key) || '').trim();
+  return {
+    timeline: clean('timeline'),
+    budget: clean('budget'),
+    notes: clean('notes'),
+  };
+}
+
 function injectSubmittedCard(choices: Record<string, string>): void {
   const container = document.getElementById('chat-extras');
   if (!container) return;
@@ -470,8 +570,10 @@ function injectSubmittedCard(choices: Record<string, string>): void {
   push('Name', 'name');
   push('Email', 'email');
   push('Phone', 'phone');
+  push('Address', 'address');
   push('City', 'location');
   push('Project stage', 'timeline');
+  push('Budget', 'budget');
   push('Notes', 'notes');
 
   const selectionRows: Array<[string, string]> = [];
@@ -617,7 +719,7 @@ function injectPhotoUploadUI(ctx: ChatContext): void {
       ctx.addAgent('Great - I will use your bathroom photo as the base image. One quick placement cue will help keep the hinges, door, and handle realistic.');
       setTimeout(() => ctx.goToStep('showers-photo-guidance'), 350);
     } else {
-      setTimeout(() => ctx.goToStep('showers-gallery'), 250);
+      setTimeout(() => ctx.goToStep('showers-enclosure'), 250);
     }
   });
 
@@ -626,7 +728,7 @@ function injectPhotoUploadUI(ctx: ChatContext): void {
     delete ctx.choices.photoSource;
     saveEmail(false);
     ctx.addUser('Skip photo for now');
-    setTimeout(() => ctx.goToStep('showers-gallery'), 250);
+    setTimeout(() => ctx.goToStep('showers-enclosure'), 250);
   });
 }
 
@@ -635,11 +737,12 @@ function attr(s: string): string {
 }
 
 /** Show the contact details as a centered popup (the inline chat-extras strip
- *  is hidden in the cinematic tour). Name + email are required to generate the
- *  rendering; everything else is optional context for the team. */
+ *  is hidden in the cinematic tour). Name and email are enough to generate
+ *  and send the rendering. */
 function injectContactForm(
-  prefill: { name: string; email: string; phone: string },
+  prefill: { name: string; email: string; phone: string; address?: string },
   onSubmit?: () => void,
+  options: { minimal?: boolean } = {},
 ): void {
   closeContactForm();
 
@@ -650,15 +753,11 @@ function injectContactForm(
     <div class="chat-quote-modal-card" role="dialog" aria-label="Get your rendering">
       <button type="button" class="chat-quote-modal-close" aria-label="Close">&times;</button>
       <h3 class="chat-quote-modal-title">Get your rendering</h3>
-      <p class="chat-quote-modal-desc">Just your <strong>name and email</strong> generates the design. Add location, timeline, or budget if you'd like the team to tailor a full proposal.</p>
+      <p class="chat-quote-modal-desc">Name and email generate the design and let us send the visualization when it is ready.</p>
       <form class="chat-inline-form" id="chat-inline-form">
         <div class="chat-form-row two-col">
           <label>Name*<input type="text" name="name" value="${attr(prefill.name)}" placeholder="Your name" required></label>
           <label>Email*<input type="email" name="email" value="${attr(prefill.email)}" placeholder="you@example.com" required></label>
-        </div>
-        <div class="chat-form-row two-col">
-          <label>Phone<input type="tel" name="phone" value="${attr(prefill.phone)}" placeholder="(555) 123-4567"></label>
-          <label>City<input type="text" name="location" placeholder="e.g. Fort Lauderdale"></label>
         </div>
         <div class="chat-form-row two-col">
           <label>Timeline<select name="timeline">
@@ -684,6 +783,11 @@ function injectContactForm(
     </div>
   `;
   document.body.appendChild(overlay);
+  if (options.minimal) {
+    overlay.querySelector<HTMLElement>('[name="timeline"]')?.closest('.chat-form-row')?.remove();
+    overlay.querySelector<HTMLElement>('[name="budget"]')?.closest('.chat-form-row')?.remove();
+    overlay.querySelector<HTMLElement>('[name="notes"]')?.closest('.chat-form-row')?.remove();
+  }
 
   const close = () => closeContactForm();
   overlay.querySelector('.chat-quote-modal-close')?.addEventListener('click', close);
@@ -752,10 +856,17 @@ export class ChatDriver {
   private ctx: ChatContext;
   private cbs: ChatCallbacks = {};
   private active = false;
+  private options: ChatDriverOptions;
   /** An option the user previewed but hasn't committed; Next executes it. */
   private pendingAction: Extract<ChipAction, { kind: 'advance' }> | null = null;
 
-  constructor() {
+  constructor(options: ChatDriverOptions = {}) {
+    this.options = options;
+    this.steps['showers-intro'].agent = 'Great - I can help you build the design and generate a visualization at the end. You can add a bathroom photo first if you want the preview tailored to your space.';
+    this.steps['showers-intro'].chips = [
+      { label: 'Choose layout', primary: true, action: { kind: 'advance', next: 'showers-enclosure' } },
+      { label: 'Add a photo first', action: { kind: 'open-photo' } },
+    ];
     this.ctx = {
       choices: {},
       goToStep: (id) => this.goToStep(id),
@@ -768,6 +879,8 @@ export class ChatDriver {
     if (user?.name) this.ctx.choices.name = user.name;
     if (user?.email) this.ctx.choices.email = user.email;
     if (user?.phone) this.ctx.choices.phone = user.phone;
+    if (user?.address) this.ctx.choices.address = user.address;
+    if (user?.location && !user.address) this.ctx.choices.address = user.location;
   }
 
   setCallbacks(cbs: ChatCallbacks): void {
@@ -790,6 +903,11 @@ export class ChatDriver {
 
   async start(): Promise<void> {
     this.active = true;
+    if (this.options.showerDesigner || isShowerDesignerRoute()) {
+      this.ctx.choices.service = 'showers';
+      await this.goToStep(this.ctx.choices.name ? 'designer-email' : 'designer-name');
+      return;
+    }
     await this.goToStep('greet');
   }
 
@@ -818,7 +936,10 @@ export class ChatDriver {
     await sleep(320);
     this.cbs.onTypingEnd?.();
 
-    const agentText = typeof step.agent === 'function' ? step.agent(this.ctx) : step.agent;
+    let agentText = typeof step.agent === 'function' ? step.agent(this.ctx) : step.agent;
+    if (step.id === 'showers-intro') {
+      agentText = 'Great - I can help you build the design and generate a visualization at the end. You can add a bathroom photo first if you want the preview tailored to your space.';
+    }
     this.cbs.onAgentMessage?.(agentText);
 
     this.cbs.onProgress?.(step.progressStep ?? null, step.progressTotal ?? null);
@@ -893,21 +1014,28 @@ export class ChatDriver {
   /** Submit the contact form and kick off the rendering. Shared by the
    *  "Submit" chip and the popup form's own submit button. */
   async submitQuote(): Promise<void> {
-    // If the popup was dismissed, bring it back so they have somewhere to type.
-    if (!document.getElementById('chat-inline-form')) {
+    if ((!this.ctx.choices.name || !this.ctx.choices.email) && !document.getElementById('chat-inline-form')) {
       injectContactForm(
-        { name: this.ctx.choices.name || '', email: this.ctx.choices.email || '', phone: this.ctx.choices.phone || '' },
+        {
+          name: this.ctx.choices.name || '',
+          email: this.ctx.choices.email || '',
+          phone: this.ctx.choices.phone || '',
+        },
         () => this.submitQuote(),
+        { minimal: activeChatService(this.ctx.choices) === 'showers' },
       );
       return;
     }
-    const form = readContactForm();
+
+    const form = document.getElementById('chat-inline-form')
+      ? readContactForm()
+      : { name: this.ctx.choices.name, email: this.ctx.choices.email };
     if (!form.name || !form.email) {
       const nameInput = document.querySelector('#chat-inline-form [name="name"]') as HTMLInputElement | null;
       const emailInput = document.querySelector('#chat-inline-form [name="email"]') as HTMLInputElement | null;
       if (nameInput && !form.name) nameInput.classList.add('invalid');
       if (emailInput && !form.email) emailInput.classList.add('invalid');
-      this.cbs.onAgentMessage?.('I just need your name and email to generate the rendering — the rest is optional.');
+      this.cbs.onAgentMessage?.('I need your name and email before I can generate the rendering.');
       return;
     }
 
@@ -917,8 +1045,10 @@ export class ChatDriver {
       name: this.ctx.choices.name,
       email: this.ctx.choices.email,
       phone: this.ctx.choices.phone,
+      address: this.ctx.choices.address,
       location: this.ctx.choices.location,
       timeline: this.ctx.choices.timeline,
+      budget: this.ctx.choices.budget,
       notes: this.ctx.choices.notes,
       preferredMode: 'chat',
       lastQuote: {
@@ -935,9 +1065,18 @@ export class ChatDriver {
     });
 
     closeContactForm();
-    populateEditorialFromChoices(this.ctx.choices);
-    unlockAndGenerateViz(this.ctx.choices);
-    setTimeout(() => this.goToStep('done'), 600);
+    await handleToolCall('present_quote', {
+      enclosure: this.ctx.choices.enclosure || this.ctx.choices['rail-type'] || this.ctx.choices['com-type'] || '',
+      glass: this.ctx.choices.glass || this.ctx.choices['rail-glass'] || this.ctx.choices['com-glass'] || '',
+      hardware: this.ctx.choices.hardware || this.ctx.choices['rail-finish'] || this.ctx.choices['com-framing'] || '',
+      handle: this.ctx.choices.handle || this.ctx.choices['rail-mounting'] || this.ctx.choices['com-scope'] || '',
+      accessories: this.ctx.choices.accessories || '',
+      extras: this.ctx.choices.extras || '',
+      customer_name: this.ctx.choices.name || '',
+      email: this.ctx.choices.email || '',
+    });
+    const next = activeChatService(this.ctx.choices) === 'showers' ? 'showers-optional-details' : 'done';
+    setTimeout(() => this.goToStep(next), 600);
   }
 
   async goBack(): Promise<boolean> {
@@ -1031,8 +1170,12 @@ export class ChatDriver {
       case 'open-photo': {
         const { openPhotoPrompt } = await import('../sections/photo-prompt');
         const hasPhoto = await openPhotoPrompt({ timeoutMs: 150_000 });
-        if (hasPhoto) this.ctx.choices.photoSource = 'customer_upload';
-        const next = hasPhoto ? 'showers-photo-guidance' : 'showers-gallery';
+        if (hasPhoto) {
+          this.ctx.choices.photoSource = 'customer_upload';
+          const analysis = await analyzeBathroomPhoto();
+          if (analysis) this.ctx.choices.photoAnalysis = analysis;
+        }
+        const next = hasPhoto ? 'showers-photo-guidance' : 'showers-enclosure';
         setTimeout(() => this.goToStep(next), 250);
         break;
       }
@@ -1073,11 +1216,57 @@ export class ChatDriver {
         await this.submitQuote();
         break;
       }
+      case 'save-optional-details': {
+        await this.finishQuoteWithOptionalDetails(!!action.skip);
+        break;
+      }
       case 'close': {
         this.stop();
         break;
       }
     }
+  }
+
+  private async finishQuoteWithOptionalDetails(skip: boolean): Promise<void> {
+    const details = skip ? {} : readOptionalDetailsForm();
+    Object.entries(details).forEach(([key, value]) => {
+      if (value) this.ctx.choices[key] = value;
+    });
+
+    saveUser({
+      name: this.ctx.choices.name,
+      email: this.ctx.choices.email,
+      phone: this.ctx.choices.phone,
+      address: this.ctx.choices.address,
+      location: this.ctx.choices.location,
+      timeline: this.ctx.choices.timeline,
+      budget: this.ctx.choices.budget,
+      notes: this.ctx.choices.notes,
+      preferredMode: 'chat',
+      lastQuote: {
+        service: activeChatService(this.ctx.choices),
+        enclosure: this.ctx.choices.enclosure,
+        glass: this.ctx.choices.glass,
+        hardware: this.ctx.choices.hardware,
+        handle: this.ctx.choices.handle,
+        accessories: this.ctx.choices.accessories,
+        extras: this.ctx.choices.extras,
+        doorPlacement: this.ctx.choices.doorPlacement,
+        photoSource: this.ctx.choices.photoSource,
+      },
+    });
+
+    await handleToolCall('end_session', {
+      customer_name: this.ctx.choices.name || '',
+      email: this.ctx.choices.email || '',
+      phone: this.ctx.choices.phone || '',
+      address: this.ctx.choices.address || '',
+      location: this.ctx.choices.location || '',
+      timeline: this.ctx.choices.timeline || '',
+      budget: this.ctx.choices.budget || '',
+      notes: this.ctx.choices.notes || '',
+    });
+    setTimeout(() => this.goToStep('done'), 300);
   }
 
   private async handleOffScript(text: string): Promise<void> {
@@ -1163,9 +1352,9 @@ function stepIdToSlideId(stepId: string): string | null {
 
 const CHAT_STEP_ORDER_BY_SERVICE: Record<string, string[]> = {
   showers: [
+    'designer-name',
+    'designer-email',
     'showers-intro',
-    'showers-photo-ask',
-    'showers-gallery',
     'showers-enclosure',
     'showers-glass',
     'showers-hardware',
@@ -1299,6 +1488,9 @@ function unlockAndGenerateViz(choices: Record<string, string>): void {
       photoSource: choices.photoSource,
       customerName: choices.name,
       customerEmail: choices.email,
+      customerPhone: choices.phone,
+      customerAddress: choices.address || choices.location,
+      customerBudget: choices.budget,
       mode: 'chat',
     });
   }).catch((err) => console.warn('[Chat] viz gen failed:', err));

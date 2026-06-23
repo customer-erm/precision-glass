@@ -128,6 +128,7 @@ function appendMessage(kind: 'user' | 'agent' | 'typing', text: string): HTMLEle
     bubble.innerHTML = '<span class="chat-typing-dot"></span><span class="chat-typing-dot"></span><span class="chat-typing-dot"></span>';
     row.classList.add('typing');
   } else if (kind === 'agent') {
+    finishActiveTypewriters();
     typeAgentMessage(bubble, text, msgs);
   } else {
     bubble.textContent = text;
@@ -145,6 +146,7 @@ function typeAgentMessage(bubble: HTMLElement, text: string, msgs: HTMLElement):
     return;
   }
   bubble.classList.add('typewriting');
+  bubble.dataset.fullText = text;
   // Reveal a few characters per tick — scaled so long lines stay ~1.5s while
   // short replies still type out, reading as live communication.
   const step = Math.max(1, Math.ceil(text.length / 140));
@@ -158,11 +160,21 @@ function typeAgentMessage(bubble: HTMLElement, text: string, msgs: HTMLElement):
       window.setTimeout(tick, 18);
     } else {
       bubble.classList.remove('typewriting');
+      delete bubble.dataset.fullText;
       bubble.innerHTML = formatChatText(text);
       msgs.scrollTop = msgs.scrollHeight;
     }
   };
   tick();
+}
+
+function finishActiveTypewriters(): void {
+  document.querySelectorAll<HTMLElement>('.chat-msg-bubble.typewriting').forEach((bubble) => {
+    const full = bubble.dataset.fullText;
+    if (full) bubble.innerHTML = formatChatText(full);
+    bubble.classList.remove('typewriting');
+    delete bubble.dataset.fullText;
+  });
 }
 
 function formatChatText(text: string): string {
@@ -306,7 +318,15 @@ async function handleTourCardChoice(card: HTMLElement, clicked = labelForCard(ca
   }
 
   // Grid / Steam upgrades: multi-select toggles — either, both, or neither.
+  if (/none|skip|no upgrade/i.test(clicked)) {
+    document.querySelectorAll<HTMLElement>('.tour-slide.active .ss-extra-card.selected').forEach((c) => c.classList.remove('selected'));
+    card.classList.add('selected');
+    await driver.previewExtras(false, false);
+    return;
+  }
+
   if (/grid|steam/i.test(clicked)) {
+    document.querySelectorAll<HTMLElement>('.tour-slide.active .ss-extra-none.selected').forEach((c) => c.classList.remove('selected'));
     card.classList.toggle('selected');
     let grid = false;
     let steam = false;
@@ -425,8 +445,8 @@ export function hideChatPanel(): void {
   document.getElementById('chat-tour-nav-bar')?.classList.remove('visible');
 }
 
-export async function startChat(): Promise<void> {
-  if (!driver) driver = new ChatDriver();
+export async function startChat(options?: { showerDesigner?: boolean }): Promise<void> {
+  if (!driver || options?.showerDesigner) driver = new ChatDriver(options);
 
   // Clear any previous UI
   const msgs = document.getElementById('chat-messages');

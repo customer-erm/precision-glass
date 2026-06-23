@@ -7,6 +7,10 @@ import { gsap, EASE } from './engine';
  */
 export function playTransformAnimation(): Promise<void> {
   return new Promise((resolve) => {
+    // Signal that the page is leaving the landing hero for the tour stage.
+    // The shower-designer uses this to slide its bottom agent bar in.
+    window.dispatchEvent(new CustomEvent('precision:transform'));
+
     // Jump to the top instantly BEFORE anything moves — and hide the hero
     // with visibility (not display) so the page never reflows and the
     // section below the hero can't flash into view mid-transition.

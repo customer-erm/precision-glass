@@ -17,11 +17,12 @@ import {
   showQuoteSent,
   createSlideshow,
   markQuoteRenderReady,
+  renderQuoteVisuals,
 } from '../experience/facade';
 import { emitChoice, emitPreview } from '../experience/events';
 import { playTransformAnimation } from './transform';
 import { generateShowerImage } from '../gemini/image-gen';
-import { saveUser } from '../utils/user-storage';
+import { loadUser, saveUser } from '../utils/user-storage';
 import { setState, getState } from '../utils/state';
 import { addInfoButton } from '../sections/buyer-guide-modal';
 import { saveCustomerGeneration } from '../utils/save-generation';
@@ -31,7 +32,7 @@ import { saveCustomerGeneration } from '../utils/save-generation';
 /* ------------------------------------------------------------------ */
 
 const SLIDE_ORDER_BY_SERVICE: Record<string, string[]> = {
-  showers: ['intro', 'gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'],
+  showers: ['intro', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'],
   railings: ['intro', 'gallery', 'rail-types', 'rail-glass', 'rail-finish', 'rail-mounting', 'process', 'quote'],
   commercial: ['intro', 'gallery', 'com-types', 'com-glass', 'com-framing', 'com-scope', 'process', 'quote'],
 };
@@ -41,6 +42,29 @@ const SLIDE_ORDER_BY_SERVICE: Record<string, string[]> = {
 /* ------------------------------------------------------------------ */
 
 const browseChoices: Record<string, string> = {};
+
+const DEFAULT_CHOICES_BY_SERVICE: Record<string, Record<string, string>> = {
+  showers: {
+    enclosure: 'Single Door',
+    glass: 'Clear Glass',
+    hardware: 'Polished Chrome',
+    handle: 'Pull Handle',
+    accessories: 'none',
+    extras: 'none',
+  },
+  railings: {
+    'rail-type': 'Frameless Glass Panel',
+    'rail-glass': 'Clear Tempered',
+    'rail-finish': 'Polished Stainless 316',
+    'rail-mounting': 'Top Mount',
+  },
+  commercial: {
+    'com-type': 'Storefront System',
+    'com-glass': 'Clear Insulated',
+    'com-framing': 'Standard Aluminum',
+    'com-scope': 'Small / Repair',
+  },
+};
 
 function optionLabel(card: HTMLElement | null): string {
   return card?.getAttribute('data-label') || card?.textContent?.trim() || '';
@@ -69,6 +93,30 @@ function selectedExtrasValue(slideEl: HTMLElement): string {
   if (grid) return 'Grid Patterns';
   if (steam) return 'Steam Upgrade';
   return 'none';
+}
+
+function defaultChoice(category: string): string {
+  return DEFAULT_CHOICES_BY_SERVICE[currentService()]?.[category] || '';
+}
+
+function defaultCardForSlide(slideEl: HTMLElement, slideId: string): HTMLElement | null {
+  const cards = Array.from(slideEl.querySelectorAll<HTMLElement>('.browse-option'));
+  if (slideId === 'accessories') {
+    const preferred = defaultChoice('handle').toLowerCase();
+    return cards.find((card) => optionLabel(card).toLowerCase() === preferred)
+      || cards.find((card) => /pull/i.test(optionLabel(card)) && !/towel/i.test(optionLabel(card)))
+      || cards.find((card) => !isAccessoryAddon(card))
+      || null;
+  }
+  if (slideId === 'extras') return null;
+  return cards.find((card) => !!optionLabel(card)) || null;
+}
+
+function ensureBrowseDefaults(): void {
+  const defaults = DEFAULT_CHOICES_BY_SERVICE[currentService()] || {};
+  Object.entries(defaults).forEach(([category, value]) => {
+    if (!browseChoices[category] && value) browseChoices[category] = value;
+  });
 }
 
 function choiceCategoryForSlide(slideId: string): string | null {
@@ -272,14 +320,17 @@ async function goNext(): Promise<void> {
   if (currentService() === 'showers' && cur === 'accessories' && slideEl) {
     const handleCard = slideEl.querySelector<HTMLElement>('.browse-option.selected[data-accessory-kind="handle"]')
       || Array.from(slideEl.querySelectorAll<HTMLElement>('.browse-option.selected')).find((card) => !isAccessoryAddon(card))
+      || defaultCardForSlide(slideEl, cur)
       || null;
-    const handle = optionLabel(handleCard) || browseChoices['handle'];
+    const handle = optionLabel(handleCard) || browseChoices['handle'] || defaultChoice('handle');
     const accessories = selectedAccessoryAddons(slideEl);
     if (handle) {
+      handleCard?.classList.add('selected');
       browseChoices['handle'] = handle;
       emitChoice('handle', handle);
+      emitPreview('handle', handle);
     }
-    browseChoices['accessories'] = accessories;
+    browseChoices['accessories'] = accessories || defaultChoice('accessories');
     emitChoice('accessories', accessories || 'none');
   } else if (currentService() === 'showers' && cur === 'extras' && slideEl) {
     const extras = selectedExtrasValue(slideEl);
@@ -289,12 +340,14 @@ async function goNext(): Promise<void> {
     const category = choiceCategoryForSlide(nextId);
     if (category) {
       const selected = document.querySelector(`#slide-${cur} .browse-option.selected`) as HTMLElement | null;
-      if (selected) {
-        const choice = optionLabel(selected);
-        if (choice) {
-          browseChoices[category] = choice;
-          emitChoice(category, choice);
-        }
+      const defaultCard = slideEl ? defaultCardForSlide(slideEl, cur) : null;
+      const choiceCard = selected || defaultCard;
+      const choice = optionLabel(choiceCard) || defaultChoice(category);
+      if (choice) {
+        choiceCard?.classList.add('selected');
+        browseChoices[category] = choice;
+        emitChoice(category, choice);
+        emitPreview(category, choice);
       }
     }
   }
@@ -403,7 +456,13 @@ function wireSlideInteraction(): void {
       }
 
       if (cur === 'extras') {
-        card.classList.toggle('selected');
+        if (/none|skip|no upgrade/i.test(clickedLabel)) {
+          slideEl.querySelectorAll<HTMLElement>('.ss-extra-card.selected').forEach((e) => e.classList.remove('selected'));
+          card.classList.add('selected');
+        } else {
+          slideEl.querySelectorAll<HTMLElement>('.ss-extra-none.selected').forEach((e) => e.classList.remove('selected'));
+          card.classList.toggle('selected');
+        }
         const extras = selectedExtrasValue(slideEl);
         browseChoices['extras'] = extras;
         emitChoice('extras', extras);
@@ -440,6 +499,7 @@ function wireSlideInteraction(): void {
 /* ------------------------------------------------------------------ */
 
 function onEnterQuoteSlide(): void {
+  ensureBrowseDefaults();
   const isShower = currentService() === 'showers';
   // Install a locked overlay on the visual slot so the user understands
   // they need to submit their details before the final brief is prepared.
@@ -453,44 +513,65 @@ function onEnterQuoteSlide(): void {
       <div class="ss-quote-lock-sparkle">\u2728</div>
       <div class="ss-quote-lock-title">${isShower ? 'Your AI rendering is ready' : 'Your project brief is ready'}</div>
       <div class="ss-quote-lock-desc">${isShower
-        ? 'One last step - share your contact details and we will unlock a photorealistic preview plus a proposal brief for staff review. Pricing and scheduling stay with the human team.'
+        ? 'One last step - add your name and email so we can generate and send the photorealistic preview.'
         : 'One last step - share your contact details and we will package these selections into a project brief for staff review. Pricing and scheduling stay with the human team.'}</div>
     `;
     wrap.appendChild(lock);
   }
 
-  // Inject a contact form below the editorial card if not already present
+  // Inject a contact form in the right column if not already present.
   const slideEl = document.getElementById('slide-quote');
   if (!slideEl) return;
   if (slideEl.querySelector('.browse-quote-form')) return;
 
-  const card = slideEl.querySelector('.ss-quote-card');
-  if (!card) return;
+  const visualCol = slideEl.querySelector('.ss-quote-visual-col') as HTMLElement | null;
+  const card = slideEl.querySelector('.ss-quote-card') as HTMLElement | null;
+  const formHost = visualCol || card;
+  if (!formHost) return;
+  visualCol?.classList.add('showing-intake');
 
   const form = document.createElement('div');
   form.className = 'browse-quote-form';
   form.innerHTML = `
     <h4 class="browse-form-title">Your contact info</h4>
-    <p class="browse-form-hint">We'll use this to prepare your proposal brief. Optional context helps staff review the design.</p>
+    <p class="browse-form-hint">Name and email unlock the rendering and keep it attached to your design.</p>
     <div class="browse-form-grid">
       <label><span>Name *</span><input type="text" id="bqf-name" placeholder="Your name" required></label>
       <label><span>Email *</span><input type="email" id="bqf-email" placeholder="you@example.com" required></label>
-      <label><span>Phone</span><input type="tel" id="bqf-phone" placeholder="(555) 123-4567"></label>
-      <label><span>City / Area</span><input type="text" id="bqf-location" placeholder="e.g. Fort Lauderdale"></label>
-      <label><span>Project stage</span><select id="bqf-timeline">
+      <label><span>Timeline</span><select id="bqf-timeline">
         <option value="">Select stage</option>
         <option>Ready for field measure</option>
         <option>Remodel in progress</option>
         <option>Planning layout</option>
         <option>Just exploring</option>
       </select></label>
+      <label><span>Estimated budget</span><select id="bqf-budget">
+        <option value="">Select range</option>
+        <option>Under $2,500</option>
+        <option>$2,500 - $5,000</option>
+        <option>$5,000 - $10,000</option>
+        <option>$10,000+</option>
+      </select></label>
     </div>
     <label class="browse-form-notes"><span>Anything else?</span><textarea id="bqf-notes" placeholder="Notes, measurements, questions\u2026" rows="3"></textarea></label>
   `;
-  card.appendChild(form);
+  formHost.prepend(form);
+
+  const user = loadUser();
+  const set = (id: string, value?: string) => {
+    const input = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+    if (input && value) input.value = value;
+  };
+  set('bqf-name', user?.name);
+  set('bqf-email', user?.email);
+  set('bqf-timeline', user?.timeline);
+  set('bqf-budget', user?.budget);
+  set('bqf-notes', user?.notes);
 }
 
 function populateManualQuote(): void {
+  ensureBrowseDefaults();
+  renderQuoteVisuals(browseChoices);
   // Fill the selection summary rows using accumulated browseChoices
   const fields: Array<[string, string]> = [
     ['qs-enclosure', browseChoices['enclosure'] || browseChoices['rail-type'] || browseChoices['com-type'] || ''],
@@ -525,6 +606,7 @@ function updateQuoteCell(id: string, value: string): void {
 async function submitManualQuote(): Promise<void> {
   const form = document.querySelector('.browse-quote-form');
   if (!form) return;
+  ensureBrowseDefaults();
 
   const nameEl = document.getElementById('bqf-name') as HTMLInputElement | null;
   const emailEl = document.getElementById('bqf-email') as HTMLInputElement | null;
@@ -539,18 +621,16 @@ async function submitManualQuote(): Promise<void> {
   const get = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null)?.value || '';
   const name = get('bqf-name');
   const email = get('bqf-email');
-  const phone = get('bqf-phone');
-  const location = get('bqf-location');
   const timeline = get('bqf-timeline');
+  const budget = get('bqf-budget');
   const notes = get('bqf-notes');
 
   // Persist
   saveUser({
     name,
     email,
-    phone,
-    location,
     timeline,
+    budget,
     notes,
     preferredMode: 'browse',
     lastQuote: {
@@ -566,17 +646,19 @@ async function submitManualQuote(): Promise<void> {
 
   updateQuoteCell('qs-name', name);
   updateQuoteCell('qs-email', email);
-  updateQuoteCell('qs-phone', phone);
-  updateQuoteCell('qs-location', location);
   updateQuoteCell('qs-timeline', timeline);
+  updateQuoteCell('qs-budget', budget);
   updateQuoteCell('qs-notes', notes);
 
-  console.log('[Browse] Proposal submitted', { name, email, phone, location, timeline, notes, choices: browseChoices });
+  console.log('[Browse] Proposal submitted', { name, email, timeline, notes, choices: browseChoices });
 
   // NOW unlock the AI visualization. Swap the lock for a loader, kick off gen.
   const lock = document.querySelector('.ss-quote-lock') as HTMLElement | null;
   const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
+  const visualCol = document.querySelector('.ss-quote-visual-col') as HTMLElement | null;
   if (lock) lock.remove();
+  form.remove();
+  visualCol?.classList.remove('showing-intake');
   if (spinner) {
     spinner.style.display = 'flex';
     const label = spinner.querySelector('span');
@@ -584,29 +666,28 @@ async function submitManualQuote(): Promise<void> {
   }
 
   if (currentService() === 'showers') {
-    generateShowerImage(browseChoices).then((url) => {
-      if (!url) return;
-      const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
-      if (img) {
-        img.src = url;
-        img.classList.add('loaded');
+    try {
+      const url = await generateShowerImage(browseChoices);
+      if (url) {
+        markQuoteRenderReady(url);
+        // Persist to the customer-generations gallery (fire and forget)
+        saveCustomerGeneration(url, {
+          service: 'showers',
+          enclosure: browseChoices['enclosure'],
+          glass: browseChoices['glass'],
+          hardware: browseChoices['hardware'],
+          handle: browseChoices['handle'],
+          accessories: browseChoices['accessories'],
+          extras: browseChoices['extras'],
+          customerName: name,
+          customerEmail: email,
+          customerBudget: budget,
+          mode: 'browse',
+        });
       }
-      const sp = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
-      if (sp) sp.style.display = 'none';
-      // Persist to the customer-generations gallery (fire and forget)
-      saveCustomerGeneration(url, {
-        service: 'showers',
-        enclosure: browseChoices['enclosure'],
-        glass: browseChoices['glass'],
-        hardware: browseChoices['hardware'],
-        handle: browseChoices['handle'],
-        accessories: browseChoices['accessories'],
-        extras: browseChoices['extras'],
-        customerName: name,
-        customerEmail: email,
-        mode: 'browse',
-      });
-    }).catch((err) => console.warn('[Browse] Image gen failed:', err));
+    } catch (err) {
+      console.warn('[Browse] Image gen failed:', err);
+    }
   } else {
     // Non-shower services: reveal the static project reference (no AI viz).
     markQuoteRenderReady(currentService() === 'railings' ? '/images/railings/railings-1.webp' : '/images/commercial/commercial-1.webp');

@@ -5,6 +5,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import {
   createShowerRig,
   DEFAULT_SHOWER_TUNING,
+  makeStudioEnvTexture,
   readSavedShowerDesigns,
   SHOWER_DESIGNS_STORAGE_KEY,
   type SavedShowerDesign,
@@ -378,8 +379,11 @@ export function mountShowerModelStudio(host: HTMLElement): void {
   controls.update();
 
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const envSrc = makeStudioEnvTexture();
+  envSrc.mapping = THREE.EquirectangularReflectionMapping;
+  const env = pmrem.fromEquirectangular(envSrc).texture;
   scene.environment = env;
+  envSrc.dispose();
   pmrem.dispose();
 
   scene.add(new THREE.HemisphereLight(0xd8ecff, 0x1a2028, 0.75));

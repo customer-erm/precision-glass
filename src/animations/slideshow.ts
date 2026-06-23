@@ -6,8 +6,9 @@
 import { images } from '../data/image-map';
 import { getBathroomPhoto } from '../utils/bathroom-photo';
 import { addInfoButton } from '../sections/buyer-guide-modal';
-import { setState } from '../utils/state';
+import { getState, setState } from '../utils/state';
 import { saveUser } from '../utils/user-storage';
+import { emitPreview } from '../experience/events';
 
 export type ServiceType = 'showers' | 'railings' | 'commercial';
 
@@ -16,6 +17,7 @@ let currentSlide: HTMLElement | null = null;
 let currentSlideId: string | null = null;
 let activeService: ServiceType = 'showers';
 let activeSlideOrder: string[] = [];
+let infoIntroHighlighted = false;
 
 export function getCurrentSlideId(): string | null {
   return currentSlideId;
@@ -27,7 +29,7 @@ let galleryInterval: ReturnType<typeof setInterval> | null = null;
 let carouselInterval: ReturnType<typeof setInterval> | null = null; // legacy, retained for safety
 
 const SLIDE_ORDER_BY_SERVICE: Record<ServiceType, string[]> = {
-  showers: ['intro', 'gallery', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'],
+  showers: ['intro', 'enclosures', 'glass', 'hardware', 'accessories', 'extras', 'process', 'quote'],
   railings: ['intro', 'gallery', 'rail-types', 'rail-glass', 'rail-finish', 'rail-mounting', 'process', 'quote'],
   commercial: ['intro', 'gallery', 'com-types', 'com-glass', 'com-framing', 'com-scope', 'process', 'quote'],
 };
@@ -38,6 +40,9 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
   if (slideshowEl) return;
   activeService = service;
   activeSlideOrder = SLIDE_ORDER_BY_SERVICE[service];
+  infoIntroHighlighted = false;
+  readyQuoteImageUrl = null;
+  quoteRevealed = false;
 
   const ss = document.createElement('div');
   ss.id = 'tour-slideshow';
@@ -49,7 +54,6 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
 
   if (service === 'showers') {
     ss.appendChild(buildIntroSlide());
-    ss.appendChild(buildGallerySlide());
     ss.appendChild(buildEnclosuresSlide());
     ss.appendChild(buildGlassSlide());
     ss.appendChild(buildHardwareSlide());
@@ -79,6 +83,7 @@ export function createSlideshow(service: ServiceType = 'showers'): void {
 
   document.body.appendChild(ss);
   slideshowEl = ss;
+  wireSharedOptionPreview(ss);
   requestAnimationFrame(() => ss.classList.add('active'));
 }
 
@@ -110,6 +115,9 @@ export function showSlide(slideId: string): Promise<void> {
       currentSlideId = slideId;
 
       runSlideAssembly(target);
+      if (activeService === 'showers' && slideId === 'enclosures') {
+        window.setTimeout(() => highlightInfoButtons(target), 900);
+      }
 
       if (slideId === 'gallery') {
         startGalleryFade();
@@ -131,6 +139,20 @@ export function showSlide(slideId: string): Promise<void> {
 
       resolve();
     }, delay);
+  });
+}
+
+function highlightInfoButtons(target: HTMLElement): void {
+  if (infoIntroHighlighted) return;
+  const buttons = Array.from(target.querySelectorAll<HTMLElement>('.card-info-btn'));
+  if (!buttons.length) return;
+  infoIntroHighlighted = true;
+  target.classList.add('info-intro-active');
+  window.setTimeout(() => target.classList.remove('info-intro-active'), 5600);
+  buttons.forEach((btn, i) => {
+    btn.style.setProperty('--info-pulse-delay', `${i * 90}ms`);
+    btn.classList.add('info-intro-highlight');
+    window.setTimeout(() => btn.classList.remove('info-intro-highlight'), 5200);
   });
 }
 
@@ -297,6 +319,84 @@ function wireBuyerGuidePopup(popup: HTMLElement): void {
   });
 }
 
+function optionLabel(card: HTMLElement): string {
+  return (card.getAttribute('data-label') || card.querySelector('h4')?.textContent || '').trim();
+}
+
+function previewCategory(slideId: string, card: HTMLElement): string | null {
+  if (slideId === 'accessories') {
+    return card.getAttribute('data-accessory-kind') === 'addon' ? 'accessories' : 'handle';
+  }
+  const bySlide: Record<string, string> = {
+    enclosures: 'enclosure',
+    glass: 'glass',
+    hardware: 'hardware',
+    extras: 'extras',
+    'rail-types': 'rail-type',
+    'rail-glass': 'rail-glass',
+    'rail-finish': 'rail-finish',
+    'rail-mounting': 'rail-mounting',
+    'com-types': 'com-type',
+    'com-glass': 'com-glass',
+    'com-framing': 'com-framing',
+    'com-scope': 'com-scope',
+  };
+  return bySlide[slideId] || null;
+}
+
+function previewValue(slideId: string, label: string): string {
+  if (slideId !== 'extras') return label;
+  if (/none|skip|no upgrade/i.test(label)) return 'none';
+  if (/steam/i.test(label)) return 'Steam Upgrade';
+  if (/grid/i.test(label)) return 'Grid Patterns';
+  return label;
+}
+
+function selectedExtrasPreviewValue(slide: HTMLElement | null): string {
+  const selected = Array.from(slide?.querySelectorAll<HTMLElement>('.ss-extra-card.selected') ?? [])
+    .map(optionLabel)
+    .join(' ');
+  const grid = /grid/i.test(selected);
+  const steam = /steam/i.test(selected);
+  if (grid && steam) return 'Grid Patterns + Steam Upgrade';
+  if (grid) return 'Grid Patterns';
+  if (steam) return 'Steam Upgrade';
+  return 'none';
+}
+
+function wireSharedOptionPreview(root: HTMLElement): void {
+  root.addEventListener('click', (ev) => {
+    const mode = getState().currentMode;
+    if (mode === 'browse' || mode === 'chat') return;
+    const target = ev.target as HTMLElement;
+    if (target.closest('.card-info-btn')) return;
+    const card = target.closest<HTMLElement>('.ss-enc-card, .ss-glass-card, .ss-hw-card, .ss-acc-card, .ss-extra-card, .ss-rail-card, .ss-com-card');
+    if (!card) return;
+    const slide = card.closest<HTMLElement>('.tour-slide');
+    const slideId = slide?.id.replace(/^slide-/, '') || '';
+    const category = previewCategory(slideId, card);
+    const label = optionLabel(card);
+    if (!category || !label) return;
+
+    card.classList.add('browse-option');
+    if (slideId === 'accessories' && category === 'accessories') {
+      card.classList.toggle('selected');
+    } else if (slideId === 'extras') {
+      if (/none|skip|no upgrade/i.test(label)) {
+        slide?.querySelectorAll<HTMLElement>('.ss-extra-card.selected').forEach((el) => el.classList.remove('selected'));
+        card.classList.add('selected');
+      } else {
+        slide?.querySelectorAll<HTMLElement>('.ss-extra-none.selected').forEach((el) => el.classList.remove('selected'));
+        card.classList.toggle('selected');
+      }
+    } else {
+      slide?.querySelectorAll<HTMLElement>('.browse-option.selected').forEach((el) => el.classList.remove('selected'));
+      card.classList.add('selected');
+    }
+    emitPreview(category, slideId === 'extras' ? selectedExtrasPreviewValue(slide) : previewValue(slideId, label));
+  });
+}
+
 export function hideBuyerGuidePopup(): void {
   const popup = document.getElementById('buyer-guide-popup');
   if (popup) popup.classList.remove('visible');
@@ -313,6 +413,25 @@ function buildIntroSlide(): HTMLElement {
   content.appendChild(h('h2', { className: 'slide-title slide-el', textContent: 'Frameless Shower Enclosures' }));
   content.appendChild(h('p', { className: 'slide-subtitle slide-el', textContent: 'No frames. No compromises. Precision-cut glass that transforms your bathroom into something extraordinary.' }));
   slide.appendChild(content);
+
+  const timeline = h('div', { className: 'ss-intro-timeline', 'aria-label': 'Shower designer steps' });
+  [
+    ['01', 'Choose Layout', 'Pick the enclosure style that fits the opening.'],
+    ['02', 'Select Glass', 'Clear, privacy, or textured glass direction.'],
+    ['03', 'Hardware Finish', 'Match the room with chrome, nickel, black, or brass.'],
+    ['04', 'Handles & Add-ons', 'Dial in pulls, towel bars, hooks, grids, or steam.'],
+    ['05', 'Visualize Design', 'Generate the final shower visualization.'],
+  ].forEach(([num, title, desc], i) => {
+    const step = h('div', { className: 'ss-intro-step slide-el' });
+    step.style.setProperty('--step-index', String(i));
+    step.appendChild(h('span', { className: 'ss-intro-step-num', textContent: num }));
+    const copy = h('div', { className: 'ss-intro-step-copy' });
+    copy.appendChild(h('strong', { textContent: title }));
+    copy.appendChild(h('span', { textContent: desc }));
+    step.appendChild(copy);
+    timeline.appendChild(step);
+  });
+  slide.appendChild(timeline);
   return slide;
 }
 
@@ -344,12 +463,13 @@ function buildEnclosuresSlide(): HTMLElement {
 
   const grid = h('div', { className: 'ss-enc-grid slide-el' });
   images.showers.enclosures.forEach((item) => {
-    const card = h('div', { className: 'ss-enc-card' });
+    const card = h('div', { className: 'ss-enc-card browse-option', 'data-label': item.label });
     card.appendChild(h('img', { src: item.src, alt: item.label }));
     const info = h('div', { className: 'ss-card-info' });
     info.appendChild(h('h4', { textContent: item.label }));
     info.appendChild(h('p', { textContent: item.desc }));
     card.appendChild(info);
+    addInfoButton(card, item.label);
     grid.appendChild(card);
   });
   content.appendChild(grid);
@@ -363,12 +483,13 @@ function buildGlassSlide(): HTMLElement {
   content.appendChild(makeHeader('GLASS OPTIONS', 'Select Your Glass', 'Common choices shown - additional glass styles on request'));
   const grid = h('div', { className: 'ss-glass-grid' });
   images.showers.glass.forEach((item) => {
-    const card = h('div', { className: 'ss-glass-card slide-el' });
+    const card = h('div', { className: 'ss-glass-card slide-el browse-option', 'data-label': item.label });
     card.appendChild(h('img', { src: item.src, alt: item.label }));
     const info = h('div', { className: 'ss-card-info' });
     info.appendChild(h('h4', { textContent: item.label }));
     info.appendChild(h('p', { textContent: item.desc }));
     card.appendChild(info);
+    addInfoButton(card, item.label);
     grid.appendChild(card);
   });
   content.appendChild(grid);
@@ -382,10 +503,11 @@ function buildHardwareSlide(): HTMLElement {
   content.appendChild(makeHeader('HARDWARE FINISHES', 'Choose Your Finish', 'More hardware styles and specialty finishes available on request'));
   const grid = h('div', { className: 'ss-hw-grid' });
   images.showers.hardware.filter(i => i.id !== 'hw-other').forEach((item) => {
-    const card = h('div', { className: 'ss-hw-card slide-el' });
+    const card = h('div', { className: 'ss-hw-card slide-el browse-option', 'data-label': item.label });
     card.appendChild(h('img', { src: item.src, alt: item.label }));
     card.appendChild(h('h4', { textContent: item.label }));
     card.appendChild(h('p', { textContent: item.desc }));
+    addInfoButton(card, item.label);
     grid.appendChild(card);
   });
   content.appendChild(grid);
@@ -401,7 +523,7 @@ function buildAccessoriesSlide(): HTMLElement {
   const grid = h('div', { className: 'ss-acc-grid' });
   images.showers.accessories.filter(a => items.includes(a.id)).forEach((item) => {
     const kind = item.id === 'acc-hook' ? 'addon' : 'handle';
-    const card = h('div', { className: 'ss-acc-card slide-el', 'data-accessory-kind': kind });
+    const card = h('div', { className: 'ss-acc-card slide-el browse-option', 'data-accessory-kind': kind, 'data-label': item.label });
     card.appendChild(h('img', { src: item.src, alt: item.label }));
     const info = h('div', { className: 'ss-card-info' });
     info.appendChild(h('h4', { textContent: item.label }));
@@ -423,7 +545,7 @@ function buildExtrasSlide(): HTMLElement {
 
   const gridImg = images.showers.accessories.find(a => a.id === 'acc-grid');
   if (gridImg) {
-    const card = h('div', { className: 'ss-extra-card slide-el' });
+    const card = h('div', { className: 'ss-extra-card slide-el browse-option', 'data-label': 'Decorative Grid Patterns' });
     card.appendChild(h('img', { src: gridImg.src, alt: 'Grid Patterns' }));
     const info = h('div', { className: 'ss-card-info' });
     info.appendChild(h('h4', { textContent: 'Decorative Grid Patterns' }));
@@ -435,7 +557,7 @@ function buildExtrasSlide(): HTMLElement {
 
   const steamImg = images.showers.enclosures.find(e => e.id === 'enc-steam');
   if (steamImg) {
-    const card = h('div', { className: 'ss-extra-card slide-el' });
+    const card = h('div', { className: 'ss-extra-card slide-el browse-option', 'data-label': 'Steam Shower Enclosure' });
     card.appendChild(h('img', { src: steamImg.src, alt: 'Steam Shower' }));
     const info = h('div', { className: 'ss-card-info' });
     info.appendChild(h('h4', { textContent: 'Steam Shower Enclosure' }));
@@ -620,6 +742,43 @@ function valueForStep(choices: Record<string, string>, key: string): string {
 
 let quoteStatusTimer: ReturnType<typeof setInterval> | null = null;
 let quoteRevealed = false;
+let readyQuoteImageUrl: string | null = null;
+
+function updateBeforeAfterPosition(root: HTMLElement, value: string | number): void {
+  const n = typeof value === 'number' ? value : Number(value);
+  root.style.setProperty('--ba-pos', `${Number.isFinite(n) ? n : 50}%`);
+}
+
+function wireBeforeAfterSlider(root: HTMLElement): void {
+  if (root.dataset.baWired === 'true') return;
+  const input = root.querySelector<HTMLInputElement>('.ss-ba-range');
+  if (!input) return;
+  root.dataset.baWired = 'true';
+  updateBeforeAfterPosition(root, input.value || 50);
+  input.addEventListener('input', () => updateBeforeAfterPosition(root, input.value));
+}
+
+function setBeforeAfterImages(renderUrl: string): void {
+  const photo = activeService === 'showers' ? getBathroomPhoto() : null;
+  const wrap = document.querySelector<HTMLElement>('.ss-quote-img-wrap');
+  const compare = document.getElementById('qs-before-after') as HTMLElement | null;
+  const before = document.getElementById('qs-before-img') as HTMLImageElement | null;
+  const after = document.getElementById('qs-after-img') as HTMLImageElement | null;
+  if (!wrap || !compare || !before || !after) return;
+
+  if (!photo?.dataUrl) {
+    wrap.classList.remove('compare-active');
+    compare.classList.remove('ready');
+    return;
+  }
+
+  before.src = photo.dataUrl;
+  after.onload = () => compare.classList.add('ready');
+  after.src = renderUrl;
+  if (after.complete) compare.classList.add('ready');
+  wrap.classList.add('compare-active');
+  wireBeforeAfterSlider(compare);
+}
 
 function setQuoteVizImage(): void {
   const vizImg = document.getElementById('qs-viz-img') as HTMLImageElement | null;
@@ -682,12 +841,17 @@ export function renderQuoteVisuals(choices: Record<string, string>): void {
   if (dpEl) dpEl.textContent = dp ? `Door: ${dp}` : '';
 
   // Contact rows (kept for the printable proposal)
-  for (const k of ['name', 'email', 'phone', 'location', 'timeline', 'notes']) {
+  for (const k of ['name', 'email', 'phone', 'address', 'location', 'timeline', 'budget', 'notes']) {
     const v = (choices[k] || '').trim();
     if (!v) continue;
     const el = document.getElementById(`qs-${k}`);
     if (el) { el.textContent = v; el.classList.add('filled'); }
     document.getElementById(`qs-contact-${k}`)?.classList.add('filled');
+  }
+  if (!choices.address && choices.location) {
+    const el = document.getElementById('qs-address');
+    if (el) { el.textContent = choices.location; el.classList.add('filled'); }
+    document.getElementById('qs-contact-address')?.classList.add('filled');
   }
 
   // Progress bar + count
@@ -702,13 +866,23 @@ export function renderQuoteVisuals(choices: Record<string, string>): void {
  * status cycle, and finish the progress bar.
  */
 export function markQuoteRenderReady(url: string): void {
+  readyQuoteImageUrl = url || readyQuoteImageUrl;
   const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
-  if (img && url) { img.src = url; img.classList.add('loaded'); }
+  if (img && readyQuoteImageUrl) {
+    img.onload = () => img.classList.add('loaded');
+    img.onerror = () => console.warn('[Quote] Generated image failed to render in the quote slide');
+    img.src = readyQuoteImageUrl;
+    if (img.complete) img.classList.add('loaded');
+    setBeforeAfterImages(readyQuoteImageUrl);
+  }
   quoteRevealed = true;
   stopQuoteStatusCycle();
-  document.querySelector('.ss-quote-img-wrap')?.classList.add('revealed');
+  document.querySelector('.ss-quote-img-wrap')?.classList.add('revealed', 'has-image');
   const spinner = document.querySelector('.ss-quote-spinner') as HTMLElement | null;
   if (spinner) spinner.style.display = 'none';
+  const inlineActions = document.getElementById('qs-inline-actions');
+  if (inlineActions) inlineActions.classList.add('ready');
+  wireQuoteActionButtons();
   const fillEl = document.getElementById('qs-progress-fill');
   if (fillEl) fillEl.style.width = '100%';
 }
@@ -772,41 +946,58 @@ function buildQuoteSummarySlide(): HTMLElement {
   });
   card.appendChild(steps);
 
-  // Compact contact block (kept for the printable proposal \u2014 fills as collected)
-  const contact = h('div', { className: 'ss-quote-contact', id: 'qs-contact' });
-  contact.appendChild(h('div', { className: 'ss-quote-contact-header', textContent: 'Your details' }));
-  const contactRows = h('div', { className: 'ss-quote-contact-rows' });
-  [
-    { key: 'name', label: 'Name' },
-    { key: 'email', label: 'Email' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'location', label: 'Location' },
-    { key: 'timeline', label: 'Project Stage' },
-    { key: 'notes', label: 'Notes' },
-  ].forEach((f) => {
-    const row = h('div', { className: 'ss-quote-row ss-quote-contact-row', id: `qs-contact-${f.key}` });
-    row.appendChild(h('span', { className: 'ss-quote-label', textContent: f.label }));
-    row.appendChild(h('span', { className: 'ss-quote-value', id: `qs-${f.key}`, textContent: '\u2014' }));
-    contactRows.appendChild(row);
+  const hiddenFields = h('div', { className: 'ss-quote-hidden-fields', 'aria-hidden': 'true' });
+  ['name', 'email', 'phone', 'address', 'location', 'timeline', 'budget', 'notes'].forEach((key) => {
+    hiddenFields.appendChild(h('span', { id: `qs-${key}`, textContent: '\u2014' }));
   });
-  contact.appendChild(contactRows);
-  card.appendChild(contact);
+  card.appendChild(hiddenFields);
   layout.appendChild(card);
 
   // RIGHT — anticipation visualization → render reveal
+  const visualCol = h('div', { className: 'ss-quote-visual-col' });
   const imgWrap = h('div', { className: 'ss-quote-img-wrap' });
   // Blurred bathroom underlay (their uploaded photo, or a tasteful generic) that
   // builds anticipation while the render generates, then the render reveals on top.
   imgWrap.appendChild(h('img', { id: 'qs-viz-img', className: 'ss-quote-viz-bg', alt: '' }));
   imgWrap.appendChild(h('div', { className: 'ss-quote-scan', 'aria-hidden': 'true' }));
-  const img = h('img', { id: 'qs-generated-img', className: 'ss-quote-gen-img', alt: imageAlt });
+  const img = h('img', { id: 'qs-generated-img', className: 'ss-quote-gen-img', alt: imageAlt }) as HTMLImageElement;
+  const beforeAfter = h('div', { id: 'qs-before-after', className: 'ss-before-after', 'aria-label': 'Before and after shower visualization comparison' });
+  beforeAfter.appendChild(h('img', { id: 'qs-before-img', className: 'ss-ba-img ss-ba-before', alt: 'Uploaded bathroom before photo' }));
+  const afterClip = h('div', { className: 'ss-ba-after' });
+  afterClip.appendChild(h('img', { id: 'qs-after-img', className: 'ss-ba-img', alt: imageAlt }));
+  beforeAfter.appendChild(afterClip);
+  beforeAfter.appendChild(h('span', { className: 'ss-ba-label ss-ba-before-label', textContent: 'Before' }));
+  beforeAfter.appendChild(h('span', { className: 'ss-ba-label ss-ba-after-label', textContent: 'After' }));
+  beforeAfter.appendChild(h('span', { className: 'ss-ba-handle', 'aria-hidden': 'true' }));
+  beforeAfter.appendChild(h('input', { className: 'ss-ba-range', type: 'range', min: '0', max: '100', value: '50', ariaLabel: 'Compare before and after visualization' }));
   const spinner = h('div', { className: 'ss-quote-spinner' });
   spinner.innerHTML = '<div class="ss-spinner"></div><span id="qs-spinner-status">Preparing your render…</span>';
   const spinnerStatus = spinner.querySelector('#qs-spinner-status');
   if (spinnerStatus) spinnerStatus.textContent = spinnerText;
   imgWrap.appendChild(img);
+  imgWrap.appendChild(beforeAfter);
   imgWrap.appendChild(spinner);
-  layout.appendChild(imgWrap);
+  visualCol.appendChild(imgWrap);
+  const inlineActions = h('div', { className: 'ss-quote-inline-actions', id: 'qs-inline-actions' });
+  inlineActions.innerHTML = `
+    <button class="ss-action-btn ss-action-primary" id="qs-inline-proposal-btn" type="button">
+      <span>Save PDF Proposal</span>
+    </button>
+    <button class="ss-action-btn ss-action-secondary" id="qs-inline-download-btn" type="button">
+      <span>${downloadLabel}</span>
+    </button>
+  `;
+  visualCol.appendChild(inlineActions);
+  layout.appendChild(visualCol);
+  if (readyQuoteImageUrl) {
+    img.onload = () => img.classList.add('loaded');
+    img.src = readyQuoteImageUrl;
+    if (img.complete) img.classList.add('loaded');
+    setBeforeAfterImages(readyQuoteImageUrl);
+    imgWrap.classList.add('revealed', 'has-image');
+    spinner.style.display = 'none';
+    inlineActions.classList.add('ready');
+  }
 
   // "Quote sent" success overlay — first shows a celebratory check + message,
   // then morphs into an action panel with Start Over + Download buttons.
@@ -1090,37 +1281,293 @@ export function showQuoteSent(): void {
   for (const resetBtn of document.querySelectorAll<HTMLElement>('#quote-home-btn, #quote-restart-btn')) {
     resetBtn.addEventListener('click', () => window.location.reload(), { once: true });
   }
-  const proposalBtn = document.getElementById('qs-proposal-btn');
-  if (proposalBtn) {
-    proposalBtn.addEventListener('click', openPrintableProposal);
-  }
-  const downloadBtn = document.getElementById('qs-download-btn');
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', downloadVisualization);
+  wireQuoteActionButtons();
+}
+
+function wireQuoteActionButtons(): void {
+  [
+    document.getElementById('qs-proposal-btn'),
+    document.getElementById('qs-inline-proposal-btn'),
+  ].forEach((btn) => {
+    if (!btn || btn.dataset.wired === 'true') return;
+    btn.dataset.wired = 'true';
+    btn.addEventListener('click', () => { void downloadProposalPdf(); });
+  });
+  [
+    document.getElementById('qs-download-btn'),
+    document.getElementById('qs-inline-download-btn'),
+  ].forEach((btn) => {
+    if (!btn || btn.dataset.wired === 'true') return;
+    btn.dataset.wired = 'true';
+    btn.addEventListener('click', downloadVisualization);
+  });
+}
+
+async function downloadProposalPdf(): Promise<void> {
+  const serviceName = activeService.charAt(0).toUpperCase() + activeService.slice(1);
+  const rows = [
+    ['Service', serviceName],
+    [activeService === 'commercial' ? 'Project type' : activeService === 'railings' ? 'Rail system' : 'Enclosure', quoteValue('qs-enclosure')],
+    ['Door guidance', quoteValue('qs-doorPlacement')],
+    ['Glass', quoteValue('qs-glass')],
+    [activeService === 'commercial' ? 'Framing' : activeService === 'railings' ? 'Finish' : 'Hardware', quoteValue('qs-hardware')],
+    [activeService === 'commercial' ? 'Scope' : activeService === 'railings' ? 'Mounting' : 'Handle', quoteValue('qs-handle')],
+    ['Add-ons', quoteValue('qs-accessories')],
+    ['Upgrades', quoteValue('qs-extras')],
+    ['Name', quoteValue('qs-name')],
+    ['Email', quoteValue('qs-email')],
+    ['Phone', quoteValue('qs-phone')],
+    ['Address', quoteValue('qs-address') || quoteValue('qs-location')],
+    ['Budget', quoteValue('qs-budget')],
+    ['Project stage', quoteValue('qs-timeline')],
+    ['Notes', quoteValue('qs-notes')],
+  ].filter(([, value]) => value);
+
+  const image = await proposalImageJpeg();
+  const pdf = makeSimplePdf({
+    title: `${serviceName} Proposal Brief`,
+    subtitle: `Prepared ${new Date().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}. Design-intake brief for staff review, not a final quote or schedule.`,
+    rows,
+    image,
+  });
+  saveBlob(pdf, 'precision-glass-proposal.pdf');
+}
+
+async function proposalImageJpeg(): Promise<{ bytes: Uint8Array; width: number; height: number } | null> {
+  const source = document.getElementById('qs-generated-img') as HTMLImageElement | null;
+  if (!source?.src || !source.classList.contains('loaded')) return null;
+  try {
+    const img = await loadImage(source.src);
+    const maxW = 900;
+    const scale = Math.min(1, maxW / img.naturalWidth);
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const hgt = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = hgt;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, hgt);
+    ctx.drawImage(img, 0, 0, w, hgt);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    return { bytes: dataUrlToBytes(dataUrl), width: w, height: hgt };
+  } catch (err) {
+    console.warn('[Proposal] Image embed failed:', err);
+    return null;
   }
 }
 
-function downloadVisualization(): void {
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('image_load_failed'));
+    img.src = src;
+  });
+}
+
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const b64 = dataUrl.split(',')[1] || '';
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function toBlobBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
+function makeSimplePdf(opts: {
+  title: string;
+  subtitle: string;
+  rows: string[][];
+  image: { bytes: Uint8Array; width: number; height: number } | null;
+}): Blob {
+  const enc = new TextEncoder();
+  const chunks: BlobPart[] = [];
+  const offsets: number[] = [];
+  let len = 0;
+  const push = (part: string | Uint8Array) => {
+    const bytes = typeof part === 'string' ? enc.encode(part) : part;
+    chunks.push(toBlobBuffer(bytes));
+    len += bytes.length;
+  };
+  const obj = (body: string | Uint8Array, prefix = '', suffix = '') => {
+    offsets.push(len);
+    push(`${offsets.length} 0 obj\n${prefix}`);
+    push(body);
+    push(`${suffix}\nendobj\n`);
+  };
+
+  const imageName = opts.image ? '/Im1' : '';
+  const lines: string[] = [];
+  const textAt = (x: number, y: number, size: number, value: string) => {
+    lines.push(`BT /F1 ${size} Tf ${x} ${y} Td (${pdfText(value)}) Tj ET`);
+  };
+  const strokeLine = (x1: number, y1: number, x2: number, y2: number) => {
+    lines.push(`0.72 0.80 0.88 RG 0.8 w ${x1} ${y1} m ${x2} ${y2} l S`);
+  };
+  const block = (x: number, y: number, maxChars: number, size: number, values: string[], leading = size + 5): number => {
+    let cursor = y;
+    for (const value of values) {
+      for (const line of wrapPdfLine(value, maxChars)) {
+        textAt(x, cursor, size, line);
+        cursor -= leading;
+      }
+    }
+    return cursor;
+  };
+  const rowBlock = (x: number, y: number, rows: string[][], maxChars: number): number => {
+    let cursor = y;
+    for (const [label, value] of rows) {
+      textAt(x, cursor, 8, label.toUpperCase());
+      cursor -= 12;
+      for (const line of wrapPdfLine(value, maxChars)) {
+        textAt(x, cursor, 10, line);
+        cursor -= 13;
+      }
+      cursor -= 5;
+    }
+    return cursor;
+  };
+
+  const customerLabels = new Set(['Name', 'Email', 'Phone', 'Address', 'Budget', 'Project stage', 'Notes']);
+  const configRows = opts.rows.filter(([label]) => !customerLabels.has(label));
+  const customerRows = opts.rows.filter(([label]) => customerLabels.has(label));
+
+  textAt(42, 758, 10, 'PRECISION GLASS');
+  textAt(394, 758, 9, '(555) 014-4527');
+  textAt(394, 744, 9, '1234 Sample Road, South Florida');
+  textAt(394, 730, 9, 'precisionglass.example');
+  strokeLine(42, 718, 570, 718);
+
+  textAt(42, 684, 24, opts.title);
+  block(42, 662, 76, 10, [opts.subtitle], 14);
+
+  textAt(42, 618, 13, 'Configuration');
+  rowBlock(42, 596, configRows.slice(0, 9), 42);
+
+  let imageDraw = '';
+  if (opts.image) {
+    const maxW = 220;
+    const maxH = 220;
+    const scale = Math.min(maxW / opts.image.width, maxH / opts.image.height);
+    const w = Math.round(opts.image.width * scale);
+    const hgt = Math.round(opts.image.height * scale);
+    const x = 350;
+    const y = 396 + (maxH - hgt);
+    textAt(x, 618, 13, 'Visualization');
+    imageDraw = `q ${w} 0 0 ${hgt} ${x} ${y} cm ${imageName} Do Q`;
+  } else {
+    textAt(350, 618, 13, 'Visualization');
+    block(350, 596, 34, 10, ['Rendering unavailable. Staff can still review the configuration and follow up.'], 14);
+  }
+
+  strokeLine(42, 362, 570, 362);
+  textAt(42, 334, 13, 'Customer Details');
+  rowBlock(42, 312, customerRows.slice(0, 7), 38);
+
+  textAt(330, 334, 13, 'Next Steps');
+  block(330, 312, 40, 10, [
+    '1. Precision Glass reviews the design selections and project notes.',
+    '2. A specialist confirms dimensions, curb or threshold conditions, and hinge or handle placement.',
+    '3. Staff follows up to schedule field measurement and prepare a formal quote.',
+    '4. Final pricing and installation timing are confirmed after measurements and scope review.',
+  ], 14);
+
+  strokeLine(42, 80, 570, 80);
+  textAt(42, 58, 8, 'Design-intake document only. Not a final quote, contract, engineering drawing, or installation schedule.');
+
+  const stream = `${lines.join('\n')}\n${imageDraw}\n`;
+
+  push('%PDF-1.4\n');
+  obj('<< /Type /Catalog /Pages 2 0 R >>');
+  obj('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  obj(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> ${opts.image ? `/XObject << ${imageName} 5 0 R >>` : ''} >> /Contents ${opts.image ? '6' : '5'} 0 R >>`);
+  obj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  if (opts.image) {
+    obj(opts.image.bytes, `<< /Type /XObject /Subtype /Image /Width ${opts.image.width} /Height ${opts.image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${opts.image.bytes.length} >>\nstream\n`, '\nendstream');
+  }
+  obj(stream, `<< /Length ${enc.encode(stream).length} >>\nstream\n`, 'endstream');
+
+  const xrefAt = len;
+  push(`xref\n0 ${offsets.length + 1}\n0000000000 65535 f \n`);
+  offsets.forEach((off) => push(`${String(off).padStart(10, '0')} 00000 n \n`));
+  push(`trailer\n<< /Size ${offsets.length + 1} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF`);
+  return new Blob(chunks, { type: 'application/pdf' });
+}
+
+function wrapPdfLine(value: string, max: number): string[] {
+  const words = value.split(/\s+/);
+  const lines: string[] = [];
+  let line = '';
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length > max && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function pdfText(value: string): string {
+  return value
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+}
+
+function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function downloadVisualization(): Promise<void> {
   const img = document.getElementById('qs-generated-img') as HTMLImageElement | null;
   if (!img || !img.src || !img.classList.contains('loaded')) {
     console.warn('[Download] Visualization not ready yet');
     return;
   }
-  const a = document.createElement('a');
-  a.href = img.src;
-  a.download = activeService === 'showers'
+  const filename = activeService === 'showers'
     ? 'precision-glass-shower-rendering.png'
     : activeService === 'railings'
       ? 'precision-glass-railing-reference.png'
       : 'precision-glass-commercial-reference.png';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  try {
+    const blob = img.src.startsWith('data:')
+      ? new Blob([toBlobBuffer(dataUrlToBytes(img.src))], { type: img.src.slice(5, img.src.indexOf(';')) || 'image/png' })
+      : await fetch(img.src).then((res) => res.blob());
+    saveBlob(blob, filename);
+  } catch (err) {
+    console.warn('[Download] Blob save failed, falling back to link:', err);
+    const a = document.createElement('a');
+    a.href = img.src;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 function quoteValue(id: string): string {
   const value = document.getElementById(id)?.textContent?.trim() || '';
-  return value === '—' ? '' : value;
+  return value === '—' || value === 'â€”' ? '' : value;
 }
 
 function escapeReportText(value: string): string {
@@ -1194,7 +1641,8 @@ function openPrintableProposal(): void {
     ['Name', 'qs-name'],
     ['Email', 'qs-email'],
     ['Phone', 'qs-phone'],
-    ['Location', 'qs-location'],
+    ['Address', 'qs-address'],
+    ['Budget', 'qs-budget'],
     ['Project stage', 'qs-timeline'],
     ['Notes', 'qs-notes'],
   ]);

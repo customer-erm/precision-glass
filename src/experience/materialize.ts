@@ -76,11 +76,11 @@ export function materializeSlide(slide: HTMLElement, opts?: { stagger?: number }
       headings,
       {
         opacity: 0,
-        y: 18,
-        scale: 0.985,
+        y: 28,
+        scale: 0.972,
         clipPath: 'inset(0 100% 0 0)',
-        filter: 'blur(8px) brightness(1.45)',
-        textShadow: '0 0 28px rgba(125, 211, 252, 0.7)',
+        filter: 'blur(12px) brightness(1.7)',
+        textShadow: '0 0 38px rgba(125, 211, 252, 0.82)',
       },
       {
         opacity: 1,
@@ -89,9 +89,9 @@ export function materializeSlide(slide: HTMLElement, opts?: { stagger?: number }
         clipPath: 'inset(0 0% 0 0)',
         filter: 'blur(0px) brightness(1)',
         textShadow: '0 2px 28px rgba(8, 20, 40, 0.85)',
-        duration: 0.72,
-        ease: 'power3.out',
-        stagger: 0.08,
+        duration: 0.95,
+        ease: 'expo.out',
+        stagger: 0.11,
         clearProps: 'clipPath,filter,textShadow,transform',
       },
       0,
@@ -102,32 +102,35 @@ export function materializeSlide(slide: HTMLElement, opts?: { stagger?: number }
     pieces,
     {
       opacity: 0,
-      y: 36,
-      scale: 0.96,
-      rotationX: -8,
-      transformPerspective: 900,
-      filter: 'blur(14px) brightness(1.6)',
+      y: 58,
+      scale: 0.925,
+      rotationX: -16,
+      rotationY: 5,
+      transformPerspective: 1000,
+      transformOrigin: '50% 65%',
+      filter: 'blur(18px) brightness(1.82)',
     },
     {
       opacity: 1,
       y: 0,
       scale: 1,
       rotationX: 0,
+      rotationY: 0,
       filter: 'blur(0px) brightness(1)',
-      duration: 0.85,
-      ease: 'power3.out',
+      duration: 1.05,
+      ease: 'expo.out',
       stagger: { each: stagger, from: 'start' },
       clearProps: 'filter,transform',
     },
     0.05,
   );
 
-  tl.set(pieces, { opacity: 1, y: 0, scale: 1, rotationX: 0, clearProps: 'filter,transform' }, '>');
+  tl.set(pieces, { opacity: 1, y: 0, scale: 1, rotationX: 0, rotationY: 0, clearProps: 'filter,transform,transformOrigin' }, '>');
 
   const settleMs = Math.ceil((0.95 + pieces.length * stagger) * 1000) + 250;
   window.setTimeout(() => {
     if (!slide.classList.contains('active')) return;
-    gsap.set(pieces, { opacity: 1, y: 0, scale: 1, rotationX: 0, clearProps: 'filter,transform' });
+    gsap.set(pieces, { opacity: 1, y: 0, scale: 1, rotationX: 0, rotationY: 0, clearProps: 'filter,transform,transformOrigin' });
   }, settleMs);
 
   // Restore the headline text as it lands. This used to scramble characters,

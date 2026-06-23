@@ -16,6 +16,9 @@ export interface GenerationMeta {
   photoSource?: string;
   customerName?: string;
   customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  customerBudget?: string;
   mode?: 'voice' | 'chat' | 'browse';
 }
 

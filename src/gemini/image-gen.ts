@@ -10,7 +10,7 @@
  */
 
 import { images } from '../data/image-map';
-import { getBathroomPhoto } from '../utils/bathroom-photo';
+import { getBathroomPhoto, getBathroomPhotoAnalysis } from '../utils/bathroom-photo';
 
 /* Map a handle choice → the accessory reference image we ship in /public */
 function findHandleImage(choice: string): string | null {
@@ -259,13 +259,14 @@ export async function generateShowerImage(
   // If the customer uploaded a photo of their actual bathroom, we render
   // the shower INTO their real space instead of a stock luxury bathroom.
   const userBathroom = getBathroomPhoto();
+  const bathroomAnalysis = getBathroomPhotoAnalysis();
 
   const promptParts: any[] = [];
 
   if (userBathroom) {
     // User-uploaded bathroom becomes the PRIMARY scene
     promptParts.push({
-      text: `${prompt}\n\nIMPORTANT: The reference image of the customer\u2019s ACTUAL BATHROOM is attached. Render the new frameless shower INTO that exact bathroom — preserve their tile, their fixtures, their window, their vanity, their lighting. Only add the new shower enclosure where it logically belongs in their space.\n\nTUB-TO-SHOWER CONVERSION: If the photo shows a BATHTUB in the wet area, REMOVE the tub completely — this is a tub-to-shower conversion. Build the new frameless shower directly in the tub's footprint: a low tiled curb or low-profile base where the tub apron was, wall tile extended down to the new base, and the glass enclosure spanning the former tub opening. No part of the tub may remain visible.\n\nCRITICAL PIXEL ALIGNMENT FOR BEFORE/AFTER: The output must match the input photo EXACTLY — identical camera position, lens, framing, crop, aspect ratio, perspective, and lighting. Every element that is not part of the new shower (walls, floor outside the wet area, window, vanity, mirror, door, decor) must stay pixel-identical to the reference so a before/after overlay aligns 100%. Do not zoom, shift, rotate, or re-crop the scene.`,
+      text: `${prompt}\n\nIMPORTANT: The reference image of the customer\u2019s ACTUAL BATHROOM is attached. Render the new frameless shower INTO that exact bathroom — preserve their tile, their fixtures, their window, their vanity, their lighting. Only add the new shower enclosure where it logically belongs in their space.${bathroomAnalysis ? `\n\nINSTALLER PHOTO READ: ${bathroomAnalysis} Use this as practical layout guidance, but let the actual pixels win if there is a conflict.` : ''}\n\nTUB-TO-SHOWER CONVERSION: If the photo shows a BATHTUB in the wet area, REMOVE the tub completely — this is a tub-to-shower conversion. Build the new frameless shower directly in the tub's footprint: a low tiled curb or low-profile base where the tub apron was, wall tile extended down to the new base, and the glass enclosure spanning the former tub opening. No part of the tub may remain visible.\n\nCRITICAL PIXEL ALIGNMENT FOR BEFORE/AFTER: The output must match the input photo EXACTLY — identical camera position, lens, framing, crop, aspect ratio, perspective, and lighting. Every element that is not part of the new shower (walls, floor outside the wet area, window, vanity, mirror, door, decor) must stay pixel-identical to the reference so a before/after overlay aligns 100%. Do not zoom, shift, rotate, or re-crop the scene.`,
     });
     promptParts.push({ text: 'CUSTOMER\u2019S ACTUAL BATHROOM (primary scene — render the new shower into this exact space):' });
     const [mime, b64] = userBathroom.dataUrl.replace(/^data:/, '').split(';base64,');

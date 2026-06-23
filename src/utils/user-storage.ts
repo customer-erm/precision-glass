@@ -24,6 +24,7 @@ export interface StoredUser {
   name?: string;
   email?: string;
   phone?: string;
+  address?: string;
   location?: string;
   timeline?: string;
   budget?: string;
@@ -109,8 +110,10 @@ export function summarizeUser(user: StoredUser): string {
   if (user.name) lines.push(`Name: ${user.name}`);
   if (user.email) lines.push(`Email: ${user.email}`);
   if (user.phone) lines.push(`Phone: ${user.phone}`);
+  if (user.address) lines.push(`Address: ${user.address}`);
   if (user.location) lines.push(`Location: ${user.location}`);
   if (user.timeline) lines.push(`Project stage: ${user.timeline}`);
+  if (user.budget) lines.push(`Budget: ${user.budget}`);
   if (user.notes) lines.push(`Notes: ${user.notes}`);
   if (user.lastQuote) {
     const q = user.lastQuote;
