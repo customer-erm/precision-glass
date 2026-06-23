@@ -357,14 +357,16 @@ export function makeStudioEnvTexture(): THREE.CanvasTexture {
   c.height = 512;
   const ctx = c.getContext('2d')!;
 
-  // Room shell: cool-lit ceiling fading down to a dim floor. The mid/low
-  // tones are deliberately lifted off black so polished chrome reflects a
-  // soft grey room (real metal) instead of going dead black.
+  // Room shell — a genuinely LIT room, no dark regions anywhere. Polished
+  // chrome is metalness:1, so ambient/hemisphere lights barely touch it; the
+  // ONLY thing that keeps flat clip/hinge faces from mirroring pure black is
+  // this reflection map. Keep every tone mid-or-brighter. (The visible scene
+  // background is separate, so the stage still looks dark and dramatic.)
   const bg = ctx.createLinearGradient(0, 0, 0, 512);
-  bg.addColorStop(0.0, '#46596f');
-  bg.addColorStop(0.42, '#233447');
-  bg.addColorStop(0.62, '#1b2a3a');
-  bg.addColorStop(1.0, '#111d29');
+  bg.addColorStop(0.0, '#aebccd');
+  bg.addColorStop(0.45, '#8696a9');
+  bg.addColorStop(0.72, '#6c7c90');
+  bg.addColorStop(1.0, '#556678');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, 1024, 512);
 
@@ -682,9 +684,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
       opacity: clearGlassDisplayOpacity,
       side: THREE.DoubleSide,
       depthWrite: false,
-      // Reflections come from the env map + clearcoat. With the high-contrast
-      // studio environment a healthy intensity gives crisp window streaks.
-      envMapIntensity: tuning.glassEnv * 0.8,
+      // Reflections come from the env map + clearcoat. The room map is bright
+      // (so chrome reads silver), so keep the glass intensity lower or the
+      // panes turn mirror-like and lose clarity.
+      envMapIntensity: tuning.glassEnv * 0.42,
       clearcoat: 1,
       clearcoatRoughness: 0,
       reflectivity: 1,
@@ -707,10 +710,10 @@ export function createShowerRig(opts: { cheapGlass: boolean }): ShowerRig {
 
   function applyGlassKey(m: THREE.MeshPhysicalMaterial, key: GlassKey, animate: boolean): void {
     const target = key === 'frosted'
-      ? { roughness: 0.82, fallbackOpacity: 0.5, color: new THREE.Color(0xf5f8fb), envBoost: 0.7, emissive: 0, specular: 0.58, transmission: 0.54, thickness: 0.04, attenuationDistance: 1.25 }
+      ? { roughness: 0.82, fallbackOpacity: 0.5, color: new THREE.Color(0xf5f8fb), envBoost: 0.42, emissive: 0, specular: 0.58, transmission: 0.54, thickness: 0.04, attenuationDistance: 1.25 }
       : key === 'rain'
-        ? { roughness: 0.28, fallbackOpacity: 0.34, color: new THREE.Color(0xf8feff), envBoost: 1.18, emissive: 0, specular: 0.84, transmission: 0.72, thickness: 0.03, attenuationDistance: 2.5 }
-        : { roughness: 0, fallbackOpacity: clearGlassDisplayOpacity, color: new THREE.Color(0xffffff), envBoost: 0.8, emissive: 0, specular: 1, transmission: 1, thickness: 0.012, attenuationDistance: 12 };
+        ? { roughness: 0.28, fallbackOpacity: 0.34, color: new THREE.Color(0xf8feff), envBoost: 0.62, emissive: 0, specular: 0.84, transmission: 0.72, thickness: 0.03, attenuationDistance: 2.5 }
+        : { roughness: 0, fallbackOpacity: clearGlassDisplayOpacity, color: new THREE.Color(0xffffff), envBoost: 0.42, emissive: 0, specular: 1, transmission: 1, thickness: 0.012, attenuationDistance: 12 };
     const isRain = key === 'rain';
     const isClear = key === 'clear';
     m.map = null;
