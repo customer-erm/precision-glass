@@ -152,7 +152,10 @@ export function createStage(initialContainer: HTMLElement): Stage {
 
   /* ---- Lights ---- */
 
-  scene.add(new THREE.AmbientLight(0x32507a, 0.5));
+  scene.add(new THREE.AmbientLight(0x32507a, 0.62));
+  // Sky/ground hemisphere fill so polished hardware (hinges, clips, rollers)
+  // reads as bright chrome instead of reflecting the dark room as black.
+  scene.add(new THREE.HemisphereLight(0xcfe3fb, 0x33404e, 0.85));
   const key = new THREE.DirectionalLight(0xeaf4ff, 2.9);
   key.position.set(4, 7, 5);
   key.castShadow = !lowPower;
@@ -183,20 +186,13 @@ export function createStage(initialContainer: HTMLElement): Stage {
   spot.shadow.bias = -0.00025;
   scene.add(spot, spot.target);
 
-  // Bright, tight glint that rakes across the glass face to give frameless
-  // panes a clean specular streak (the env map alone is intentionally subtle
-  // now that the glass uses real transmission).
-  const glassGlint = new THREE.SpotLight(0xffffff, 34, 14, 0.28, 0.5, 1.3);
-  glassGlint.position.set(-2.6, 3.1, 3.2);
-  glassGlint.target.position.set(0.25, 1.2, 0.62);
+  // A soft, wide glint that gives the panes a gentle streak. Kept low and
+  // broad on purpose: the earlier tight/bright spots flared off the handles
+  // and chrome into a distracting hotspot on the glass at certain angles.
+  const glassGlint = new THREE.SpotLight(0xffffff, 12, 14, 0.6, 0.8, 1.2);
+  glassGlint.position.set(-2.6, 3.4, 3.4);
+  glassGlint.target.position.set(0, 1.2, 0.4);
   scene.add(glassGlint, glassGlint.target);
-
-  // A second soft highlight from the opposite front side so the streak reads
-  // from either orbit angle.
-  const glassGlint2 = new THREE.SpotLight(0xeaf4ff, 20, 14, 0.3, 0.6, 1.4);
-  glassGlint2.position.set(3.0, 2.9, 3.0);
-  glassGlint2.target.position.set(-0.2, 1.2, 0.62);
-  scene.add(glassGlint2, glassGlint2.target);
 
   /* ---- Product rigs on the shared pedestal ---- */
 

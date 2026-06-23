@@ -357,12 +357,14 @@ export function makeStudioEnvTexture(): THREE.CanvasTexture {
   c.height = 512;
   const ctx = c.getContext('2d')!;
 
-  // Room shell: cool-lit ceiling fading down to a near-black floor.
+  // Room shell: cool-lit ceiling fading down to a dim floor. The mid/low
+  // tones are deliberately lifted off black so polished chrome reflects a
+  // soft grey room (real metal) instead of going dead black.
   const bg = ctx.createLinearGradient(0, 0, 0, 512);
-  bg.addColorStop(0.0, '#2b3d52');
-  bg.addColorStop(0.42, '#0e1a28');
-  bg.addColorStop(0.62, '#0a131d');
-  bg.addColorStop(1.0, '#04070b');
+  bg.addColorStop(0.0, '#46596f');
+  bg.addColorStop(0.42, '#233447');
+  bg.addColorStop(0.62, '#1b2a3a');
+  bg.addColorStop(1.0, '#111d29');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, 1024, 512);
 
